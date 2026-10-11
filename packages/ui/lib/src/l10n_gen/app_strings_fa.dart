@@ -10,7 +10,7 @@ class AppStringsFa extends AppStrings {
   AppStringsFa([String locale = 'fa']) : super(locale);
 
   @override
-  String get app_title => 'Video Player';
+  String get app_title => 'GenoTV';
 
   @override
   String get settings_language_title => 'زبان';

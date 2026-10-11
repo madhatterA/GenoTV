@@ -1,7 +1,7 @@
 name: video_player
 description: Runner app and composition root. Owned by Part 07.
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
   sdk: ^3.13.3

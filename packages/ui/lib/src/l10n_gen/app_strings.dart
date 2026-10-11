@@ -101,7 +101,7 @@ abstract class AppStrings {
   /// App UI: title; displayed in app screens.
   ///
   /// In en, this message translates to:
-  /// **'Video Player'**
+  /// **'GenoTV'**
   String get app_title;
 
   /// Settings UI: language_title; displayed in settings screens.

@@ -10,7 +10,7 @@ class AppStringsEn extends AppStrings {
   AppStringsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get app_title => 'Video Player';
+  String get app_title => 'GenoTV';
 
   @override
   String get settings_language_title => 'Language';

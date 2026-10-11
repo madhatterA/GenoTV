@@ -36,7 +36,7 @@ const Set<String> kTechAllowlist = <String>{
   'HDR', 'HDR10', 'HDR10+', 'Dolby', 'Vision', 'Atmos', 'HEVC', 'AVC', 'H.264',
   'H.265', 'AV1', 'AAC', 'AC3', 'EAC3', 'E-AC-3', 'DTS', 'TrueHD', 'FLAC',
   'Opus', 'MKV', 'MP4', 'AirPlay', 'Chromecast', 'DLNA', 'TMDB', 'IMDb', 'SDR',
-  'PCM', 'FPS', 'Hz', 'kbps', 'Mbps', 'GB', 'MB', 'Video Player',
+  'PCM', 'FPS', 'Hz', 'kbps', 'Mbps', 'GB', 'MB', 'GenoTV',
   'HTTP', 'https', '.torrent', 'zip', 'Rotten Tomatoes', //
 };
 
