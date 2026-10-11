@@ -24,6 +24,8 @@ fetch() {
     curl --fail --location --retry 2 --max-time 180 "https://codeload.github.com/$repo/tar.gz/$pin" -o "$cache/$name.tgz"
     mkdir -p "$cache/src/$name"
     tar --anchored --exclude="${repo##*/}-$pin/README" --exclude="${repo##*/}-$pin/test/relaxng/ambig_name-class.rng" -xzf "$cache/$name.tgz" --strip-components=1 -C "$cache/src/$name"
+    # Newer CMake's CPack requires freetype's README (excluded above for the others).
+    if [[ "$name" == freetype ]]; then : > "$cache/src/$name/README"; fi
     printf '%s\n' "$pin" > "$cache/src/$name/.vp-pin"
   fi
   test "$(cat "$cache/src/$name/.vp-pin")" = "$pin"
