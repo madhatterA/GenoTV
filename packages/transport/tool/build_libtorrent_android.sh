@@ -6,6 +6,7 @@ set -euo pipefail
 # thin transport C ABI built against the same NDK toolchain.
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 ABI="${ANDROID_ABI:-arm64-v8a}"
+case "$ABI" in arm64-v8a|armeabi-v7a|x86_64) ;; *) echo "Unsupported Android ABI: $ABI" >&2; exit 2 ;; esac
 API="${ANDROID_PLATFORM:-24}"
 NDK="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-$HOME/Library/Android/sdk/ndk/28.2.13676358}}"
 BOOST_INCLUDE="${BOOST_INCLUDE_DIR:-${TRANSPORT_ANDROID_CACHE:-/tmp/transport-android-native-$(id -u)}/boost_1_92_0}"
@@ -34,8 +35,8 @@ test "$(git -C "$WORK/libtorrent/deps/try_signal" rev-parse HEAD)" = \
   105cce59972f925a33aa6b1c3109e4cd3caf583d
 
 toolchain="$NDK/build/cmake/android.toolchain.cmake"
-lt_build="$WORK/libtorrent-build"
-lt_prefix="$WORK/prefix"
+lt_build="$WORK/libtorrent-build-$ABI"
+lt_prefix="$WORK/prefix-$ABI"
 cmake -S "$WORK/libtorrent" -B "$lt_build" -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$toolchain" -DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$API" \
   -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -Dwebtorrent=OFF -Ddht=ON \
@@ -45,7 +46,7 @@ cmake -S "$WORK/libtorrent" -B "$lt_build" -G Ninja \
 cmake --build "$lt_build" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
 cmake --install "$lt_build" >/dev/null
 
-shim_build="$WORK/shim-build"
+shim_build="$WORK/shim-build-$ABI"
 cmake -S "$ROOT/packages/transport/src/lt_shim" -B "$shim_build" -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$toolchain" -DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$API" \
   -DCMAKE_BUILD_TYPE=Release -DLibtorrentRasterbar_DIR="$lt_prefix/lib/cmake/LibtorrentRasterbar" \
@@ -57,6 +58,7 @@ cmake --build "$shim_build" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
 mkdir -p "$OUT"
 cp "$lt_build/libtorrent-rasterbar.so" "$OUT/libtorrent-rasterbar.so"
 cp "$shim_build/libtransport_lt_shim.so" "$OUT/libtransport_lt_shim.so"
+"${LLVM_READ_ELF%llvm-readelf}llvm-strip" --strip-debug "$OUT/libtorrent-rasterbar.so" "$OUT/libtransport_lt_shim.so"
 "$LLVM_READ_ELF" -h "$OUT/libtransport_lt_shim.so" | grep -E 'Class:|Machine:'
 "$LLVM_READ_ELF" -d "$OUT/libtransport_lt_shim.so" | grep 'libtorrent-rasterbar.so'
 shasum -a 256 "$OUT"/*.so

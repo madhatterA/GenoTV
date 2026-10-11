@@ -53,7 +53,7 @@ final class _ComposedAppState extends State<_ComposedApp> {
 class BootApp extends StatelessWidget {
   const BootApp({super.key});
 
-  static const String appName = 'Video Player';
+  static const String appName = 'GenoTV';
 
   @override
   Widget build(BuildContext context) => MaterialApp(

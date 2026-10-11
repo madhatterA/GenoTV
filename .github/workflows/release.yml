@@ -50,7 +50,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    timeout-minutes: 180
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -58,50 +58,9 @@ jobs:
           channel: stable
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
-      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
-        with:
-          msystem: MINGW64
-          release: false
-          update: false
-          install: >-
-            make patch diffutils tar xz curl perl autoconf automake libtool
-            pkgconf gettext-devel
-            mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
-      - name: Native outputs cache
-        id: native
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            packages/transport/windows/native
-            packages/cast/windows/native
-          key: windows-native-v1-${{ hashFiles('packages/transport/tool/**', 'packages/transport/src/lt_shim/**', 'packages/transport/ios/Classes/aria2_shim.*', 'packages/cast/tool/**', 'packages/cast/native/remux/**') }}
-      - name: Locate Visual Studio
-        shell: pwsh
-        run: |
-          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          "VS_PATH=$vs" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
-      - name: libtorrent shim
-        if: steps.native.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: >
-          packages/transport/tool/build_libtorrent_windows.ps1
-          -VisualStudio $env:VS_PATH -CMake (Get-Command cmake).Source
-      - name: aria2 shim
-        if: steps.native.outputs.cache-hit != 'true'
-        shell: msys2 {0}
-        run: bash packages/transport/tool/build_libaria2_windows.sh
-      - name: FFmpeg remux DLL
-        if: steps.native.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: packages/cast/tool/build_remux_windows.ps1 -VisualStudio $env:VS_PATH
-      - name: Save native outputs
-        if: steps.native.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            packages/transport/windows/native
-            packages/cast/windows/native
-          key: windows-native-v1-${{ hashFiles('packages/transport/tool/**', 'packages/transport/src/lt_shim/**', 'packages/transport/ios/Classes/aria2_shim.*', 'packages/cast/tool/**', 'packages/cast/native/remux/**') }}
+      # Native DLLs (libtorrent/aria2 shims, FFmpeg remux) are prebuilt and committed,
+      # like the macOS dylibs and Android .so files; rebuild them with the scripts in
+      # packages/transport/tool and packages/cast/tool when their sources change.
       - name: Build
         working-directory: app
         run: |
@@ -135,7 +94,9 @@ jobs:
         run: |
           flutter pub get
           flutter build apk --release
-      - run: cp app/build/app/outputs/flutter-apk/app-release.apk GenoTV-android.apk
+      - run: |
+          cp app/build/app/outputs/flutter-apk/app-release.apk GenoTV-android.apk
+          unzip -l GenoTV-android.apk | grep 'lib/'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: GenoTV-android

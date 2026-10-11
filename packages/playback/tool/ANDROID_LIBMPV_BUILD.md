@@ -1,7 +1,8 @@
 # Android libmpv
 
 Run `timeout 900 packages/playback/tool/build_libmpv_android.sh` from the repo
-root (`gtimeout` on macOS). Install the SDK NDK **25.2.9519653** first.
+root (`gtimeout` on macOS). Set `ANDROID_ABI=armeabi-v7a` or
+`ANDROID_ABI=x86_64` for the other release architectures (default `arm64-v8a`). Install the SDK NDK **25.2.9519653** first.
 Build tools: Git, Meson, Ninja, CMake, pkg-config, Python, make, autotools;
 macOS also needs GNU sed/install and GNU libtool. Tools may come from Homebrew;
 target libraries always come from pinned source. Jobs default to two (maximum four).
@@ -21,9 +22,11 @@ select the installed NDK, `/usr/local` staged Meson install directories,
 LLVM nm, and configure generation without trying to run Android binaries.
 
 The local MIT media_kit_libs_android_video 1.3.8 plugin supplies built
-`libmpv.so` and `libmediakitandroidhelper.so` in its arm64 jniLibs directory.
-Gradle does not download the upstream arm64 jar and fails if our library is
-missing. Other ABIs retain the upstream URLs and MD5s. App and playback
+`libmpv.so` and `libmediakitandroidhelper.so` in each of the three ABI jniLibs
+directories. Gradle never downloads stock engine jars and fails if any ABI
+lacks either library. Non-arm64 build caches have the ABI appended to avoid
+cross-architecture build reuse. Release libraries use `llvm-strip --strip-debug`,
+preserving dynamic symbols. App and playback
 dependency overrides select the local plugin; Dart/Java APIs are unchanged.
 `BUILD.txt` records source revisions and artifact hashes. The engine retains
 upstream's LGPL build configuration (GPL disabled); preserve source/patches

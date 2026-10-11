@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
-# media_kit v1.1.7 default arm64 recipe, with EGL, AudioTrack, audio-filter and H.264 framing fixes.
+# media_kit v1.1.7 default recipe, with EGL, AudioTrack, audio-filter and H.264 framing fixes.
 set -euo pipefail
+abi=${ANDROID_ABI:-arm64-v8a}
+case "$abi" in
+  arm64-v8a) arch=arm64; triple=aarch64-linux-android ;;
+  armeabi-v7a) arch=armv7l; triple=armv7a-linux-androideabi ;;
+  x86_64) arch=x86_64; triple=x86_64-linux-android ;;
+  *) echo "Unsupported Android ABI: $abi" >&2; exit 2 ;;
+esac
 root=$(cd "$(dirname "$0")/../../.." && pwd)
 cache=${LIBMPV_ANDROID_CACHE:-/tmp/vp-libmpv-android-recipe-v1.1.7}
+if [ "$abi" != arm64-v8a ]; then cache="$cache-$abi"; fi
 sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}
 ndk="$sdk/ndk/25.2.9519653"
 pin=fe8c3ac1a91c09aa6fb1deccbc833f1bafa54768
@@ -10,7 +18,7 @@ jobs=${LIBMPV_ANDROID_JOBS:-2}
 case "$jobs" in 2|3|4) ;; *) echo 'Use 2–4 build jobs' >&2; exit 1;; esac
 case $(uname -s) in Darwin) host=darwin-x86_64;; Linux) host=linux-x86_64;; *) exit 1;; esac
 toolchain="$ndk/toolchains/llvm/prebuilt/$host"
-test -x "$toolchain/bin/aarch64-linux-android21-clang"
+test -x "$toolchain/bin/${triple}21-clang"
 for tool in git meson ninja cmake pkg-config python3 make autoreconf automake; do command -v "$tool" >/dev/null; done
 if [ "$host" = darwin-x86_64 ]; then
   for tool in gsed ginstall glibtoolize; do command -v "$tool" >/dev/null; done
@@ -88,20 +96,20 @@ p.write_text(p.read_text().replace('--ranlib=$RANLIB', '--ranlib=$RANLIB --nm=ll
              '--enable-filter=overlay --enable-filter=abuffer --enable-filter=abuffersink '
              '--enable-filter=pan --enable-filter=aformat --enable-filter=aresample \\'))
 PY
-bash -e build.sh --arch arm64
+bash -e build.sh --arch "$arch"
 fetch media-kit-android-helper https://github.com/media-kit/media-kit-android-helper.git 42054e5d479f39ccbb0ae604862e2bcaf59b74c2
 test "$(git -C deps/media-kit-android-helper rev-parse HEAD)" = 42054e5d479f39ccbb0ae604862e2bcaf59b74c2
-cmake -S deps/media-kit-android-helper/app/src/main/cpp -B helper-arm64 -G Ninja \
+cmake -S deps/media-kit-android-helper/app/src/main/cpp -B helper-$abi -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" \
-  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-21 -DCMAKE_BUILD_TYPE=Release
-cmake --build helper-arm64 --parallel "$jobs"
-dest="$root/packages/media_kit_libs_android_video/android/src/main/jniLibs/arm64-v8a"
+  -DANDROID_ABI="$abi" -DANDROID_PLATFORM=android-21 -DCMAKE_BUILD_TYPE=Release
+cmake --build helper-$abi --parallel "$jobs"
+dest="$root/packages/media_kit_libs_android_video/android/src/main/jniLibs/$abi"
 mkdir -p "$dest"
-cp -L prefix/arm64-v8a/lib/libmpv.so "$dest/libmpv.so"
-cp helper-arm64/libmediakitandroidhelper.so "$dest/"
-"$toolchain/bin/llvm-strip" --strip-all "$dest"/*.so
+cp -L prefix/$abi/lib/libmpv.so "$dest/libmpv.so"
+cp helper-$abi/libmediakitandroidhelper.so "$dest/"
+"$toolchain/bin/llvm-strip" --strip-debug "$dest"/*.so
 {
-  echo "recipe=$pin ndk=$v_ndk flavour=default abi=arm64-v8a jobs=$jobs"
+  echo "recipe=$pin ndk=$v_ndk flavour=default abi=$abi jobs=$jobs"
   for dep in mbedtls dav1d libxml2 ffmpeg freetype fribidi harfbuzz libass mpv media-kit-android-helper; do
     echo "$dep=$(git -C "deps/$dep" rev-parse HEAD)"
   done
