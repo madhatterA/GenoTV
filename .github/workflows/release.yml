@@ -50,7 +50,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    timeout-minutes: 180
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -66,12 +66,27 @@ jobs:
           install: >-
             make patch diffutils tar xz curl perl autoconf automake libtool
             pkgconf gettext-devel
-            mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf mingw-w64-x86_64-nasm
+            mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-meson
+            mingw-w64-x86_64-autotools mingw-w64-x86_64-python
       - name: Native build caches
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: C:\transport-native
           key: windows-native-${{ hashFiles('packages/transport/tool/**', 'packages/transport/src/lt_shim/**', 'packages/cast/tool/**') }}
+      - name: libmpv cache
+        id: libmpv-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: packages/media_kit_libs_windows_video/windows/libmpv
+          key: windows-libmpv-${{ hashFiles('packages/playback/tool/build_libmpv_windows.sh', 'packages/playback/native/windows/**') }}
+      - name: libmpv
+        if: steps.libmpv-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        env:
+          LIBMPV_WINDOWS_CACHE: /c/transport-native/libmpv
+          LIBMPV_WINDOWS_JOBS: '4'
+        run: bash packages/playback/tool/build_libmpv_windows.sh
       - name: Locate Visual Studio
         shell: pwsh
         run: |
