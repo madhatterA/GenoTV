@@ -50,7 +50,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    timeout-minutes: 330
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -66,43 +66,42 @@ jobs:
           install: >-
             make patch diffutils tar xz curl perl autoconf automake libtool
             pkgconf gettext-devel
-            mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf mingw-w64-x86_64-nasm
-            mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-meson
-            mingw-w64-x86_64-autotools mingw-w64-x86_64-python
-      - name: Native build caches
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
+      - name: Native outputs cache
+        id: native
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: C:\transport-native
-          key: windows-native-${{ hashFiles('packages/transport/tool/**', 'packages/transport/src/lt_shim/**', 'packages/cast/tool/**') }}
-      - name: libmpv cache
-        id: libmpv-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: packages/media_kit_libs_windows_video/windows/libmpv
-          key: windows-libmpv-${{ hashFiles('packages/playback/tool/build_libmpv_windows.sh', 'packages/playback/native/windows/**') }}
-      - name: libmpv
-        if: steps.libmpv-cache.outputs.cache-hit != 'true'
-        shell: msys2 {0}
-        env:
-          LIBMPV_WINDOWS_CACHE: /c/transport-native/libmpv
-          LIBMPV_WINDOWS_JOBS: '4'
-        run: bash packages/playback/tool/build_libmpv_windows.sh
+          path: |
+            packages/transport/windows/native
+            packages/cast/windows/native
+          key: windows-native-v1-${{ hashFiles('packages/transport/tool/**', 'packages/transport/src/lt_shim/**', 'packages/transport/ios/Classes/aria2_shim.*', 'packages/cast/tool/**', 'packages/cast/native/remux/**') }}
       - name: Locate Visual Studio
         shell: pwsh
         run: |
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
           "VS_PATH=$vs" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
       - name: libtorrent shim
+        if: steps.native.outputs.cache-hit != 'true'
         shell: pwsh
         run: >
           packages/transport/tool/build_libtorrent_windows.ps1
           -VisualStudio $env:VS_PATH -CMake (Get-Command cmake).Source
       - name: aria2 shim
+        if: steps.native.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: bash packages/transport/tool/build_libaria2_windows.sh
       - name: FFmpeg remux DLL
+        if: steps.native.outputs.cache-hit != 'true'
         shell: pwsh
         run: packages/cast/tool/build_remux_windows.ps1 -VisualStudio $env:VS_PATH
+      - name: Save native outputs
+        if: steps.native.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            packages/transport/windows/native
+            packages/cast/windows/native
+          key: windows-native-v1-${{ hashFiles('packages/transport/tool/**', 'packages/transport/src/lt_shim/**', 'packages/transport/ios/Classes/aria2_shim.*', 'packages/cast/tool/**', 'packages/cast/native/remux/**') }}
       - name: Build
         working-directory: app
         run: |
