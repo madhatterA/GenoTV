@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:ui/ui.dart';
 
 /// An [ImageProvider] whose completion the test controls directly, so
@@ -378,7 +377,14 @@ void main() {
         of: find.byType(ArtworkView),
         matching: find.byType(FadeTransition),
       );
-      expect(tester.widget<FadeTransition>(fade).opacity.value, 1);
+      expect(fade, findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(ArtworkView),
+          matching: find.byType(RawImage),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

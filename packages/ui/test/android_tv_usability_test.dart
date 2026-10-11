@@ -220,6 +220,12 @@ void main() {
       );
       await controller.play();
       await tester.pump();
+      // These hidden-surface tests start there explicitly; arrival is tested
+      // by the TV keywalk, where Play/Pause now receives initial focus.
+      FocusManager.instance.rootScope.descendants
+          .firstWhere((node) => node.debugLabel == 'player-surface')
+          .requestFocus();
+      await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pump();
     }

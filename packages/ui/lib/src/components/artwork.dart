@@ -139,6 +139,7 @@ class _ArtworkViewState extends State<ArtworkView> {
 
   Widget _reveal(Widget child, int? frame, bool synchronous, Duration fade) {
     if (frame == null && _mode == null) return const SizedBox.shrink();
+    if (fade == Duration.zero) return child;
     _mode ??= synchronous ? _RevealMode.instant : _RevealMode.fade;
     return _mode == _RevealMode.fade
         ? _FadeIn(duration: fade, child: child)
@@ -152,7 +153,7 @@ class _ArtworkViewState extends State<ArtworkView> {
     final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
     final fade = effectiveDuration(
       context,
-      Duration(milliseconds: tv ? 120 : 180),
+      tv ? Duration.zero : const Duration(milliseconds: 180),
     );
     final dpr = MediaQuery.devicePixelRatioOf(context);
     // One bone for the whole picture while a Skeletonizer is on.

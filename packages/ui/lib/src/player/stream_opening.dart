@@ -143,7 +143,7 @@ class StreamOpeningScreen extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: Focus(
-          autofocus: true,
+          canRequestFocus: false,
           child: Stack(
             fit: StackFit.expand,
             children: <Widget>[
@@ -182,6 +182,7 @@ class StreamOpeningScreen extends StatelessWidget {
                         alignment: Alignment.topLeft,
                         child: AppButton.secondary(
                           key: const ValueKey<String>('stream-opening-back'),
+                          autofocus: true,
                           label: labels.back,
                           icon: PhosphorIconsRegular.arrowLeft,
                           overMedia: true,

@@ -79,15 +79,21 @@ void main() {
     expect(find.byKey(_page), findsNothing);
   });
 
-  testWidgets('TV: fade only, done in 150 ms', (tester) async {
+  testWidgets('TV: page appears immediately without fade or slide', (
+    tester,
+  ) async {
     await setLogicalSize(tester, const Size(1920, 1080));
     await tester.pumpWidget(_app(_pusher, tv: true));
     await _push(tester);
-    await tester.pump(const Duration(milliseconds: 75));
-    expect(_fade(tester).opacity.value, inExclusiveRange(0.0, 1.0));
+    expect(find.byKey(_page), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(_page),
+        matching: find.byType(FadeTransition),
+      ),
+      findsNothing,
+    );
     expect(_slide, findsNothing);
-    await tester.pump(const Duration(milliseconds: 76));
-    expect(_fade(tester).opacity.value, 1.0);
     expect(_status(tester), AnimationStatus.completed);
   });
 

@@ -71,7 +71,7 @@ class HeroBackdrop extends StatelessWidget {
     final slide = item;
     final fade = effectiveDuration(
       context,
-      tv ? RivuletMotion.fast : RivuletMotion.base,
+      tv ? Duration.zero : RivuletMotion.base,
     );
     final dots = pageCount > 1
         ? _PageDots(count: pageCount, index: pageIndex, onPage: onPage)

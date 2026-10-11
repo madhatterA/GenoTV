@@ -33,7 +33,7 @@ final _contract = RegExp(
   r'episode-\d+|library-query|library-refresh|'
   r'section-.+|setting-.+|skip-forward-setting|verbose-logging-switch|'
   r'advanced-toggle|expert-toggle|search-field|'
-  r'filter-chip-\d+|title-kind-.+)$',
+  r'provider-row-.+|stream-row-\d+|filter-chip-\d+|title-kind-.+)$',
 );
 
 String? _focusedKey() {
@@ -145,6 +145,10 @@ Future<void> _pump(
       localizationsDelegates: AppStrings.localizationsDelegates,
       supportedLocales: AppStrings.supportedLocales,
       debugShowCheckedModeBanner: false,
+      builder: (_, child) => AdaptiveBehavior(
+        capabilities: const PlatformCapabilities.directionalPad(),
+        child: child!,
+      ),
       theme: AppTheme.dark(tv: true),
       home: AdaptiveBehavior(
         capabilities: const PlatformCapabilities.directionalPad(),
@@ -205,6 +209,170 @@ bool get _panelOpen =>
     find.byKey(const ValueKey<String>('menu-panel')).evaluate().isNotEmpty;
 
 void main() {
+  testWidgets(
+    'TV player arrives on Play Pause and enters its panels by remote',
+    (tester) async {
+      final player = FakePlaybackController();
+      player.setDuration(const Duration(minutes: 2));
+      await player.play();
+      addTearDown(player.dispose);
+      await _pump(tester, 'home', <String, WidgetBuilder>{
+        'home': (context) => FocusableAction(
+          autofocus: true,
+          onActivate: () =>
+              Navigator.of(context, rootNavigator: true).push<void>(
+                AppPageRoute<void>(
+                  builder: (_) => PlayerScreen(
+                    controller: player,
+                    videoSurface: FakeVideoSurface(),
+                    setSystemUiMode: (_) async {},
+                  ),
+                ),
+              ),
+          child: const Text('Open player'),
+        ),
+      });
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<TransportControlButton>()
+            ?.key,
+        const ValueKey<String>('play-pause'),
+      );
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(player.currentState.isPlaying, isFalse);
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'tv-seek-bar');
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<FocusRing>(),
+        isNotNull,
+      );
+      await _press(tester, LogicalKeyboardKey.arrowUp);
+      await _press(tester, LogicalKeyboardKey.arrowRight);
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<TransportControlButton>()
+            ?.key,
+        const ValueKey<String>('player-box-subtitles'),
+      );
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(
+        find.byKey(const ValueKey<String>('player-panel-host')),
+        findsOneWidget,
+      );
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<KeyedSubtree>()
+            ?.key,
+        const ValueKey<String>('player-panel-host'),
+      );
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<FocusRing>(),
+        isNotNull,
+      );
+      await _back(tester);
+      expect(
+        find.byKey(const ValueKey<String>('player-panel-host')),
+        findsNothing,
+      );
+    },
+  );
+  testWidgets(
+    'root source route arrives on a visible source and opens streams',
+    (tester) async {
+      var picked = false;
+      var played = false;
+      await _pump(tester, 'home', <String, WidgetBuilder>{
+        'home': (context) => FocusableAction(
+          autofocus: true,
+          onActivate: () =>
+              Navigator.of(context, rootNavigator: true).push<void>(
+                AppPageRoute<void>(
+                  builder: (_) => StatefulBuilder(
+                    builder: (_, update) => PlaySourceScreen(
+                      title: 'Remote title',
+                      providers: const <UiProviderOption>[
+                        UiProviderOption(
+                          id: 'source',
+                          name: 'Source',
+                          state: UiProviderState.ready,
+                        ),
+                      ],
+                      selectedProviderId: picked ? 'source' : null,
+                      streams: picked
+                          ? UiStreamListReady(<SourceSpec>[
+                              SourceSpec(
+                                kind: SourceKind.localFile,
+                                uri: Uri.file('/video.mp4'),
+                                label: 'Stream 1',
+                              ),
+                              SourceSpec(
+                                kind: SourceKind.localFile,
+                                uri: Uri.file('/other.mp4'),
+                                label: 'Stream 2',
+                              ),
+                            ])
+                          : const UiStreamListNone(),
+                      onProviderSelected: (_) => update(() => picked = true),
+                      onStreamSelected: (_) => played = true,
+                      onBack: () {},
+                    ),
+                  ),
+                ),
+              ),
+          child: const Text('Open sources'),
+        ),
+      });
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'play-source-first-provider',
+      );
+      expect(
+        ModalRoute.of(tester.element(find.byType(PlaySourceScreen)))!
+            .transitionDuration,
+        Duration.zero,
+      );
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(picked, isTrue);
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'play-source-first-stream',
+      );
+      await _press(tester, LogicalKeyboardKey.arrowDown);
+      expect(_focusedKey(), 'stream-row-1');
+      await _press(tester, LogicalKeyboardKey.enter);
+      expect(played, isTrue);
+    },
+  );
+
+  testWidgets('opening screen arrives on its visible Back action', (
+    tester,
+  ) async {
+    var backed = false;
+    await _pump(tester, 'home', <String, WidgetBuilder>{
+      'home': (_) => TickerMode(
+        enabled: false,
+        child: StreamOpeningScreen(
+          title: 'Remote title',
+          artwork: null,
+          kind: MediaKind.movie,
+          status: const StreamOpeningStatus(label: 'Opening', progress: 0.2),
+          onBack: () => backed = true,
+        ),
+      ),
+    });
+    final focus = FocusManager.instance.primaryFocus?.context;
+    expect(
+      focus?.findAncestorWidgetOfExactType<AppButton>()?.key,
+      const ValueKey<String>('stream-opening-back'),
+    );
+    await _press(tester, LogicalKeyboardKey.enter);
+    expect(backed, isTrue);
+  });
+
   tearDownAll(() {
     final dir = Directory.systemTemp.createTempSync('tv-keywalk-');
     try {
@@ -347,6 +515,14 @@ void main() {
       ),
     });
     const w = 'home';
+    expect(
+      tester
+          .widget<AnimatedSwitcher>(
+            find.byKey(const ValueKey<String>('hero-image-switcher')),
+          )
+          .duration,
+      Duration.zero,
+    );
     _expectKey(w, '0 entry', 'hero-focus-play');
     await _press(tester, LogicalKeyboardKey.arrowRight);
     _expectKey(w, '1 Right to Details', 'hero-focus-details');
@@ -453,6 +629,8 @@ void main() {
 
     await _press(tester, LogicalKeyboardKey.arrowUp);
     _expectKey(w, '11 Up to the hero', 'hero-focus-play');
+    expect(_rect(tester, 'hero-focus-play').top, greaterThanOrEqualTo(0));
+    expect(_rect(tester, 'hero-focus-play').bottom, lessThanOrEqualTo(540));
     await _press(tester, LogicalKeyboardKey.arrowUp);
     _expectKey(w, '11 Up to the pill', 'menu-pill');
     await _press(tester, LogicalKeyboardKey.select);

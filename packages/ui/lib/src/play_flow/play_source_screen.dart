@@ -134,7 +134,7 @@ class _PlaySourceScreenState extends State<PlaySourceScreen> {
           ),
         },
         child: Focus(
-          autofocus: true,
+          canRequestFocus: false,
           child: Listener(
             // A mouse's dedicated back button surfaces as a pointer button
             // (`kBackMouseButton`), not a `LogicalKeyboardKey` — needs its

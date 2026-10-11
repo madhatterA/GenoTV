@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../components/glass_surface.dart';
+import '../focus/focusable_action.dart';
 import '../theme/app_theme.dart';
 import '../theme/rivulet_tokens.dart';
 
@@ -298,6 +299,7 @@ class PlayerPanelHostState extends State<PlayerPanelHost>
         },
         child: FocusScope(
           node: _scopeNode,
+          autofocus: AdaptiveBehavior.of(context).formFactor == FormFactor.tv,
           onKeyEvent: _handleKey,
           child: FocusTraversalGroup(
             child: KeyedSubtree(
@@ -322,14 +324,19 @@ class PlayerPanelHostState extends State<PlayerPanelHost>
                                 style: tokens.typeStyles.title,
                               ),
                             ),
-                            IconButton(
-                              key: const ValueKey<String>(
-                                'close-player-overlay',
-                              ),
-                              onPressed: dismiss,
-                              icon: Icon(
-                                Icons.close,
-                                color: tokens.colors.textPrimary,
+                            FocusRing(
+                              child: IconButton(
+                                autofocus:
+                                    AdaptiveBehavior.of(context).formFactor ==
+                                    FormFactor.tv,
+                                key: const ValueKey<String>(
+                                  'close-player-overlay',
+                                ),
+                                onPressed: dismiss,
+                                icon: Icon(
+                                  Icons.close,
+                                  color: tokens.colors.textPrimary,
+                                ),
                               ),
                             ),
                           ],

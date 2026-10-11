@@ -226,8 +226,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       // Up lands on Play (DESIGN_SPEC §6.4 rule 4); Back returns to the
       // action focus last had.
-      (up ? _heroPlayFocusNode : (_lastHeroFocusNode ?? _heroPlayFocusNode))
-          .requestFocus();
+      final target = up
+          ? _heroPlayFocusNode
+          : (_lastHeroFocusNode ?? _heroPlayFocusNode);
+      FocusTraversalPolicy.defaultTraversalRequestFocusCallback(target);
     });
     return KeyEventResult.handled;
   }

@@ -72,7 +72,8 @@ class _PlayerGestureSurfaceState extends State<PlayerGestureSurface> {
   @override
   Widget build(BuildContext context) => Focus(
     focusNode: _focusNode,
-    autofocus: true,
+    autofocus: widget.onTvKey == null,
+    skipTraversal: widget.onTvKey != null,
     onKeyEvent: (node, event) {
       if (!widget.enabled || event is! KeyDownEvent) {
         return KeyEventResult.ignored;

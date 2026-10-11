@@ -30,8 +30,8 @@ class AppPageRoute<T> extends PageRoute<T> {
   }
 
   Duration _duration(Duration normal) {
-    if (_reduced) return RivuletMotion.press;
-    return _tv ? RivuletMotion.fast : normal;
+    if (_tv) return Duration.zero;
+    return _reduced ? RivuletMotion.press : normal;
   }
 
   @override
@@ -69,13 +69,14 @@ class AppPageRoute<T> extends PageRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    if (_tv) return child;
     final curved = CurvedAnimation(
       parent: animation,
       curve: RivuletMotion.easeOut,
       reverseCurve: RivuletMotion.easeOut,
     );
     final fade = FadeTransition(opacity: curved, child: child);
-    if (_tv || MediaQuery.disableAnimationsOf(context)) return fade;
+    if (MediaQuery.disableAnimationsOf(context)) return fade;
     final width = MediaQuery.sizeOf(context).width;
     return SlideTransition(
       position: Tween<Offset>(

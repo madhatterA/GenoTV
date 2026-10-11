@@ -1318,6 +1318,7 @@ class _OverlayPanel extends StatelessWidget {
       leadingButton: formFactor == FormFactor.tv
           ? TransportControlButton(
               key: const ValueKey<String>('play-pause'),
+              autofocus: true,
               icon: state.isPlaying ? Icons.pause : Icons.play_arrow,
               semanticLabel: state.isPlaying
                   ? AppStrings.of(context).common_pause

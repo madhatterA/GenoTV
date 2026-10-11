@@ -3,6 +3,7 @@ import '../l10n_gen/app_strings.dart';
 import 'package:contracts/contracts.dart';
 import 'package:flutter/material.dart';
 
+import '../focus/focusable_action.dart';
 import '../platform/adaptive_behavior.dart';
 import '../theme/rivulet_tokens.dart';
 import 'player_metadata.dart';
@@ -557,7 +558,9 @@ class PlayerProgressRow extends StatelessWidget {
     if (!(AdaptiveBehavior.of(context).formFactor == FormFactor.tv)) {
       return progress;
     }
-    return Focus(debugLabel: 'tv-seek-bar', child: progress);
+    return FocusRing(
+      child: Focus(debugLabel: 'tv-seek-bar', child: progress),
+    );
   }
 }
 
