@@ -1,0 +1,52 @@
+name: playback
+description: media_kit / libmpv playback engine boundary.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.13.3
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  core:
+    path: ../core
+  contracts:
+    path: ../contracts
+  video_surface:
+    path: ../video_surface
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.genotv.playback
+        pluginClass: PlaybackPlugin
+      ios:
+        pluginClass: PlaybackPlugin
+      macos:
+        pluginClass: PlaybackPlugin
+      windows:
+        pluginClass: PlaybackPluginCApi
+
+dependency_overrides:
+  media_kit:
+    path: ../media_kit
+  media_kit_libs_android_video:
+    path: ../media_kit_libs_android_video
+  media_kit_libs_ios_video:
+    path: ../media_kit_libs_ios_video
+
+  media_kit_libs_windows_video:
+    path: ../media_kit_libs_windows_video

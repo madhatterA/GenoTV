@@ -1,0 +1,24 @@
+name: contracts
+description: The single cross-Part interface surface, its fakes and its contract test suites.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.13.3
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  core:
+    path: ../core
+  # lib/testing/ is shipped code that other packages' tests import, so
+  # flutter_test must be a regular dependency, not a dev one — Phase 06
+  # confirmed this is the correct, documented pattern (not a workaround).
+  flutter_test:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+flutter:

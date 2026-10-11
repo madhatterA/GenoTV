@@ -1,0 +1,59 @@
+name: video_player
+description: Runner app and composition root. Owned by Part 07.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  core:
+    path: ../packages/core
+  contracts:
+    path: ../packages/contracts
+  persistence:
+    path: ../packages/persistence
+  playback:
+    path: ../packages/playback
+  transport:
+    path: ../packages/transport
+  ui:
+    path: ../packages/ui
+  platform_services:
+    path: ../packages/platform_services
+  content_sources:
+    path: ../packages/content_sources
+  cast:
+    path: ../packages/cast
+  file_selector: ^1.0.3
+  media_kit: ^1.2.6
+  url_launcher: ^6.3.3
+
+dev_dependencies:
+  crypto: ^3.0.6
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/Butterfly-209.mp4
+
+dependency_overrides:
+  media_kit:
+    path: ../packages/media_kit
+  media_kit_video:
+    path: ../packages/media_kit_video
+  media_kit_libs_android_video:
+    path: ../packages/media_kit_libs_android_video
+  media_kit_libs_ios_video:
+    path: ../packages/media_kit_libs_ios_video
+
+  media_kit_libs_windows_video:
+    path: ../packages/media_kit_libs_windows_video

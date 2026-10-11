@@ -1,0 +1,30 @@
+# Shared analysis configuration for every package in this repository.
+# Each package's own analysis_options.yaml is a one-line include of this file.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "packages/**"
+    - "app/**"
+    - "planning/**"
+    - "research/**"
+    - "claudemem/**"
+    - "**/build/**"
+    - "**/.dart_tool/**"
+    - "**/*.g.dart"
+    - research/**
+    - claudemem/**
+  errors:
+    # These four are errors, not lints. They encode repository rules from CLAUDE.md:
+    # no print debugging, no silently-dropped futures, no leaked sinks or subscriptions.
+    avoid_print: error
+    unawaited_futures: error
+    close_sinks: error
+    cancel_subscriptions: error
+
+linter:
+  rules:
+    - avoid_print
+    - unawaited_futures
+    - close_sinks
+    - cancel_subscriptions

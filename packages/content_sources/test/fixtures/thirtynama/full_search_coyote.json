@@ -1,0 +1,88 @@
+{
+ "success": true,
+ "msg": null,
+ "result": {
+  "title": {
+   "page": 1,
+   "pages": 1,
+   "posts": [
+    {
+     "id": 444744,
+     "title_type": "movie",
+     "stream": true,
+     "is_series": false,
+     "coming_soon": false,
+     "free_stream": false,
+     "free_download": false,
+     "persian_subtitle": false,
+     "imdb_250": "",
+     "title": "Coyote vs. Acme 2026",
+     "persian_title": "کایوتی در برابر اکمی",
+     "budget": "USD70,000,000",
+     "persian_plot": "وایل ای. کایوتی پس از سال‌ها تحمل محصولات معیوب، با یک وکیل محلی امور خسارت همکاری می‌کند تا علیه شرکت اکمی، سازنده‌ی تمام وسایل مورد استفاده‌ی شخصیت‌های لونی تونز، شکایت کند.",
+     "english_plot": "After enduring years of malfunctioning products, Wile E. Coyote teams up with a local personal injury attorney to take on ACME, the manufacturer of anything and everything used by the Looney Tunes characters.",
+     "imdb_id": "tt1756855",
+     "imdb_score": "7.5",
+     "imdb_votes": "11156",
+     "30nama_score": 7.1,
+     "30nama_votes": "17",
+     "myanimelist": "",
+     "myanimelist_score": 0,
+     "myanimelist_votes": "",
+     "mydramalist": "",
+     "mydramalist_score": "",
+     "mydramalist_votes": "",
+     "seo": {
+      "title": "دانلود انیمیشن Coyote vs. Acme 2026 (کایوتی در برابر اکمی) با زیرنویس فارسی و تماشای آنلاین",
+      "description": "دانلود و تماشای آنلاین انیمیشن Coyote vs. Acme 2026 (کایوتی در برابر اکمی) با زیرنویس فارسی ، دارای لینک مستقیم و کیفیت WEB-DL (1080p و 720p) بدون سانسور و حذفیات",
+      "alt": "دانلود انیمیشن Coyote vs. Acme 2026 (کایوتی در برابر اکمی) با زیرنویس فارسی و تماشای آنلاین"
+     },
+     "image": {
+      "cover": "https://cdn.30nama.com/cover/30444744_30NAMA.jpg?1788428829",
+      "cover_webp": "https://cdn.30nama.com/cover/30444744_30NAMA.webp?1788428829",
+      "poster": {
+       "big": "https://cdn.30nama.com/poster/30444744-b_30NAMA.jpg?1788429994",
+       "big_webp": "https://cdn.30nama.com/poster/30444744-b_30NAMA.webp?1788429994",
+       "large": "https://cdn.30nama.com/poster/30444744-l_30NAMA.jpg?1788429994",
+       "large_webp": "https://cdn.30nama.com/poster/30444744-l_30NAMA.webp?1788429994",
+       "medium": "https://cdn.30nama.com/poster/30444744-m_30NAMA.jpg?1788429994",
+       "medium_webp": "https://cdn.30nama.com/poster/30444744-m_30NAMA.webp?1788429994",
+       "small": "https://cdn.30nama.com/poster/30444744-s_30NAMA.jpg?1788429994",
+       "small_webp": "https://cdn.30nama.com/poster/30444744-s_30NAMA.webp?1788429994"
+      }
+     },
+     "genre": [
+      {
+       "name": "اکشن",
+       "slug": "action"
+      },
+      {
+       "name": "انیمیشن",
+       "slug": "animation"
+      },
+      {
+       "name": "خانوادگی",
+       "slug": "family"
+      },
+      {
+       "name": "کمدی",
+       "slug": "comedy"
+      },
+      {
+       "name": "ماجراجویی",
+       "slug": "adventure"
+      }
+     ],
+     "airstatus": {
+      "status": null,
+      "data": null
+     },
+     "nextepisode": {
+      "caption": null,
+      "date": null
+     }
+    }
+   ]
+  }
+ }
+}

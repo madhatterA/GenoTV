@@ -1,0 +1,32 @@
+//
+//  Generated file. Do not edit.
+//
+
+// clang-format off
+
+#include "generated_plugin_registrant.h"
+
+#include <file_selector_windows/file_selector_windows.h>
+#include <media_kit_libs_windows_video/media_kit_libs_windows_video_plugin_c_api.h>
+#include <media_kit_video/media_kit_video_plugin_c_api.h>
+#include <platform_services/platform_services_plugin_c_api.h>
+#include <playback/playback_plugin_c_api.h>
+#include <transport/transport_plugin_c_api.h>
+#include <url_launcher_windows/url_launcher_windows.h>
+
+void RegisterPlugins(flutter::PluginRegistry* registry) {
+  FileSelectorWindowsRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FileSelectorWindows"));
+  MediaKitLibsWindowsVideoPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("MediaKitLibsWindowsVideoPluginCApi"));
+  MediaKitVideoPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("MediaKitVideoPluginCApi"));
+  PlatformServicesPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("PlatformServicesPluginCApi"));
+  PlaybackPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("PlaybackPluginCApi"));
+  TransportPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("TransportPluginCApi"));
+  UrlLauncherWindowsRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("UrlLauncherWindows"));
+}

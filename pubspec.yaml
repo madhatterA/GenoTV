@@ -1,0 +1,9 @@
+name: video_player_workspace
+description: Shared analysis configuration for the video player workspace.
+publish_to: none
+
+environment:
+  sdk: ^3.13.3
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "result": {
+    "download": [
+      {
+        "season_int": 2,
+        "quality": "1080p",
+        "link": [
+          {"episode": "3", "dl": "https://media.example/SIGNATURE/s02e03.mkv"},
+          {"episode": "4", "dl": "https://media.example/SIGNATURE/s02e04.mkv"}
+        ]
+      },
+      {
+        "season_int": 1,
+        "quality": "1080p",
+        "link": [
+          {"episode": "3", "dl": "https://media.example/SIGNATURE/s01e03.mkv"}
+        ]
+      }
+    ]
+  }
+}

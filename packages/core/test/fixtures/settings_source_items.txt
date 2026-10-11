@@ -1,0 +1,84 @@
+1 | Resume playback (Ask / Always / Never)
+1 | Auto-play next episode
+1 | Remember position
+1 | Preferred playback speed
+1 | Adv: Sync playback to display
+1 | Adv: A/V sync correction
+1 | Adv: Cache/buffer preset (Low latency / Balanced / Large)
+1 | Exp: demuxer/cache size, read-ahead, network timeout
+2 | Hardware decoding (Auto / On / Off)
+2 | HDR (Auto / Force SDR / Passthrough HDR)
+2 | Match frame rate (Off / On start-stop / Always)
+2 | Match resolution (Auto / Off)
+2 | Aspect ratio (Original / Fit / Fill / Stretch)
+2 | Adv: video decoder (Auto / hardware / software)
+2 | Adv: scaling quality (Fast / Balanced / High)
+2 | Adv: HDR→SDR tone mapping
+2 | Exp: output pixel format / bit depth / chroma
+2 | Exp: dithering, interpolation, debanding, GPU rendering options
+2 | Exp: allowed display modes / resolution whitelist
+3 | Output device (Auto / HDMI / speakers / headphones)
+3 | Speaker layout (Auto / Stereo / 5.1 / 7.1)
+3 | Preferred audio language
+3 | Normalize volume
+3 | Adv: output mode (Best Match / Fixed / Optimized)
+3 | Adv: passthrough (Auto / Enabled / Disabled)
+3 | Adv: passthrough output device
+3 | Receiver supports: Dolby Digital
+3 | Receiver supports: DD+
+3 | Receiver supports: DTS
+3 | Receiver supports: TrueHD
+3 | Receiver supports: DTS-HD
+3 | Receiver supports: Atmos
+3 | Receiver supports: DTS:X
+3 | Adv: multichannel LPCM
+3 | Adv: AC3 transcoding for unsupported multichannel
+3 | Adv: stereo upmix
+3 | Adv: downmix centre/dialogue level
+3 | Adv: resampling quality
+3 | Exp: output sample rate / exclusive mode / device keep-alive
+4 | Preferred language
+4 | Auto-enable
+4 | Hearing-impaired preference
+4 | Font / size / position
+4 | Text encoding
+4 | Adv: border/shadow/background
+4 | Adv: delay
+4 | Adv: forced-subtitle behaviour
+4 | Adv: ASS/SSA styling (Embedded / Override / Hybrid)
+5 | Display/monitor selection
+5 | Fullscreen mode
+5 | Match content frame rate
+5 | Match content dynamic range
+5 | Adv: resolution
+5 | Adv: refresh rate
+5 | Adv: HDR output mode
+5 | Adv: screen calibration / overscan
+5 | Exp: resolution + refresh-rate whitelist
+6 | Streaming quality (Auto / Original / bandwidth limits)
+6 | Preferred protocol (Auto)
+6 | Cache size limit (Auto / 2 / 5 / 10 / 20 GB)
+6 | Adv: buffer size
+6 | Adv: pre-buffer duration
+6 | Adv: max HTTP connections
+6 | Adv: connection timeout / retry count
+6 | Adv: DNS / proxy
+6 | Exp: user-agent / custom HTTP headers / TLS options
+7 | Bandwidth limit
+7 | Adv: torrent up/down limits
+7 | Adv: connection/peer limits
+7 | Adv: seed after completion (Off / ratio / duration)
+7 | Exp: piece cache / tracker / DHT / PEX
+8 | Preferred audio language
+8 | Preferred subtitle language
+8 | Prefer original audio
+8 | Prefer forced subtitles
+8 | Adv: prefer Atmos / lossless / highest-channel track
+8 | Adv: track-selection priority rules
+9 | Performance mode (Auto / Battery saver / Quality)
+9 | Hardware acceleration (Auto)
+9 | Adv: GPU rendering quality
+9 | Adv: background preloading
+9 | Exp: decoder threads / GPU context / mpv overrides
+10 | Developer playback info: codec/decoder diagnostics, current video/audio format, dropped frames, bitrate, buffer state, HDR metadata, audio output mode, passthrough status
+10 | Custom mpv options field

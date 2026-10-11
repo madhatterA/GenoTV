@@ -1,0 +1,25 @@
+{
+  "status": true,
+  "movie_download_urls": [
+    {
+      "file": "https://dl.example/Movie.2010.1080p.BluRay.mkv?md5=SIG&expires=1790863342",
+      "quality": "1080p BluRay",
+      "size": "2.80 GB",
+      "encode": "x264"
+    },
+    {
+      "file": "https://dl.example/Movie.2010.2160p.BluRay.mkv?md5=SIG&expires=1790863342",
+      "quality": "2160p BluRay",
+      "size": "6.00 GB",
+      "encode": "x265"
+    }
+  ],
+  "movie_online_urls": [
+    {
+      "file": "https://dl.example/Movie.2010.1080p.BluRay.mkv?md5=SIG&expires=1790863342",
+      "quality": "1080p BluRay",
+      "size": "2.80 GB",
+      "encode": "x264"
+    }
+  ]
+}

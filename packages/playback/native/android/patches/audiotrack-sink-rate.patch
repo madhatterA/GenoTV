@@ -1,0 +1,14 @@
+diff --git a/audio/out/ao_audiotrack.c b/audio/out/ao_audiotrack.c
+--- a/audio/out/ao_audiotrack.c
++++ b/audio/out/ao_audiotrack.c
+@@ -677,7 +677,9 @@ static int init(struct ao *ao)
+         );
+         if (MP_JNI_EXCEPTION_LOG(ao) == 0) {
+             MP_VERBOSE(ao, "AudioTrack.nativeOutputSampleRate = %d\n", samplerate);
+-            ao->samplerate = MPMIN(samplerate, ao->samplerate);
++            // The mixer rate is not a sink limit. AudioTrack validates the
++            // requested PCM/IEC rate below (Kodi also probes supported rates).
++            // Clamping would defeat fixed output and 192 kHz IEC carriers.
+         }
+     }
+     p->samplerate = ao->samplerate;

@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "result": {
+    "file": {
+      "source": [
+        {"auto": "https://media.example/SIGNATURE/playlist_1080p_auto.m3u8", "label": "1080p"}
+      ]
+    }
+  }
+}

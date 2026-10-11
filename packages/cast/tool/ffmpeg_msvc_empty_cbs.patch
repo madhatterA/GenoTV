@@ -1,0 +1,19 @@
+--- a/libavcodec/cbs.c
++++ b/libavcodec/cbs.c
+@@ -58,6 +58,7 @@
+ #if CBS_VP9
+     &CBS_FUNC(type_vp9),
+ #endif
++    NULL, /* MSVC rejects an empty initializer in minimal configurations. */
+ };
+ 
+ const enum AVCodecID CBS_FUNC(all_codec_ids)[] = {
+@@ -100,7 +101,7 @@
+ 
+     type = NULL;
+     for (i = 0; i < FF_ARRAY_ELEMS(cbs_type_table); i++) {
+-        if (cbs_type_table[i]->codec_id == codec_id) {
++        if (cbs_type_table[i] && cbs_type_table[i]->codec_id == codec_id) {
+             type = cbs_type_table[i];
+             break;
+         }

@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "result": {
+    "list": {
+      "2": [
+        {
+          "data": {"number": "3"},
+          "file": {"source": [{"auto": "https://media.example/SIGNATURE/s02e03_1080p_auto.m3u8", "label": "1080p"}]}
+        },
+        {
+          "data": {"number": "4"},
+          "file": {"source": [{"auto": "https://media.example/SIGNATURE/s02e04_1080p_auto.m3u8", "label": "1080p"}]}
+        }
+      ]
+    }
+  }
+}

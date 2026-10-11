@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "data": {
+    "items": [
+      {"id": "1", "ratings": {"imdb": {"sub_path": "/title/tt0903747/"}}}
+    ]
+  }
+}

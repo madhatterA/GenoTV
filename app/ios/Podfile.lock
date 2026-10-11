@@ -1,0 +1,40 @@
+PODS:
+  - cast (0.0.1):
+    - Flutter
+  - Flutter (1.0.0)
+  - media_kit_libs_ios_video (1.0.4):
+    - Flutter
+  - media_kit_video (0.0.1):
+    - Flutter
+  - transport (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - cast (from `.symlinks/plugins/cast/ios`)
+  - Flutter (from `Flutter`)
+  - media_kit_libs_ios_video (from `.symlinks/plugins/media_kit_libs_ios_video/ios`)
+  - media_kit_video (from `.symlinks/plugins/media_kit_video/ios`)
+  - transport (from `.symlinks/plugins/transport/ios`)
+
+EXTERNAL SOURCES:
+  cast:
+    :path: ".symlinks/plugins/cast/ios"
+  Flutter:
+    :path: Flutter
+  media_kit_libs_ios_video:
+    :path: ".symlinks/plugins/media_kit_libs_ios_video/ios"
+  media_kit_video:
+    :path: ".symlinks/plugins/media_kit_video/ios"
+  transport:
+    :path: ".symlinks/plugins/transport/ios"
+
+SPEC CHECKSUMS:
+  cast: 9133372de470256996b82cf3488949f902ef14a7
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
+  media_kit_libs_ios_video: 25df012bd74c44ed12dca44a94d024cc82f26bd6
+  media_kit_video: 1746e198cb697d1ffb734b1d05ec429d1fcd1474
+  transport: 35086cd0d40635aea6a2cd8f593bfb4fcfdc75ba
+
+PODFILE CHECKSUM: 195b1b66c153820a1fa5759134a315925a7c28a2
+
+COCOAPODS: 1.17.0

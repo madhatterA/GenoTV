@@ -1,0 +1,1 @@
+enum BrowseScope { movies, series }

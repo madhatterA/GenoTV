@@ -1,0 +1,27 @@
+name: content_sources
+description: Movie catalogue and playable source providers.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.13.3
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  core:
+    path: ../core
+  contracts:
+    path: ../contracts
+  html: ^0.15.6
+  http: ^1.2.2
+  crypto: ^3.0.5
+  pointycastle: ^3.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:

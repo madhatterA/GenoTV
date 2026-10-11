@@ -1,0 +1,5 @@
+Headers only, extracted from unchanged upstream ANGLE v1.0.1 companion archive.
+https://github.com/alexmercerind/flutter-windows-ANGLE-OpenGL-ES/releases/download/v1.0.1/ANGLE.7z
+Archive MD5 e866f13e8d552348058afaafe869b1ed
+Only EGL and KHR declarations needed for dynamic ANGLE loading are retained.
+Copyright/license notices remain in each original header. No companion binary is linked into libmpv.

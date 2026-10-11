@@ -1,0 +1,21 @@
+Android MediaCodec H.264 input: use four-byte Annex B start codes for every NAL.
+
+Local compatibility correction on pinned FFmpeg n6.0, not an upstream backport.
+Android MediaExtractor emits four-byte framing. On both target emulators stock
+c2.goldfish.h264.decoder decodes that framing; on the phone, FFmpeg's mixed
+four/three-byte packet stalls, including after removing duplicate SPS/PPS. The
+same packet with only its three-byte IDR start code expanded decodes immediately.
+Evidence: evidence/part-07/ch02-p02b/goldfish_packet_compare.log.
+NAL payload, CSD, timestamps and hardware decoder selection remain intact.
+
+diff --git a/libavcodec/h264_mp4toannexb_bsf.c b/libavcodec/h264_mp4toannexb_bsf.c
+--- a/libavcodec/h264_mp4toannexb_bsf.c
++++ b/libavcodec/h264_mp4toannexb_bsf.c
+@@ -47,6 +47,6 @@ static void count_or_copy(uint8_t **out, uint64_t *out_size,
+                           const uint8_t *in, int in_size, int ps, int copy)
+ {
+-    uint8_t start_code_size = ps < 0 ? 0 : *out_size == 0 || ps ? 4 : 3;
++    uint8_t start_code_size = ps < 0 ? 0 : 4;
+ 
+     if (copy) {
+         memcpy(*out + start_code_size, in, in_size);

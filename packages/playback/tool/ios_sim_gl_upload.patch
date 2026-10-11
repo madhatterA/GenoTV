@@ -1,0 +1,105 @@
+--- a/video/out/opengl/hwdec_ios.m
++++ b/video/out/opengl/hwdec_ios.m
+@@ -21,6 +21,7 @@
+ #include <assert.h>
+ 
+ #include <CoreVideo/CoreVideo.h>
++#include <TargetConditionals.h>
+ #include <OpenGLES/EAGL.h>
+ 
+ #include <libavutil/hwcontext.h>
+@@ -145,13 +146,16 @@
+     }
+ 
+     for (int n = 0; n < p->desc.num_planes; n++) {
++#if !TARGET_OS_SIMULATOR
+         p->desc.planes[n] = find_la_variant(mapper->ra, p->desc.planes[n]);
++#endif
+         if (!p->desc.planes[n] || p->desc.planes[n]->ctype != RA_CTYPE_UNORM) {
+             MP_ERR(mapper, "Format unsupported.\n");
+             return -1;
+         }
+     }
+ 
++#if !TARGET_OS_SIMULATOR
+     CVReturn err = CVOpenGLESTextureCacheCreate(
+         kCFAllocatorDefault,
+         NULL,
+@@ -164,6 +168,7 @@
+         return -1;
+     }
+ 
++    #endif
+     return 0;
+ }
+ 
+@@ -179,7 +184,8 @@
+         }
+     }
+ 
+-    CVOpenGLESTextureCacheFlush(p->gl_texture_cache, 0);
++    if (p->gl_texture_cache)
++        CVOpenGLESTextureCacheFlush(p->gl_texture_cache, 0);
+ }
+ 
+ static int mapper_map(struct ra_hwdec_mapper *mapper)
+@@ -194,6 +200,47 @@
+     const bool planar = CVPixelBufferIsPlanar(p->pbuf);
+     const int planes  = CVPixelBufferGetPlaneCount(p->pbuf);
+     assert((planar && planes == p->desc.num_planes) || p->desc.num_planes == 1);
++
++#if TARGET_OS_SIMULATOR
++    // Simulator CoreVideo cannot export IOSurface-backed GLES textures (-6683).
++    // Keep VideoToolbox decoding and the GL color pipeline; upload its planes.
++    CVReturn lock = CVPixelBufferLockBaseAddress(p->pbuf, kCVPixelBufferLock_ReadOnly);
++    if (lock != kCVReturnSuccess) {
++        MP_ERR(mapper, "Unable to lock simulator VideoToolbox buffer: %d\n", lock);
++        return -1;
++    }
++    int result = 0;
++    for (int i = 0; i < p->desc.num_planes; i++) {
++        struct ra_tex_params params = {
++            .dimensions = 2,
++            .w = planar ? CVPixelBufferGetWidthOfPlane(p->pbuf, i)
++                        : CVPixelBufferGetWidth(p->pbuf),
++            .h = planar ? CVPixelBufferGetHeightOfPlane(p->pbuf, i)
++                        : CVPixelBufferGetHeight(p->pbuf),
++            .d = 1,
++            .format = p->desc.planes[i],
++            .host_mutable = true,
++            .render_src = true,
++            .src_linear = true,
++        };
++        mapper->tex[i] = ra_tex_create(mapper->ra, &params);
++        struct ra_tex_upload_params upload = {
++            .tex = mapper->tex[i],
++            .src = planar ? CVPixelBufferGetBaseAddressOfPlane(p->pbuf, i)
++                          : CVPixelBufferGetBaseAddress(p->pbuf),
++            .stride = planar ? CVPixelBufferGetBytesPerRowOfPlane(p->pbuf, i)
++                             : CVPixelBufferGetBytesPerRow(p->pbuf),
++        };
++        if (!mapper->tex[i] || !upload.src ||
++            !mapper->ra->fns->tex_upload(mapper->ra, &upload)) {
++            MP_ERR(mapper, "Unable to upload simulator VideoToolbox plane %d\n", i);
++            result = -1;
++            break;
++        }
++    }
++    CVPixelBufferUnlockBaseAddress(p->pbuf, kCVPixelBufferLock_ReadOnly);
++    return result;
++#endif
+ 
+     for (int i = 0; i < p->desc.num_planes; i++) {
+         const struct ra_format *fmt = p->desc.planes[i];
+--- a/filters/f_decoder_wrapper.c
++++ b/filters/f_decoder_wrapper.c
+@@ -1076,6 +1076,9 @@
+ 
+     feed_packet(p);
+     read_frame(p);
++    // Fallback can clear the borrowed hardware-decoder name during this step.
++    // Refresh for non-threaded decoding too, before the graph yields frames.
++    update_cached_values(p);
+ }
+ 
+ static void *dec_thread(void *ptr)

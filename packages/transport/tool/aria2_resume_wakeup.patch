@@ -1,0 +1,13 @@
+--- a/src/aria2api.cc
++++ b/src/aria2api.cc
+@@ -420,6 +420,10 @@
+   else {
+     group->setPauseRequested(false);
+     e->getRequestGroupMan()->requestQueueCheck();
++    // A library caller has no RPC socket event to wake the queue. Match
++    // pauseDownload's immediate action handling when resuming a job.
++    e->setRefreshInterval(std::chrono::milliseconds(0));
++    e->setNoWait(true);
+   }
+   return 0;
+ }

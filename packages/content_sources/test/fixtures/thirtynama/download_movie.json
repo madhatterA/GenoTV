@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "result": {
+    "download": [
+      {
+        "dl": "https://media.example/SIGNATURE/Movie_2160p.mkv",
+        "resolution": "2160p",
+        "quality": "BluRay",
+        "encoder": "x265",
+        "tags": "BluRay",
+        "size": "2 GB"
+      }
+    ]
+  }
+}

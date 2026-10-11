@@ -1,0 +1,36 @@
+name: transport
+description: aria2 HTTP streaming, libtorrent, and the local range server.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.13.3
+  flutter: '>=3.3.0'
+
+dependencies:
+  ffi: ^2.1.3
+  flutter:
+    sdk: flutter
+  core:
+    path: ../core
+  contracts:
+    path: ../contracts
+
+dev_dependencies:
+  crypto: ^3.0.6
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.genotv.transport
+        pluginClass: TransportPlugin
+      ios:
+        pluginClass: TransportPlugin
+      macos:
+        pluginClass: TransportPlugin
+      windows:
+        pluginClass: TransportPluginCApi

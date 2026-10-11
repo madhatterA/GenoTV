@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.24)
+project(transport_native_regressions LANGUAGES C CXX)
+find_package(LibtorrentRasterbar 2.1.1 EXACT CONFIG REQUIRED)
+add_executable(lt_cached_read_test lt_cached_read_test.cpp ../../src/lt_shim/fs_shim.c)
+target_compile_features(lt_cached_read_test PRIVATE cxx_std_17)
+target_link_libraries(lt_cached_read_test PRIVATE LibtorrentRasterbar::torrent-rasterbar)

@@ -1,0 +1,14 @@
+group = 'com.genotv.cast'
+version = '1.0-SNAPSHOT'
+
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:9.1.0' }
+}
+apply plugin: 'com.android.library'
+
+android {
+    namespace = 'com.genotv.cast'
+    compileSdk = 36
+    defaultConfig { minSdk = 24 }
+}

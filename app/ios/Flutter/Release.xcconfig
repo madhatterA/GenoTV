@@ -1,0 +1,9 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+#include "Generated.xcconfig"
+
+// Generated.xcconfig sets EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386 and is
+// included after the Pods xcconfig, clobbering the x86_64 exclusion the
+// transport pod requires. A later assignment wins over both includes. Without
+// this, Runner builds an x86_64 simulator slice, the arm64-only transport pod
+// is dropped from Xcode's dependency graph, and @import transport fails.
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = i386 x86_64

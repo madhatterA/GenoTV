@@ -1,0 +1,56 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+*.iml
+.idea/
+.metadata
+
+# Generated
+*.g.dart.bak
+
+# Platform
+.gradle/
+local.properties
+Pods/
+*.xcworkspace/xcuserdata/
+DerivedData/
+
+# OS
+.DS_Store
+
+# Repo-local
+__pycache__/
+
+# Vendored external tool, has its own repo
+claudemem/
+
+# Stray CMake probe output at repo root
+/CMakeFiles/
+
+# Vendored upstream reference clone (276M, has its own .git).
+# Reproduce with:
+#   git clone https://github.com/l984-451/Rivulet.git "research/Rivulet"
+research/Rivulet/
+
+# Local reference clones (own git repos)
+research/Moonfin-Core/
+research/PlayTorrioV3/
+research/VortX/
+research/libera/
+research/torrserver_flutter/
+
+# Secrets — never commit
+.tmdb-token
+.omdb-api
+
+# graphify code graph (local, rebuild with: graphify update . --no-cluster)
+graphify-out/
+
+# Owner-approved local media fixtures and generated cast native artifacts
+/test_media/
+/packages/cast/native/ffmpeg/
+
+# research/ ignored for now (owner 2026-10-10)
+research/

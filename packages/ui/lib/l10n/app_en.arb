@@ -1,0 +1,1610 @@
+{
+  "@@locale": "en",
+  "app_title": "Video Player",
+  "settings_language_title": "Language",
+  "settings_language_system": "System default",
+  "settings_language_en": "English",
+  "settings_language_fa": "فارسی",
+  "common_retry": "Retry",
+  "common_cancel": "Cancel",
+  "common_close": "Close",
+  "common_back": "Back",
+  "common_play": "Play",
+  "common_resume": "Resume",
+  "common_seeAll": "See all",
+  "common_loading": "Loading…",
+  "common_details": "Details",
+  "common_on": "On",
+  "common_off": "Off",
+  "common_auto": "Auto",
+  "common_anyYear": "Any year",
+  "common_apply": "Apply",
+  "common_clear": "Clear",
+  "common_clearAll": "Clear all",
+  "common_default": "Default",
+  "common_genres": "Genres",
+  "common_less": "Less",
+  "common_more": "More",
+  "common_movies": "Movies",
+  "common_pause": "Pause",
+  "common_playLink": "Play link",
+  "common_search": "Search",
+  "common_tv": "TV",
+  "common_tvShows": "TV shows",
+  "common_watched": "Watched",
+  "common_liked": "Liked",
+  "common_home": "Home",
+  "common_settings": "Settings",
+  "artwork_unavailable": "Artwork unavailable",
+  "cast_airPlay": "AirPlay",
+  "cast_checking": "Checking…",
+  "cast_looking": "Looking for devices…",
+  "cast_notCompatible": "This device can't play this file",
+  "cast_stop": "Stop casting",
+  "cast_title": "Cast",
+  "detail_about": "About",
+  "detail_cast": "Cast",
+  "detail_info": "Info",
+  "detail_kindMovie": "Movie",
+  "detail_kindTvShow": "TV Show",
+  "detail_like": "Like",
+  "detail_moreLikeThis": "More like this",
+  "detail_trailer": "Trailer",
+  "detail_trailers": "Trailers",
+  "detail_unlike": "Remove from Liked",
+  "detail_watchlist": "Watchlist",
+  "episode_details": "Episode details",
+  "filter_allCountries": "All countries",
+  "filter_country": "Country",
+  "filter_sort": "Sort",
+  "genres_noMatch": "No genres match",
+  "genres_search": "Search genres",
+  "grid_loadFailed": "Could not load titles",
+  "library_empty": "Your library is empty",
+  "library_noMatch": "No titles match this filter",
+  "library_openFeatured": "Open featured title",
+  "library_refresh": "Refresh library",
+  "library_searchTitle": "Search title",
+  "library_series": "Series",
+  "menu_mediaOptions": "Media options",
+  "person_knownFor": "Known for",
+  "playlink_clearConfirm": "Clear all recent links?",
+  "playlink_hint": "Torrent / https link",
+  "playlink_import": "Import .torrent",
+  "playlink_insert": "Insert link",
+  "playlink_recent": "Recent",
+  "playlink_recentEmpty": "Links you play will appear here.",
+  "play_finding": "Finding sources…",
+  "play_infoFileName": "File name",
+  "play_infoRelease": "Release",
+  "play_insertLink": "Insert link…",
+  "play_pickProvider": "Pick a provider",
+  "play_refresh": "Refresh",
+  "play_sortSeeds": "Seeds",
+  "play_sortSize": "Size",
+  "play_sortStreams": "Sort streams",
+  "play_torrent": "Torrent",
+  "row_scrollLeft": "Scroll left",
+  "row_scrollRight": "Scroll right",
+  "search_hint": "Search your libraries",
+  "search_noResults": "No results",
+  "search_noResultsBody": "Check the spelling or try another title.",
+  "search_promptTitle": "Search movies and shows",
+  "search_promptBody": "Type a title, a person or a year.",
+  "search_recent": "Recent searches",
+  "sort_popularity": "Popularity",
+  "sort_rating": "Rating",
+  "sort_releaseDate": "Release date",
+  "sort_titleAz": "Title A–Z",
+  "state_emptyTitle": "Nothing here yet",
+  "year_from": "From",
+  "year_pastYear": "Past year",
+  "year_range": "Range",
+  "year_single": "Single",
+  "year_singleOrRange": "Single year or range",
+  "year_title": "Year",
+  "year_to": "To",
+  "failure_transportHttpNoRangeSupport": "This HTTP source does not support seeking.",
+  "failure_transportHttpValidatorChanged": "The HTTP file changed while it was loading.",
+  "failure_transportHttpUnreachable": "The HTTP source could not be reached.",
+  "failure_transportRangeUnsatisfiable": "The requested media range is unavailable.",
+  "failure_transportTorrentNoMetadata": "Torrent metadata did not arrive in time.",
+  "failure_transportTorrentNoPeers": "This torrent has no available peers.",
+  "failure_transportTorrentStalled": "The torrent stopped delivering the requested media.",
+  "failure_transportTorrentFileError": "The torrent could not access its media files.",
+  "failure_transportTorrentFileNotFound": "The requested file is not in the torrent.",
+  "failure_transportEngineUnavailable": "The streaming engine is unavailable on this device.",
+  "failure_transportLocalNotFound": "The local file could not be found.",
+  "failure_transportLocalNotReadable": "The local file could not be read.",
+  "failure_transportLocalEmpty": "The local file is empty.",
+  "failure_transportLocalUnsupportedUri": "This local source URI is not supported.",
+  "failure_playbackOpenFailed": "The media could not be opened.",
+  "failure_playbackDecodeFailed": "The media could not be decoded.",
+  "failure_playbackEngineCrashed": "The playback engine stopped unexpectedly.",
+  "failure_playbackSourceUnreachable": "The playback source became unreachable.",
+  "failure_playbackUnsupportedCodec": "This media uses an unsupported codec.",
+  "failure_playbackTrackSelectionFailed": "The requested playback track could not be selected.",
+  "failure_playbackSubtitleLoadFailed": "The external subtitle could not be loaded.",
+  "failure_platformUnsupported": "This operation is not supported on this platform.",
+  "failure_platformPermissionDenied": "The platform denied the required permission.",
+  "failure_platformDisplaySwitchFailed": "The display mode could not be changed.",
+  "failure_platformAudioDeviceLost": "The selected audio device is no longer available.",
+  "failure_platformProbeFailed": "Platform capabilities could not be determined.",
+  "failure_appUnexpected": "The application encountered an unexpected failure.",
+  "failure_appCancelled": "The operation was cancelled before completion.",
+  "badge_progress": "Progress {percent} percent",
+  "badge_unwatchedEpisodes": "{count, plural, other{{number} unwatched episodes}}",
+  "cast_castingTo": "Casting to {device}",
+  "detail_browse": "Browse {label}",
+  "detail_resumeAt": "Resume {time}",
+  "episode_title": "E{number} · {title}",
+  "episode_minutes": "{minutes} min",
+  "filter_sortBy": "Sort: {sort}",
+  "filter_yearRange": "{from} – {to}",
+  "home_featuredItem": "Featured item {index} of {count}",
+  "playlink_remove": "Remove {label}",
+  "play_seeders": "{count, plural, other{{number} seeders}}",
+  "rating_imdb": "IMDb rating {score}",
+  "rating_tmdb": "TMDB rating {score}",
+  "rating_tomatoFresh": "Rotten Tomatoes fresh {score}",
+  "rating_tomatoRotten": "Rotten Tomatoes rotten {score}",
+  "shelf_removeContinue": "Remove from Continue Watching",
+  "year_lastYears": "{count, plural, other{Last {number} years}}",
+  "failure_unknown": "Something went wrong while processing this request ({code}).",
+  "@app_title": {
+    "description": "App UI: title; displayed in app screens."
+  },
+  "@settings_language_title": {
+    "description": "Settings UI: language_title; displayed in settings screens."
+  },
+  "@settings_language_system": {
+    "description": "Settings UI: language_system; displayed in settings screens."
+  },
+  "@settings_language_en": {
+    "description": "Settings UI: language_en; displayed in settings screens."
+  },
+  "@settings_language_fa": {
+    "description": "Settings UI: language_fa; displayed in settings screens."
+  },
+  "@common_retry": {
+    "description": "Common UI: retry; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_cancel": {
+    "description": "Common UI: cancel; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_close": {
+    "description": "Common UI: close; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_back": {
+    "description": "Common UI: back; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_play": {
+    "description": "Common UI: play; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_resume": {
+    "description": "Common UI: resume; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_seeAll": {
+    "description": "Common UI: seeAll; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_loading": {
+    "description": "Common UI: loading; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_details": {
+    "description": "Common UI: details; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_on": {
+    "description": "Common UI: on; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_off": {
+    "description": "Common UI: off; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_auto": {
+    "description": "Common UI: auto; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_anyYear": {
+    "description": "Common UI: anyYear; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_apply": {
+    "description": "Common UI: apply; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_clear": {
+    "description": "Common UI: clear; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_clearAll": {
+    "description": "Common UI: clearAll; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_default": {
+    "description": "Common UI: default; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_genres": {
+    "description": "Common UI: genres; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_less": {
+    "description": "Common UI: less; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_more": {
+    "description": "Common UI: more; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_movies": {
+    "description": "Common UI: movies; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_pause": {
+    "description": "Common UI: pause; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_playLink": {
+    "description": "Common UI: playLink; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_search": {
+    "description": "Common UI: search; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_tv": {
+    "description": "Common UI: tv; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_tvShows": {
+    "description": "Common UI: tvShows; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_watched": {
+    "description": "Common UI: watched; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_liked": {
+    "description": "Common UI: liked; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_home": {
+    "description": "Common UI: home; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_settings": {
+    "description": "Common UI: settings; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@artwork_unavailable": {
+    "description": "Artwork UI: unavailable; displayed in artwork screens."
+  },
+  "@cast_airPlay": {
+    "description": "Cast UI: airPlay; displayed in cast screens."
+  },
+  "@cast_checking": {
+    "description": "Cast UI: checking; displayed in cast screens."
+  },
+  "@cast_looking": {
+    "description": "Cast UI: looking; displayed in cast screens."
+  },
+  "@cast_notCompatible": {
+    "description": "Cast UI: notCompatible; displayed in cast screens."
+  },
+  "@cast_stop": {
+    "description": "Cast UI: stop; displayed in cast screens."
+  },
+  "@cast_title": {
+    "description": "Cast UI: title; displayed in cast screens."
+  },
+  "@detail_about": {
+    "description": "Detail UI: about; displayed in detail screens."
+  },
+  "@detail_cast": {
+    "description": "Detail UI: cast; displayed in detail screens."
+  },
+  "@detail_info": {
+    "description": "Detail UI: info; displayed in detail screens."
+  },
+  "@detail_kindMovie": {
+    "description": "Detail UI: kindMovie; displayed in detail screens."
+  },
+  "@detail_kindTvShow": {
+    "description": "Detail UI: kindTvShow; displayed in detail screens."
+  },
+  "@detail_like": {
+    "description": "Detail UI: like; displayed in detail screens."
+  },
+  "@detail_moreLikeThis": {
+    "description": "Detail UI: moreLikeThis; displayed in detail screens."
+  },
+  "@detail_trailer": {
+    "description": "Detail UI: trailer; displayed in detail screens."
+  },
+  "@detail_trailers": {
+    "description": "Detail UI: trailers; displayed in detail screens."
+  },
+  "@detail_unlike": {
+    "description": "Detail UI: unlike; displayed in detail screens."
+  },
+  "@detail_watchlist": {
+    "description": "Detail UI: watchlist; displayed in detail screens."
+  },
+  "@episode_details": {
+    "description": "Episode UI: details; displayed in series episode rows."
+  },
+  "@filter_allCountries": {
+    "description": "Filter UI: allCountries; displayed in filter screens."
+  },
+  "@filter_country": {
+    "description": "Filter UI: country; displayed in filter screens."
+  },
+  "@filter_sort": {
+    "description": "Filter UI: sort; displayed in filter screens."
+  },
+  "@genres_noMatch": {
+    "description": "Genres UI: noMatch; displayed in genres screens."
+  },
+  "@genres_search": {
+    "description": "Genres UI: search; displayed in genres screens."
+  },
+  "@grid_loadFailed": {
+    "description": "Grid UI: loadFailed; displayed in grid screens."
+  },
+  "@library_empty": {
+    "description": "Library UI: empty; displayed in library screens."
+  },
+  "@library_noMatch": {
+    "description": "Library UI: noMatch; displayed in library screens."
+  },
+  "@library_openFeatured": {
+    "description": "Library UI: openFeatured; displayed in library screens."
+  },
+  "@library_refresh": {
+    "description": "Library UI: refresh; displayed in library screens."
+  },
+  "@library_searchTitle": {
+    "description": "Library UI: searchTitle; displayed in library screens."
+  },
+  "@library_series": {
+    "description": "Library UI: series; displayed in library screens."
+  },
+  "@menu_mediaOptions": {
+    "description": "Menu UI: mediaOptions; displayed in menu screens."
+  },
+  "@person_knownFor": {
+    "description": "Person UI: knownFor; displayed in person screens."
+  },
+  "@playlink_clearConfirm": {
+    "description": "Playlink UI: clearConfirm; displayed in playLink screens."
+  },
+  "@playlink_hint": {
+    "description": "Playlink UI: hint; displayed in playLink screens. LTR: URLs, file names and diagnostic codes remain LTR."
+  },
+  "@playlink_import": {
+    "description": "Playlink UI: import; displayed in playLink screens. LTR: URLs, file names and diagnostic codes remain LTR."
+  },
+  "@playlink_insert": {
+    "description": "Playlink UI: insert; displayed in playLink screens."
+  },
+  "@playlink_recent": {
+    "description": "Playlink UI: recent; displayed in playLink screens."
+  },
+  "@playlink_recentEmpty": {
+    "description": "Playlink UI: recentEmpty; displayed in playLink screens."
+  },
+  "@play_finding": {
+    "description": "Play UI: finding; displayed in play screens."
+  },
+  "@play_infoFileName": {
+    "description": "Play UI: infoFileName; displayed in play screens. LTR: URLs, file names and diagnostic codes remain LTR."
+  },
+  "@play_infoRelease": {
+    "description": "Play UI: infoRelease; displayed in play screens. LTR: URLs, file names and diagnostic codes remain LTR."
+  },
+  "@play_insertLink": {
+    "description": "Play UI: insertLink; displayed in play screens."
+  },
+  "@play_pickProvider": {
+    "description": "Play UI: pickProvider; displayed in play screens."
+  },
+  "@play_refresh": {
+    "description": "Play UI: refresh; displayed in play screens."
+  },
+  "@play_sortSeeds": {
+    "description": "Play UI: sortSeeds; displayed in play screens."
+  },
+  "@play_sortSize": {
+    "description": "Play UI: sortSize; displayed in play screens."
+  },
+  "@play_sortStreams": {
+    "description": "Play UI: sortStreams; displayed in play screens."
+  },
+  "@play_torrent": {
+    "description": "Play UI: torrent; displayed in play screens."
+  },
+  "@row_scrollLeft": {
+    "description": "Row UI: scrollLeft; displayed in row screens."
+  },
+  "@row_scrollRight": {
+    "description": "Row UI: scrollRight; displayed in row screens."
+  },
+  "@search_hint": {
+    "description": "Search UI: hint; displayed in search screens."
+  },
+  "@search_noResults": {
+    "description": "Search UI: noResults; displayed in search screens."
+  },
+  "@search_noResultsBody": {
+    "description": "Search UI: noResultsBody; displayed in search screens."
+  },
+  "@search_promptTitle": {
+    "description": "Search UI: promptTitle; displayed in search screens."
+  },
+  "@search_promptBody": {
+    "description": "Search UI: promptBody; displayed in search screens."
+  },
+  "@search_recent": {
+    "description": "Search UI: recent; displayed in search screens."
+  },
+  "@sort_popularity": {
+    "description": "Sort UI: popularity; displayed in sort screens."
+  },
+  "@sort_rating": {
+    "description": "Sort UI: rating; displayed in sort screens."
+  },
+  "@sort_releaseDate": {
+    "description": "Sort UI: releaseDate; displayed in sort screens."
+  },
+  "@sort_titleAz": {
+    "description": "Sort UI: titleAz; displayed in sort screens."
+  },
+  "@state_emptyTitle": {
+    "description": "State UI: emptyTitle; displayed in state screens."
+  },
+  "@year_from": {
+    "description": "Year UI: from; displayed in browse year picker."
+  },
+  "@year_pastYear": {
+    "description": "Year UI: pastYear; displayed in browse year picker."
+  },
+  "@year_range": {
+    "description": "Year UI: range; displayed in browse year picker."
+  },
+  "@year_single": {
+    "description": "Year UI: single; displayed in browse year picker."
+  },
+  "@year_singleOrRange": {
+    "description": "Year UI: singleOrRange; displayed in browse year picker."
+  },
+  "@year_title": {
+    "description": "Year UI: title; displayed in browse year picker."
+  },
+  "@year_to": {
+    "description": "Year UI: to; displayed in browse year picker."
+  },
+  "@failure_transportHttpNoRangeSupport": {
+    "description": "Failure UI: transportHttpNoRangeSupport; displayed in error states."
+  },
+  "@failure_transportHttpValidatorChanged": {
+    "description": "Failure UI: transportHttpValidatorChanged; displayed in error states."
+  },
+  "@failure_transportHttpUnreachable": {
+    "description": "Failure UI: transportHttpUnreachable; displayed in error states."
+  },
+  "@failure_transportRangeUnsatisfiable": {
+    "description": "Failure UI: transportRangeUnsatisfiable; displayed in error states."
+  },
+  "@failure_transportTorrentNoMetadata": {
+    "description": "Failure UI: transportTorrentNoMetadata; displayed in error states."
+  },
+  "@failure_transportTorrentNoPeers": {
+    "description": "Failure UI: transportTorrentNoPeers; displayed in error states."
+  },
+  "@failure_transportTorrentStalled": {
+    "description": "Failure UI: transportTorrentStalled; displayed in error states."
+  },
+  "@failure_transportTorrentFileError": {
+    "description": "Failure UI: transportTorrentFileError; displayed in error states."
+  },
+  "@failure_transportTorrentFileNotFound": {
+    "description": "Failure UI: transportTorrentFileNotFound; displayed in error states."
+  },
+  "@failure_transportEngineUnavailable": {
+    "description": "Failure UI: transportEngineUnavailable; displayed in error states."
+  },
+  "@failure_transportLocalNotFound": {
+    "description": "Failure UI: transportLocalNotFound; displayed in error states."
+  },
+  "@failure_transportLocalNotReadable": {
+    "description": "Failure UI: transportLocalNotReadable; displayed in error states."
+  },
+  "@failure_transportLocalEmpty": {
+    "description": "Failure UI: transportLocalEmpty; displayed in error states."
+  },
+  "@failure_transportLocalUnsupportedUri": {
+    "description": "Failure UI: transportLocalUnsupportedUri; displayed in error states."
+  },
+  "@failure_playbackOpenFailed": {
+    "description": "Failure UI: playbackOpenFailed; displayed in error states."
+  },
+  "@failure_playbackDecodeFailed": {
+    "description": "Failure UI: playbackDecodeFailed; displayed in error states."
+  },
+  "@failure_playbackEngineCrashed": {
+    "description": "Failure UI: playbackEngineCrashed; displayed in error states."
+  },
+  "@failure_playbackSourceUnreachable": {
+    "description": "Failure UI: playbackSourceUnreachable; displayed in error states."
+  },
+  "@failure_playbackUnsupportedCodec": {
+    "description": "Failure UI: playbackUnsupportedCodec; displayed in error states."
+  },
+  "@failure_playbackTrackSelectionFailed": {
+    "description": "Failure UI: playbackTrackSelectionFailed; displayed in error states."
+  },
+  "@failure_playbackSubtitleLoadFailed": {
+    "description": "Failure UI: playbackSubtitleLoadFailed; displayed in error states."
+  },
+  "@failure_platformUnsupported": {
+    "description": "Failure UI: platformUnsupported; displayed in error states."
+  },
+  "@failure_platformPermissionDenied": {
+    "description": "Failure UI: platformPermissionDenied; displayed in error states."
+  },
+  "@failure_platformDisplaySwitchFailed": {
+    "description": "Failure UI: platformDisplaySwitchFailed; displayed in error states."
+  },
+  "@failure_platformAudioDeviceLost": {
+    "description": "Failure UI: platformAudioDeviceLost; displayed in error states."
+  },
+  "@failure_platformProbeFailed": {
+    "description": "Failure UI: platformProbeFailed; displayed in error states."
+  },
+  "@failure_appUnexpected": {
+    "description": "Failure UI: appUnexpected; displayed in error states."
+  },
+  "@failure_appCancelled": {
+    "description": "Failure UI: appCancelled; displayed in error states."
+  },
+  "@badge_progress": {
+    "description": "Badge UI: progress; displayed in media progress badges.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "@badge_unwatchedEpisodes": {
+    "description": "Badge UI: unwatchedEpisodes; displayed in media progress badges.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "@cast_castingTo": {
+    "description": "Cast UI: castingTo; displayed in cast screens.",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "@detail_browse": {
+    "description": "Detail UI: browse; displayed in detail screens.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "@detail_resumeAt": {
+    "description": "Detail UI: resumeAt; displayed in detail screens.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@episode_title": {
+    "description": "Episode UI: title; displayed in series episode rows.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "@episode_minutes": {
+    "description": "Episode UI: minutes; displayed in series episode rows.",
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "@filter_sortBy": {
+    "description": "Filter UI: sortBy; displayed in filter screens.",
+    "placeholders": {
+      "sort": {
+        "type": "String"
+      }
+    }
+  },
+  "@filter_yearRange": {
+    "description": "Filter UI: yearRange; displayed in filter screens.",
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "@home_featuredItem": {
+    "description": "Home UI: featuredItem; displayed in home screens.",
+    "placeholders": {
+      "index": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "@playlink_remove": {
+    "description": "Playlink UI: remove; displayed in playLink screens.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "@play_seeders": {
+    "description": "Play UI: seeders; displayed in play screens.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "@rating_imdb": {
+    "description": "Rating UI: imdb; displayed in detail rating badges.",
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "@rating_tmdb": {
+    "description": "Rating UI: tmdb; displayed in detail rating badges.",
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "@rating_tomatoFresh": {
+    "description": "Rating UI: tomatoFresh; displayed in detail rating badges.",
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "@rating_tomatoRotten": {
+    "description": "Rating UI: tomatoRotten; displayed in detail rating badges.",
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "@shelf_removeContinue": {
+    "description": "Continue Watching row context menu removal action."
+  },
+  "@year_lastYears": {
+    "description": "Year UI: lastYears; displayed in browse year picker.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "@failure_unknown": {
+    "description": "Failure UI: unknown; displayed in error states. LTR: URLs, file names and diagnostic codes remain LTR.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "common_dismiss": "Dismiss",
+  "@common_dismiss": {
+    "description": "common UI: dismiss, shown in the corresponding shell, screen or state."
+  },
+  "state_errorTitle": "Unable to continue",
+  "@state_errorTitle": {
+    "description": "state UI: errorTitle, shown in the corresponding shell, screen or state."
+  },
+  "state_hideCode": "Hide error code",
+  "@state_hideCode": {
+    "description": "state UI: hideCode, shown in the corresponding shell, screen or state."
+  },
+  "state_showCode": "Show error code",
+  "@state_showCode": {
+    "description": "state UI: showCode, shown in the corresponding shell, screen or state."
+  },
+  "state_offline": "You're offline",
+  "@state_offline": {
+    "description": "state UI: offline, shown in the corresponding shell, screen or state."
+  },
+  "state_offlineBody": "Check your connection. We'll retry automatically.",
+  "@state_offlineBody": {
+    "description": "state UI: offlineBody, shown in the corresponding shell, screen or state."
+  },
+  "state_reconnecting": "Reconnecting…",
+  "@state_reconnecting": {
+    "description": "state UI: reconnecting, shown in the corresponding shell, screen or state."
+  },
+  "state_retryFailed": "Still offline. Try again.",
+  "@state_retryFailed": {
+    "description": "state UI: retryFailed, shown in the corresponding shell, screen or state."
+  },
+  "home_trendingMovies": "Trending Movies",
+  "@home_trendingMovies": {
+    "description": "home UI: trendingMovies, shown in the corresponding shell, screen or state."
+  },
+  "home_trendingShows": "Trending Shows",
+  "@home_trendingShows": {
+    "description": "home UI: trendingShows, shown in the corresponding shell, screen or state."
+  },
+  "liked_emptyTitle": "No liked titles yet",
+  "@liked_emptyTitle": {
+    "description": "liked UI: emptyTitle, shown in the corresponding shell, screen or state."
+  },
+  "liked_emptyBody": "Titles you like appear here.",
+  "@liked_emptyBody": {
+    "description": "liked UI: emptyBody, shown in the corresponding shell, screen or state."
+  },
+  "liked_browseMovies": "Browse movies",
+  "@liked_browseMovies": {
+    "description": "liked UI: browseMovies, shown in the corresponding shell, screen or state."
+  },
+  "app_resolvingCache": "resolving cache path…",
+  "@app_resolvingCache": {
+    "description": "app UI: resolvingCache, shown in the corresponding shell, screen or state."
+  },
+  "state_loading": "Loading",
+  "@state_loading": {
+    "description": "state UI: loading, shown in the corresponding shell, screen or state."
+  },
+  "playlink_badMagnet": "Not a playable link: bad magnet link.",
+  "@playlink_badMagnet": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes."
+  },
+  "playlink_invalid": "Not a playable link.",
+  "@playlink_invalid": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes."
+  },
+  "playlink_fileMissing": "Torrent file not found: {path}",
+  "@playlink_fileMissing": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes.",
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "playlink_unreachable": "Could not reach {host}.",
+  "@playlink_unreachable": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes.",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "playlink_httpStatus": "The torrent link answered {status}.",
+  "@playlink_httpStatus": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes.",
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "playlink_tooLarge": "The torrent file is larger than 10 MB.",
+  "@playlink_tooLarge": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes."
+  },
+  "playlink_notTorrent": "The link did not return a torrent file.",
+  "@playlink_notTorrent": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes."
+  },
+  "playlink_downloadFailed": "Could not download the torrent from {host}.",
+  "@playlink_downloadFailed": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes.",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "play_providerUnavailable": "This provider is unavailable right now.",
+  "@play_providerUnavailable": {
+    "description": "Play link validation or source-provider error shown to the viewer. LTR: paths, host names and HTTP status codes."
+  },
+  "cast_failedToCast": "Couldn't cast to {device}",
+  "@cast_failedToCast": {
+    "description": "Error below cast target rows when connecting fails.",
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_picker": "Subtitles",
+  "@subtitle_picker": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics."
+  },
+  "subtitle_invalidZip": "Not a valid zip file.",
+  "@subtitle_invalidZip": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics."
+  },
+  "subtitle_damagedDirectory": "Zip directory is damaged.",
+  "@subtitle_damagedDirectory": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics."
+  },
+  "subtitle_unsafeName": "Unsafe file name in zip: {name}",
+  "@subtitle_unsafeName": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_encrypted": "Zip entry is encrypted: {name}",
+  "@subtitle_encrypted": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_entryTooLarge": "Subtitle in zip is too large: {name}",
+  "@subtitle_entryTooLarge": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_unsupportedCompression": "Unsupported zip compression: {name}",
+  "@subtitle_unsupportedCompression": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_damagedEntry": "Zip entry is damaged: {name}",
+  "@subtitle_damagedEntry": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_damagedZip": "Zip file is damaged.",
+  "@subtitle_damagedZip": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics."
+  },
+  "subtitle_emptyZip": "No subtitle files found in the zip.",
+  "@subtitle_emptyZip": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics."
+  },
+  "subtitle_unsupportedType": "Unsupported file type: {name}",
+  "@subtitle_unsupportedType": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_fileTooLarge": "File is too large: {name}",
+  "@subtitle_fileTooLarge": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "subtitle_readFailed": "Could not read {name}: {error}",
+  "@subtitle_readFailed": {
+    "description": "App subtitle-file import dialog or validation error, shown by the importing widget. LTR: file names and raw filesystem diagnostics.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_playback_resume_label": "Resume playback",
+  "settings_playback_autoPlayNext_label": "Auto-play next episode",
+  "settings_playback_rememberPosition_label": "Remember position",
+  "settings_playback_speed_label": "Playback speed",
+  "settings_playback_syncToDisplay_label": "Sync to display",
+  "settings_playback_avSyncCorrection_label": "A/V sync correction",
+  "settings_playback_cachePreset_label": "Cache preset",
+  "settings_playback_demuxerCacheSize_label": "Demuxer cache size",
+  "settings_playback_readAhead_label": "Read ahead",
+  "settings_playback_networkTimeout_label": "Network timeout",
+  "settings_video_hwdec_label": "Hardware decoding",
+  "settings_video_hdr_label": "HDR handling",
+  "settings_video_matchFrameRate_label": "Match frame rate",
+  "settings_video_matchResolution_label": "Match resolution",
+  "settings_video_aspectRatio_label": "Aspect ratio",
+  "settings_video_decoder_label": "Video decoder",
+  "settings_video_scalingQuality_label": "Scaling quality",
+  "settings_video_toneMapping_label": "HDR to SDR tone mapping",
+  "settings_video_pixelFormat_label": "Pixel format",
+  "settings_video_bitDepth_label": "Bit depth",
+  "settings_video_chroma_label": "Chroma",
+  "settings_video_dithering_label": "Dithering",
+  "settings_video_interpolation_label": "Interpolation",
+  "settings_video_debanding_label": "Debanding",
+  "settings_video_gpuRendering_label": "GPU rendering options",
+  "settings_video_displayModeWhitelist_label": "Display mode whitelist",
+  "settings_audio_outputDevice_label": "Output device",
+  "settings_audio_speakerLayout_label": "Speaker layout",
+  "settings_audio_normalizeVolume_label": "Normalize volume",
+  "settings_audio_outputMode_label": "Output mode",
+  "settings_audio_passthrough_label": "Passthrough",
+  "settings_audio_passthroughDevice_label": "Passthrough device",
+  "settings_audio_receiver_dolbyDigital_label": "Receiver supports Dolby Digital",
+  "settings_audio_receiver_ddPlus_label": "Receiver supports Dolby Digital Plus",
+  "settings_audio_receiver_dts_label": "Receiver supports DTS",
+  "settings_audio_receiver_trueHd_label": "Receiver supports Dolby TrueHD",
+  "settings_audio_receiver_dtsHd_label": "Receiver supports DTS-HD",
+  "settings_audio_receiver_atmos_label": "Receiver supports Dolby Atmos",
+  "settings_audio_receiver_dtsX_label": "Receiver supports DTS:X",
+  "settings_audio_multichannelLpcm_label": "Multichannel LPCM",
+  "settings_audio_ac3Transcode_label": "AC3 transcoding",
+  "settings_audio_stereoUpmix_label": "Stereo upmix",
+  "settings_audio_downmixDialogue_label": "Downmix dialogue",
+  "settings_audio_resamplingQuality_label": "Resampling quality",
+  "settings_audio_sampleRate_label": "Sample rate",
+  "settings_audio_exclusiveMode_label": "Exclusive mode",
+  "settings_audio_deviceKeepAlive_label": "Device keep alive",
+  "settings_subtitles_autoEnable_label": "Auto enable",
+  "settings_subtitles_hearingImpaired_label": "Hearing impaired",
+  "settings_subtitles_font_label": "Font",
+  "settings_subtitles_position_label": "Position",
+  "settings_subtitles_encoding_label": "Encoding",
+  "settings_subtitles_border_label": "Border",
+  "settings_subtitles_shadow_label": "Shadow",
+  "settings_subtitles_background_label": "Background",
+  "settings_subtitles_delay_label": "Delay",
+  "settings_subtitles_forcedBehaviour_label": "Forced behaviour",
+  "settings_subtitles_assStyling_label": "ASS/SSA styling",
+  "settings_display_monitor_label": "Monitor",
+  "settings_display_fullscreenMode_label": "Fullscreen mode",
+  "settings_display_refreshRate_label": "Refresh rate",
+  "settings_display_hdrOutputMode_label": "Hdr output mode",
+  "settings_display_calibration_label": "Calibration",
+  "settings_streaming_quality_label": "Quality",
+  "settings_streaming_protocol_label": "Protocol",
+  "settings_streaming_cacheSizeLimit_label": "Cache size limit",
+  "settings_streaming_bufferSize_label": "Buffer size",
+  "settings_streaming_prebuffer_label": "Prebuffer",
+  "settings_streaming_maxHttpConnections_label": "Max HTTP connections",
+  "settings_streaming_connectionTimeout_label": "Connection timeout",
+  "settings_streaming_retryCount_label": "Retry count",
+  "settings_streaming_proxy_label": "Proxy",
+  "settings_streaming_userAgent_label": "User agent",
+  "settings_streaming_headers_label": "Custom HTTP headers",
+  "settings_streaming_tls_label": "TLS options",
+  "settings_downloads_bandwidthLimit_label": "Bandwidth limit",
+  "settings_downloads_torrentDownLimit_label": "Torrent down limit",
+  "settings_downloads_torrentUpLimit_label": "Torrent up limit",
+  "settings_downloads_connectionLimit_label": "Connection limit",
+  "settings_downloads_peerLimit_label": "Peer limit",
+  "settings_downloads_seeding_label": "Seeding",
+  "settings_downloads_tracker_label": "Tracker",
+  "settings_downloads_dht_label": "DHT",
+  "settings_downloads_pex_label": "PEX",
+  "settings_languages_preferOriginalAudio_label": "Prefer original audio",
+  "settings_languages_preferForcedSubtitles_label": "Prefer forced subtitles",
+  "settings_languages_preferBestAudio_label": "Prefer best audio",
+  "settings_languages_trackPriority_label": "Track priority",
+  "settings_performance_mode_label": "Mode",
+  "settings_performance_gpuQuality_label": "GPU quality",
+  "settings_performance_backgroundPreload_label": "Background preload",
+  "settings_performance_decoderThreads_label": "Decoder threads",
+  "settings_advanced_diagnostics_label": "Playback diagnostics",
+  "settings_advanced_customMpvOptions_label": "Custom mpv options",
+  "settings_playback_preferredAudioLanguage_label": "Preferred audio language",
+  "settings_playback_preferredSubtitleLanguage_label": "Preferred subtitle language",
+  "settings_playback_defaultSubtitleSize_label": "Subtitle size",
+  "settings_app_language_label": "Language",
+  "settings_language_choice_en": "English",
+  "settings_language_choice_fa": "Persian",
+  "settings_language_choice_ar": "Arabic",
+  "settings_language_choice_fr": "French",
+  "settings_language_choice_de": "German",
+  "settings_language_choice_es": "Spanish",
+  "settings_language_choice_tr": "Turkish",
+  "settings_language_choice_ru": "Russian",
+  "settings_language_choice_ja": "Japanese",
+  "settings_language_choice_ko": "Korean",
+  "settings_language_choice_zh": "Chinese",
+  "settings_playback_resume_choice_Ask": "Ask",
+  "settings_playback_resume_choice_Always": "Always",
+  "settings_playback_resume_choice_Never": "Never",
+  "settings_playback_cachePreset_choice_Low_latency": "Low latency",
+  "settings_playback_cachePreset_choice_Balanced": "Balanced",
+  "settings_playback_cachePreset_choice_Large": "Large",
+  "settings_video_hdr_choice_Force_SDR": "Force SDR",
+  "settings_video_hdr_choice_Passthrough_HDR": "Passthrough HDR",
+  "settings_video_matchFrameRate_choice_On_start_stop": "On start-stop",
+  "settings_video_matchFrameRate_choice_Always": "Always",
+  "settings_video_aspectRatio_choice_Original": "Original",
+  "settings_video_aspectRatio_choice_Fit": "Fit",
+  "settings_video_aspectRatio_choice_Fill": "Fill",
+  "settings_video_aspectRatio_choice_Stretch": "Stretch",
+  "settings_video_decoder_choice_hardware": "hardware",
+  "settings_video_decoder_choice_software": "software",
+  "settings_video_scalingQuality_choice_Fast": "Fast",
+  "settings_video_scalingQuality_choice_Balanced": "Balanced",
+  "settings_video_scalingQuality_choice_High": "High",
+  "settings_video_toneMapping_choice_clip": "clip",
+  "settings_video_toneMapping_choice_mobius": "mobius",
+  "settings_video_toneMapping_choice_reinhard": "reinhard",
+  "settings_video_toneMapping_choice_hable": "hable",
+  "settings_video_toneMapping_choice_gamma": "gamma",
+  "settings_video_toneMapping_choice_linear": "linear",
+  "settings_video_toneMapping_choice_spline": "spline",
+  "settings_video_toneMapping_choice_bt_2390": "bt.2390",
+  "settings_video_toneMapping_choice_bt_2446a": "bt.2446a",
+  "settings_video_toneMapping_choice_st2094_40": "st2094-40",
+  "settings_video_toneMapping_choice_st2094_10": "st2094-10",
+  "settings_video_pixelFormat_choice_nv12": "nv12",
+  "settings_video_pixelFormat_choice_yuv420p": "yuv420p",
+  "settings_video_pixelFormat_choice_yuv420p10": "yuv420p10",
+  "settings_video_pixelFormat_choice_yuv422p": "yuv422p",
+  "settings_video_pixelFormat_choice_yuv422p10": "yuv422p10",
+  "settings_video_pixelFormat_choice_yuv444p": "yuv444p",
+  "settings_video_pixelFormat_choice_yuv444p10": "yuv444p10",
+  "settings_video_pixelFormat_choice_rgb24": "rgb24",
+  "settings_video_chroma_choice_4_2_0": "4:2:0",
+  "settings_video_chroma_choice_4_2_2": "4:2:2",
+  "settings_video_chroma_choice_4_4_4": "4:4:4",
+  "settings_video_dithering_choice_fruit": "fruit",
+  "settings_video_dithering_choice_ordered": "ordered",
+  "settings_video_gpuRendering_choice_opengl": "opengl",
+  "settings_audio_speakerLayout_choice_Stereo": "Stereo",
+  "settings_audio_outputMode_choice_Best_Match": "Best Match",
+  "settings_audio_outputMode_choice_Fixed": "Fixed",
+  "settings_audio_outputMode_choice_Optimized": "Optimized",
+  "settings_audio_resamplingQuality_choice_Fast": "Fast",
+  "settings_audio_resamplingQuality_choice_Balanced": "Balanced",
+  "settings_audio_resamplingQuality_choice_High": "High",
+  "settings_subtitles_hearingImpaired_choice_Prefer": "Prefer",
+  "settings_subtitles_hearingImpaired_choice_Avoid": "Avoid",
+  "settings_subtitles_hearingImpaired_choice_No_preference": "No preference",
+  "settings_subtitles_encoding_choice_utf_8": "utf-8",
+  "settings_subtitles_encoding_choice_cp1250": "cp1250",
+  "settings_subtitles_encoding_choice_cp1251": "cp1251",
+  "settings_subtitles_encoding_choice_cp1252": "cp1252",
+  "settings_subtitles_encoding_choice_cp1253": "cp1253",
+  "settings_subtitles_encoding_choice_cp1254": "cp1254",
+  "settings_subtitles_encoding_choice_cp1256": "cp1256",
+  "settings_subtitles_encoding_choice_iso_8859_1": "iso-8859-1",
+  "settings_subtitles_encoding_choice_iso_8859_2": "iso-8859-2",
+  "settings_subtitles_encoding_choice_shift_jis": "shift_jis",
+  "settings_subtitles_encoding_choice_gbk": "gbk",
+  "settings_subtitles_encoding_choice_big5": "big5",
+  "settings_subtitles_encoding_choice_euc_kr": "euc-kr",
+  "settings_subtitles_forcedBehaviour_choice_Always": "Always",
+  "settings_subtitles_forcedBehaviour_choice_Never": "Never",
+  "settings_subtitles_assStyling_choice_Embedded": "Embedded",
+  "settings_subtitles_assStyling_choice_Override": "Override",
+  "settings_subtitles_assStyling_choice_Hybrid": "Hybrid",
+  "settings_display_fullscreenMode_choice_Windowed": "Windowed",
+  "settings_display_fullscreenMode_choice_Fullscreen": "Fullscreen",
+  "settings_display_hdrOutputMode_choice_SDR": "SDR",
+  "settings_display_hdrOutputMode_choice_HDR10": "HDR10",
+  "settings_display_hdrOutputMode_choice_Dolby_Vision": "Dolby Vision",
+  "settings_streaming_quality_choice_Original": "Original",
+  "settings_streaming_protocol_choice_HTTP": "HTTP",
+  "settings_streaming_protocol_choice_Torrent": "Torrent",
+  "settings_streaming_tls_choice_Verify": "Verify",
+  "settings_streaming_tls_choice_Don_t_verify": "Don't verify",
+  "settings_downloads_seeding_choice_ratio": "ratio",
+  "settings_downloads_seeding_choice_duration": "duration",
+  "settings_languages_preferBestAudio_choice_Atmos": "Atmos",
+  "settings_languages_preferBestAudio_choice_lossless": "lossless",
+  "settings_languages_preferBestAudio_choice_highest_channel": "highest-channel",
+  "settings_performance_mode_choice_Battery_saver": "Battery saver",
+  "settings_performance_mode_choice_Quality": "Quality",
+  "settings_performance_gpuQuality_choice_Fast": "Fast",
+  "settings_performance_gpuQuality_choice_High": "High",
+  "settings_playback_defaultSubtitleSize_choice_Small": "Small",
+  "settings_playback_defaultSubtitleSize_choice_Normal": "Normal",
+  "settings_playback_defaultSubtitleSize_choice_Large": "Large",
+  "settings_playback_defaultSubtitleSize_choice_Extra_large": "Extra large",
+  "settings_forcedOnly": "Forced only",
+  "settings_original": "Original",
+  "settings_none": "None",
+  "settings_applyNext": "Applies on next playback",
+  "settings_restartNeeded": "Restart needed",
+  "settings_playback_title": "Playback",
+  "settings_video_title": "Video",
+  "settings_audio_title": "Audio",
+  "settings_subtitles_title": "Subtitles",
+  "settings_display_title": "Display",
+  "settings_streaming_title": "Streaming & Network",
+  "settings_downloads_title": "Downloads & Torrent",
+  "settings_languages_title": "Languages & Tracks",
+  "settings_performance_title": "Performance",
+  "settings_advanced_title": "Advanced",
+  "settings_decrease": "Decrease",
+  "settings_increase": "Increase",
+  "settings_unlimited": "Unlimited",
+  "settings_providers": "Providers",
+  "settings_advancedSettings": "Advanced settings",
+  "settings_expert": "Expert",
+  "settings_diagnostics": "Diagnostics",
+  "settings_skipForward": "Skip forward",
+  "settings_verboseLogging": "Verbose logging",
+  "settings_clearCache": "Clear cache",
+  "settings_deviceUnavailable": "Saved audio device unavailable; using Auto.",
+  "settings_noReceiverFormats": "No receiver formats selected",
+  "player_replayTen": "Replay 10 seconds",
+  "player_skipThirty": "Skip 30 seconds",
+  "player_loading": "Loading",
+  "player_chapters": "Chapters",
+  "player_advanced": "Advanced",
+  "player_copyDebug": "Copy debug info",
+  "player_castTo": "Cast to",
+  "player_close": "Close player",
+  "player_subtitles": "Subtitles",
+  "player_audio": "Audio",
+  "player_options": "Options",
+  "player_downloadInfo": "Download info",
+  "player_upNext": "Up Next",
+  "player_download": "Download",
+  "player_nextEpisode": "Next episode",
+  "player_addSubtitleFile": "Add subtitle file…",
+  "player_defaultBadge": "DEFAULT",
+  "player_tracks": "Tracks",
+  "player_video": "Video",
+  "player_upNextUpper": "UP NEXT",
+  "player_playNext": "Play Next",
+  "player_countdownCanceled": "Countdown canceled",
+  "player_resumeCountdown": "Resume countdown",
+  "player_pauseCountdown": "Pause countdown",
+  "player_cancelCountdown": "Cancel countdown",
+  "player_season": "Season",
+  "player_show": "Show",
+  "providers_noAccount": "No account needed",
+  "providers_unavailable": "Sign-in is not available in the app yet",
+  "providers_signedIn": "Signed in",
+  "providers_signedOut": "Not signed in",
+  "providers_free": "Free",
+  "providers_signOut": "Sign out",
+  "providers_signInQr": "Sign in with QR code",
+  "providers_signIn": "Sign in",
+  "providers_buy": "Buy account",
+  "providers_username": "Username or email",
+  "providers_password": "Password",
+  "providers_signingIn": "Signing in…",
+  "providers_newCode": "New code",
+  "player_infoFormat": "Format",
+  "player_infoSize": "Size",
+  "player_infoLength": "Length",
+  "player_infoBitrate": "Bitrate",
+  "player_infoVideo": "Video",
+  "player_infoAudio": "Audio",
+  "player_infoSubtitle": "Subtitle",
+  "player_infoFile": "File",
+  "player_infoStreams": "Streams",
+  "player_backToSubtitles": "Back to subtitles",
+  "player_noSubtitleSources": "No subtitle sources yet",
+  "player_size": "Size",
+  "player_position": "Position",
+  "player_aspectRatio": "Aspect ratio",
+  "player_downloadSubtitles": "Download subtitles…",
+  "player_subtitleUri": "Subtitle URI",
+  "player_subtitleUriHint": "https://… or file:///…",
+  "player_addExternalSubtitle": "Add external subtitle",
+  "player_fillScreen": "Fill screen",
+  "player_speed": "Speed",
+  "player_reset": "Reset",
+  "player_delay": "Delay {value} s",
+  "@player_delay": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "player_decreaseSubtitleDelay": "Decrease subtitle delay",
+  "player_decreaseAudioDelay": "Decrease audio delay",
+  "player_increaseSubtitleDelay": "Increase subtitle delay",
+  "player_increaseAudioDelay": "Increase audio delay",
+  "player_info": "Info",
+  "player_bottom": "Bottom",
+  "player_raised": "Raised",
+  "providers_signInTo": "Sign in to {name}",
+  "@providers_signInTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "providers_scanInstructions": "Scan with a phone signed in to {name}, or open {url} there.",
+  "@providers_scanInstructions": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_seconds": "{value} seconds",
+  "@settings_seconds": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_nothingToClear": "Nothing to clear",
+  "settings_freedMb": "Freed {value} MB",
+  "settings_freedGb": "Freed {value} GB",
+  "@settings_freedMb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "@settings_freedGb": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "state_noMedia": "No media is available.",
+  "state_offlineWithPeriod": "You're offline.",
+  "player_connecting": "Connecting…",
+  "player_fetchingMetadata": "Fetching metadata…",
+  "player_preparing": "Preparing video…",
+  "player_bufferingProgress": "Buffering {percent}%{speed}",
+  "@player_bufferingProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "player_preparingProgress": "Preparing video… {progress}",
+  "@player_preparingProgress": {
+    "placeholders": {
+      "progress": {
+        "type": "String"
+      }
+    }
+  },
+  "player_skipIntro": "Skip Intro",
+  "player_skipCredits": "Skip Credits",
+  "player_skip": "Skip",
+  "player_sourceTorrent_magnet": "Torrent magnet",
+  "player_sourceTorrent_file": "Torrent file",
+  "player_sourceLocal_file": "Local file",
+  "player_sourceWaiting_for_status": "Waiting for status",
+  "player_sourceResolving_source": "Resolving source",
+  "player_sourceReading_metadata": "Reading metadata",
+  "player_sourceBuffering": "Buffering",
+  "player_sourceReady": "Ready",
+  "player_sourceStalled": "Stalled",
+  "player_sourceFailed": "Failed",
+  "player_sourceClosed": "Closed",
+  "diagnostics_Resolution": "Resolution",
+  "diagnostics_Status": "Status",
+  "diagnostics_Log_folder": "Log folder",
+  "diagnostics_Hardware_decoding": "Hardware decoding",
+  "diagnostics_Decoders": "Decoders",
+  "diagnostics_HDR_output": "HDR output",
+  "diagnostics_HDR_formats": "HDR formats",
+  "diagnostics_Display_mode_switching": "Display mode switching",
+  "diagnostics_Audio_passthrough": "Audio passthrough",
+  "diagnostics_Passthrough_formats": "Passthrough formats",
+  "diagnostics_Decoder_fallback": "Decoder fallback",
+  "diagnostics_Video_codec": "Video codec",
+  "diagnostics_Decoder": "Decoder",
+  "diagnostics_Pixel_format": "Pixel format",
+  "diagnostics_Color_matrix": "Color matrix",
+  "diagnostics_Transfer_function": "Transfer function",
+  "diagnostics_Color_primaries": "Color primaries",
+  "diagnostics_HDR_signal_peak": "HDR signal peak",
+  "diagnostics_HDR_max_CLL": "HDR max CLL",
+  "diagnostics_HDR_max_FALL": "HDR max FALL",
+  "diagnostics_Audio_codec": "Audio codec",
+  "diagnostics_Audio_format": "Audio format",
+  "diagnostics_Audio_output": "Audio output",
+  "diagnostics_Audio_output_format": "Audio output format",
+  "diagnostics_Playback": "Playback",
+  "diagnostics_Position": "Position",
+  "diagnostics_Duration": "Duration",
+  "diagnostics_Paused": "Paused",
+  "diagnostics_Volume": "Volume",
+  "diagnostics_Video_width": "Video width",
+  "diagnostics_Video_height": "Video height",
+  "diagnostics_supported": "Supported",
+  "diagnostics_unsupported": "Not supported",
+  "diagnostics_copy": "Copy diagnostics",
+  "diagnostics_copied": "Diagnostics copied",
+  "diagnostics_deviceCapabilities": "Device capabilities",
+  "player_sourceStatus": "{state} · {speed} B/s · {connections} connections · {ranges} available ranges",
+  "@player_sourceStatus": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      },
+      "speed": {
+        "type": "String"
+      },
+      "connections": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "ranges": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "player_stats_Source": "Source",
+  "player_stats_Provider": "Provider",
+  "player_stats_Host": "Host",
+  "player_stats_Protocol": "Protocol",
+  "player_stats_TLS": "TLS",
+  "player_stats_Connections": "Connections",
+  "player_stats_Network": "Network",
+  "player_stats_Speed": "Speed",
+  "player_stats_Speed_down": "Speed down",
+  "player_stats_Speed_up": "Speed up",
+  "player_stats_Pieces": "Pieces",
+  "player_stats_Piece_size": "Piece size",
+  "player_stats_Swarm_tracker_": "Swarm (tracker)",
+  "player_stats_Availability": "Availability",
+  "player_stats_Info_hash": "Info-hash",
+  "player_stats_Time_left": "Time left",
+  "player_stats_Buffer": "Buffer",
+  "player_stats_Buffered_ahead": "Buffered ahead",
+  "player_stats_Cache_in_memory": "Cache in memory",
+  "player_stats_Cache_read_speed": "Cache read speed",
+  "player_stats_Video": "Video",
+  "player_stats_Codec": "Codec",
+  "player_stats_Resolution": "Resolution",
+  "player_stats_Display_size": "Display size",
+  "player_stats_Frame_rate": "Frame rate",
+  "player_stats_Bitrate": "Bitrate",
+  "player_stats_Pixel_format": "Pixel format",
+  "player_stats_Colour": "Colour",
+  "player_stats_Hardware_decoding": "Hardware decoding",
+  "player_stats_Dropped_frames": "Dropped frames",
+  "player_stats_A_V_sync": "A/V sync",
+  "player_stats_Audio": "Audio",
+  "player_stats_Channels": "Channels",
+  "player_stats_Sample_rate": "Sample rate",
+  "player_stats_Output": "Output",
+  "player_stats_Subtitles": "Subtitles",
+  "player_stats_Track": "Track",
+  "player_stats_Player": "Player",
+  "player_stats_Container": "Container",
+  "player_stats_Position": "Position",
+  "player_stats_Engine": "Engine",
+  "player_stats_Downloaded": "Downloaded",
+  "player_stats_Progress": "Progress",
+  "player_statsTitle": "Stats for nerds",
+  "player_stats_Download_speed": "Download speed",
+  "player_stats_Upload_speed": "Upload speed",
+  "player_stats_Seeds_connected": "Seeds connected",
+  "player_stats_Peers_connected": "Peers connected",
+  "player_stats_Swarm": "Swarm",
+  "player_audioOutput": "Audio output: {value}",
+  "@player_audioOutput": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "player_castTab": "cast",
+  "player_triviaTab": "trivia",
+  "player_filmographyTab": "filmography",
+  "player_subtitleUriError": "Enter an HTTP, HTTPS or file subtitle URI.",
+  "settings_numericChoice": "{value}",
+  "@settings_numericChoice": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_valueUnit": "{value} {unit}",
+  "@settings_valueUnit": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_unit_connections": "connections",
+  "settings_unit_retries": "retries",
+  "settings_unit_peers": "peers",
+  "settings_unit_threads": "threads",
+  "settings_unit_seconds": "s",
+  "settings_unit_px": "px",
+  "settings_unit_dB": "dB",
+  "settings_unit_MB": "MB",
+  "settings_unit_KBps": "KB/s",
+  "settings_unit_percent": "%",
+  "settings_working": "Working...",
+  "settings_failed": "Failed",
+  "settings_invalidTrackRule": "Invalid rule \"{token}\". Use lang:<code>, original, atmos, lossless, channels or default.",
+  "@settings_invalidTrackRule": {
+    "placeholders": {
+      "token": {
+        "type": "String"
+      }
+    }
+  },
+  "player_playbackPosition": "Playback position",
+  "player_chapterEyebrow": "CHAPTER {number} · {name}",
+  "@player_chapterEyebrow": {
+    "placeholders": {
+      "number": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "player_chapter": "Chapter {number}",
+  "@player_chapter": {
+    "placeholders": {
+      "number": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "player_insights": "Insights",
+  "player_contentFilter": "Content Filter",
+  "player_filterOn": "{label} (on)",
+  "@player_filterOn": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "player_action_subtitles": "subtitles",
+  "player_action_audio": "audio",
+  "player_action_info": "info",
+  "player_action_upNext": "upNext",
+  "player_failure_openFailed": "Failed to open the media",
+  "player_failure_decodeFailed": "Failed to decode the media",
+  "player_failure_engineCrashed": "The playback engine crashed",
+  "player_failure_sourceUnreachable": "The media source became unreachable",
+  "player_failure_unsupportedCodec": "Unsupported codec: {detail}",
+  "@player_failure_unsupportedCodec": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "player_failure_trackSelectionFailed": "Failed to select playback track: {detail}",
+  "@player_failure_trackSelectionFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "player_failure_subtitleLoadFailed": "Failed to load external subtitle: {detail}",
+  "@player_failure_subtitleLoadFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "player_unableToSelectTrack": "Unable to select track: {error}",
+  "@player_unableToSelectTrack": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_adjust": "{action} {title}",
+  "@settings_adjust": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "player_transportHttpNoRangeSupport": "This server does not support ranged reads.",
+  "player_transportHttpValidatorChanged": "The HTTP file changed while it was loading.",
+  "player_transportHttpUnreachable": "The HTTP source cannot be reached right now.",
+  "player_transportRangeUnsatisfiable": "The requested byte range is unavailable.",
+  "player_transportTorrentNoMetadata": "Torrent metadata has not arrived.",
+  "player_transportTorrentNoPeers": "This torrent has no available peers.",
+  "player_transportTorrentStalled": "The torrent stopped making progress.",
+  "player_transportTorrentFileError": "The torrent could not access its files.",
+  "player_transportTorrentFileNotFound": "The requested torrent file was not found.",
+  "player_transportEngineUnavailable": "The native transport engine is unavailable.",
+  "player_transportUnknownTransport": "The source reported an unknown transport failure.",
+  "settings_choiceMbps": "{value} Mbps",
+  "settings_choiceGB": "{value} GB",
+  "@settings_choiceMbps": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "@settings_choiceGB": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "player_playbackRate": "{value}×",
+  "@player_playbackRate": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "providers_codeExpired": "The code expired. Make a new one.",
+  "common_enabled": "Enabled",
+  "common_disabled": "Disabled",
+  "player_optionFailed": "Unable to apply option: {error}",
+  "@player_optionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "player_subtitleNotAdded": "Subtitle was not added."
+}
