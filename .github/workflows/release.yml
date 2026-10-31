@@ -89,11 +89,21 @@ jobs:
           channel: stable
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+      - name: Release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/release.jks" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEYSTORE_PASSWORD" \
+            > "$RUNNER_TEMP/key.properties"
       - name: Build
         working-directory: app
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release -PkeyProps="$RUNNER_TEMP/key.properties"
       - run: |
           cp app/build/app/outputs/flutter-apk/app-release.apk GenoTV-android.apk
           unzip -l GenoTV-android.apk | grep 'lib/'
