@@ -236,11 +236,12 @@ for variant in info['AvailableLibraries']:
 p.write_bytes(plistlib.dumps(info))
 PY
 # Avfilter's simulator variant is also ours: upstream's has no audio filters (pan etc.).
-built=build/intermediate/frameworks_iossimulator-arm64-video-default/Avfilter.framework
+# The recipe names it after the library version (Avfilter.9.3.framework/Avfilter.9.3).
+built=$(echo build/intermediate/frameworks_iossimulator-arm64-video-default/Avfilter*.framework)
 avf="$plugin/Frameworks/Avfilter.xcframework"
 rm -rf "$avf/ios-arm64_x86_64-simulator"
 mkdir -p "$avf/ios-arm64-simulator/Avfilter.framework"
-cp "$built/Avfilter" "$avf/ios-arm64-simulator/Avfilter.framework/Avfilter"
+cp "$built/$(basename "$built" .framework)" "$avf/ios-arm64-simulator/Avfilter.framework/Avfilter"
 install_name_tool -id @rpath/Avfilter.framework/Avfilter "$avf/ios-arm64-simulator/Avfilter.framework/Avfilter"
 cp "$plugin/Frameworks/Avutil.xcframework/ios-arm64_x86_64-simulator/Avutil.framework/Info.plist" "$avf/ios-arm64-simulator/Avfilter.framework/Info.plist"
 plutil -replace CFBundleExecutable -string Avfilter "$avf/ios-arm64-simulator/Avfilter.framework/Info.plist"
