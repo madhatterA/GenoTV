@@ -198,6 +198,8 @@ p.write_text(p.read_text().replace('cd ${SRC_DIR}',
 p = cache / 'scripts/frameworks/build.sh'
 p.write_text(p.read_text().replace('elif [ "${OS}" == "ios" ] || [ "${OS}" == "iossimulator" ]; then',
     'elif [ "${OS}" == "ios" ] || [ "${OS}" == "iossimulator" ] || [ "${OS}" == "tvos" ] || [ "${OS}" == "tvossimulator" ]; then'))
+# Keep the host pkg-config wrapper newer than downloads/ and links/, or make rebuilds the bundled GLib (fails on current Clang).
+os.utime(tools.parent)
 PY
 cd "$cache"
 if [ "${LIBMPV_PLATFORM:-ios}" = tvos ]; then
