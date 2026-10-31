@@ -29,8 +29,10 @@ class _DomainDialog extends StatefulWidget {
     required this.title,
     required this.current,
     required this.save,
+    this.apiKey = false,
   });
 
+  final bool apiKey;
   final String title;
   final String current;
   final DomainSave save;
@@ -73,13 +75,17 @@ class _DomainDialogState extends State<_DomainDialog> {
       children: [
         AppText(widget.title, style: styles.title),
         const SizedBox(height: RivuletSpacing.s16),
-        AppText(strings.domain_label, style: styles.label),
+        AppText(
+          widget.apiKey ? strings.providers_apiKey : strings.domain_label,
+          style: styles.label,
+        ),
         const SizedBox(height: RivuletSpacing.s8),
         AppTextField(
-          fieldKey: const ValueKey<String>('domain-field'),
+          fieldKey: ValueKey<String>(widget.apiKey ? 'api-key-field' : 'domain-field'),
+          obscureText: widget.apiKey,
           controller: _controller,
-          hint: strings.domain_hint,
-          icon: PhosphorIconsRegular.globe,
+          hint: widget.apiKey ? strings.providers_apiKey : strings.domain_hint,
+          icon: widget.apiKey ? PhosphorIconsRegular.key : PhosphorIconsRegular.globe,
           autofocus: true,
           errorText: _error,
           onSubmitted: _apply,
@@ -105,3 +111,24 @@ class _DomainDialogState extends State<_DomainDialog> {
     );
   }
 }
+
+/// `••••abcd`: the key is never shown in full.
+String maskedKey(String key) =>
+    key.length <= 4 ? '••••' : '••••${key.substring(key.length - 4)}';
+
+/// Like [showDomainDialog] for an API key: a masked field, Save, Use default
+/// (clears the key). Returns true when something was saved.
+Future<bool?> showApiKeyDialog(
+  BuildContext context, {
+  required String title,
+  required String current,
+  required DomainSave save,
+}) => showAppDialog<bool>(
+  context: context,
+  builder: (_) => _DomainDialog(
+    title: title,
+    current: current,
+    save: save,
+    apiKey: true,
+  ),
+);

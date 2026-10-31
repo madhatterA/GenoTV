@@ -35,7 +35,7 @@ Future<String?> saveDomain(Future<void> Function() save) async {
 }
 
 /// Settings > Title API (phase 14).
-Widget titleApiPage(DomainSettings domains) => TitleApiScreen(
+Widget titleApiPage(DomainSettings domains, TmdbApiKey tmdbKey) => TitleApiScreen(
   load: () => [
     for (final e in domains.titleApi())
       UiTitleApiEntry(
@@ -48,12 +48,30 @@ Widget titleApiPage(DomainSettings domains) => TitleApiScreen(
           _ => e.id,
         },
         domain: e.current.toString(),
+        // TMDB-direct always uses api.themoviedb.org: it takes the user's own key instead of a domain.
+        apiKey: e.id == 'tmdb' ? tmdbKey.value : null,
+        takesApiKey: e.id == 'tmdb',
       ),
   ],
+  onApiKey: (key) => key == null ? tmdbKey.clear() : tmdbKey.save(key),
   onReorder: domains.reorderTitle,
   onDomain: (id, raw) => saveDomain(() => domains.setTitleDomain(id, raw)),
   onReset: domains.resetTitle,
 );
+
+/// Where each provider sells accounts (owner 2026-10-31); shown as Buy while signed out.
+final Map<String, Uri> providerBuyUrls = <String, Uri>{
+  'thirtynama': Uri.parse('https://30nama.com/pricing'),
+  'digimoviez': Uri.parse('https://digimoviez.com/account/register/'),
+  'moviejavan': Uri.parse('https://moviejavan.com'),
+};
+
+/// Outside the app, in the default browser (owner 2026-10-10).
+Future<void> openBuyUrl(Uri url, AppLogger logger) async {
+  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+    logger.warn('Could not open $url in the browser');
+  }
+}
 
 Widget providersPage({
   required ThirtyNamaProvider thirtyNama,
@@ -83,7 +101,7 @@ Widget providersPage({
         id: 'thirtynama',
         name: '30nama',
         login: UiProviderLogin.qr,
-        buyUrl: Uri.parse('https://30nama.com/pricing'),
+        buyUrl: providerBuyUrls['thirtynama'],
         loggedIn: await thirtyNama.signedIn,
         domain: _domainOf(domains, 'thirtynama', 'https://interface.30nama.com'),
       ),
@@ -91,7 +109,7 @@ Widget providersPage({
         id: 'digimoviez',
         name: 'DigiMoviez',
         login: UiProviderLogin.credentials,
-        buyUrl: Uri.parse('https://digimoviez.com/account/register'),
+        buyUrl: providerBuyUrls['digimoviez'],
         loggedIn: await digiMoviez.signedIn,
         domain: _domainOf(domains, 'digimoviez', 'https://digimoviez.com'),
       ),
@@ -99,7 +117,7 @@ Widget providersPage({
         id: 'moviejavan',
         name: 'MovieJavan',
         login: UiProviderLogin.credentials,
-        buyUrl: Uri.parse('https://moviejavan.com'),
+        buyUrl: providerBuyUrls['moviejavan'],
         loggedIn: await movieJavan.signedIn,
         domain: _domainOf(domains, 'moviejavan', 'http://cdntmp.dnstmp10.q5eapp.ir'),
       ),
@@ -128,6 +146,7 @@ Widget providersPage({
           name: '$name (subtitles)',
           login: login,
           buyUrl: Uri.parse(url),
+          signUp: true,
           loggedIn: await subtitles.signedIn(id),
         ),
     ];
@@ -163,10 +182,5 @@ Widget providersPage({
     SubtitleAccounts.openSubtitles => subtitles.signOut(id),
     _ => digiMoviez.signOut(),
   },
-  // Outside the app, in the default browser (owner 2026-10-10).
-  onBuy: (url) async {
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      logger.warn('Could not open $url in the browser');
-    }
-  },
+  onBuy: (url) => openBuyUrl(url, logger),
 );

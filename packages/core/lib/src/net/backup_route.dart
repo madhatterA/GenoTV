@@ -27,6 +27,11 @@ final RegExp _mediaPath = RegExp(
   caseSensitive: false,
 );
 
+/// The user's own TMDB key (Settings > Title API) goes straight to TMDB,
+/// never via the proxy.
+bool isOwnTmdbKeyRequest(Uri uri) =>
+    uri.host == 'api.themoviedb.org' && uri.queryParameters.containsKey('api_key');
+
 /// Video/audio never goes through the proxy: media file extensions and any
 /// Range/If-Range request stay direct (the server refuses them too).
 bool isMediaRequest(Uri uri, Map<String, String> headers) =>
@@ -151,7 +156,9 @@ class BackupRouter {
     List<int>? body,
   ) async {
     final viaProxy = _viaProxy(uri);
-    if (isMediaRequest(uri, headers) || viaProxy == null) {
+    if (isMediaRequest(uri, headers) ||
+        viaProxy == null ||
+        isOwnTmdbKeyRequest(uri)) {
       return (
         response: await _open(
           client,

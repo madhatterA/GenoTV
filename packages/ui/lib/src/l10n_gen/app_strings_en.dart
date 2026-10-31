@@ -1552,7 +1552,10 @@ class AppStringsEn extends AppStrings {
   String get providers_signIn => 'Sign in';
 
   @override
-  String get providers_buy => 'Buy account';
+  String get providers_buy => 'Buy';
+
+  @override
+  String get providers_signUp => 'Sign Up';
 
   @override
   String get providers_username => 'Username or email';
@@ -2331,7 +2334,7 @@ class AppStringsEn extends AppStrings {
   String get domain_label => 'Domain';
 
   @override
-  String get domain_change => 'Change';
+  String get domain_change => 'Change Domain';
 
   @override
   String get domain_useDefault => 'Use default';

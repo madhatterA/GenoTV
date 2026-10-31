@@ -13,10 +13,12 @@ import '../browse/choice_dialog.dart';
 import '../browse/hero_backdrop.dart';
 import '../components/ambient_background.dart';
 import '../components/app_chip.dart';
+import '../components/buy_button.dart';
 import '../components/app_dialog.dart';
 import '../components/app_icon_button.dart';
 import '../components/app_row.dart';
 import '../components/app_sheet.dart';
+import '../settings/providers_screen.dart' show openBuyLink;
 import '../components/orb_loader.dart';
 import '../components/tinted_surface.dart';
 import '../l10n/app_text.dart';
@@ -48,6 +50,8 @@ class PlaySourceScreen extends StatefulWidget {
     this.onRefresh,
     this.onOtherSources,
     this.backdropArtwork,
+    this.onBuy,
+    this.buyAsQr = false,
     super.key,
   });
 
@@ -77,6 +81,12 @@ class PlaySourceScreen extends StatefulWidget {
   /// The title's artwork URL, painted behind the top of the page with the
   /// detail hero's backdrop and fade. Null paints no backdrop.
   final String? backdropArtwork;
+
+  /// Opens a Buy page; with it, a signed-out provider row and its failed panel show Buy.
+  final Future<void> Function(Uri url)? onBuy;
+
+  /// No browser on this platform (tvOS): Buy shows a QR code instead.
+  final bool buyAsQr;
 
   @override
   State<PlaySourceScreen> createState() => _PlaySourceScreenState();
@@ -116,6 +126,22 @@ class _PlaySourceScreenState extends State<PlaySourceScreen> {
         (oldWidget.selectedProviderId != widget.selectedProviderId ||
             oldWidget.streams is! UiStreamListReady);
     if (becameReady) _focusStreamsAfterFrame();
+  }
+
+  /// Buy for the selected provider when it failed for lack of a sign-in.
+  VoidCallback? get _buySelected {
+    final option = widget.providers
+        .where((p) => p.id == widget.selectedProviderId)
+        .firstOrNull;
+    final url = option?.buyUrl;
+    if (url == null || widget.onBuy == null) return null;
+    return () => openBuyLink(
+      context,
+      name: option!.name,
+      url: url,
+      onBuy: widget.onBuy!,
+      asQr: widget.buyAsQr,
+    );
   }
 
   String get _providerName =>
@@ -218,6 +244,8 @@ class _PlaySourceScreenState extends State<PlaySourceScreen> {
       onSelected: widget.onProviderSelected,
       firstFocusNode: _firstProviderNode,
       onInsertLink: widget.onInsertLink,
+      onBuy: widget.onBuy,
+      buyAsQr: widget.buyAsQr,
       onArrowRight: () {
         if (widget.streams is UiStreamListReady) {
           _firstStreamNode.requestFocus();
@@ -230,6 +258,7 @@ class _PlaySourceScreenState extends State<PlaySourceScreen> {
       providerName: _providerName,
       onSelected: widget.onStreamSelected,
       onRetry: widget.onRetry,
+      onBuy: _buySelected,
       onRefresh: widget.onRefresh,
       onOtherSources: sizes.formFactor == FormFactor.phone
           ? widget.onOtherSources
@@ -372,6 +401,8 @@ class _ProviderList extends StatelessWidget {
     required this.firstFocusNode,
     required this.onArrowRight,
     this.onInsertLink,
+    this.onBuy,
+    this.buyAsQr = false,
   });
 
   final bool overMedia;
@@ -383,6 +414,8 @@ class _ProviderList extends StatelessWidget {
 
   /// Adds the final "Insert link…" row when set.
   final VoidCallback? onInsertLink;
+  final Future<void> Function(Uri url)? onBuy;
+  final bool buyAsQr;
 
   @override
   Widget build(BuildContext context) {
@@ -404,7 +437,18 @@ class _ProviderList extends StatelessWidget {
                   )
                 : null,
             trailing: providers[i].state != UiProviderState.loading
-                ? null
+                ? (providers[i].buyUrl == null || onBuy == null
+                      ? null
+                      : BuyButton(
+ key: ValueKey<String>('provider-buy-${providers[i].id}'),
+ onActivate: () => openBuyLink(
+                            context,
+                            name: providers[i].name,
+                            url: providers[i].buyUrl!,
+                            onBuy: onBuy!,
+                            asQr: buyAsQr,
+                          ),
+                        ))
                 : providers[i].progress != null
                 ? AppText(
                     formatPercent(context, providers[i].progress!),
@@ -449,6 +493,7 @@ class _StreamPanel extends StatefulWidget {
     required this.providerName,
     required this.onSelected,
     required this.onRetry,
+    required this.onBuy,
     required this.onRefresh,
     required this.onOtherSources,
     required this.onBack,
@@ -461,6 +506,7 @@ class _StreamPanel extends StatefulWidget {
   final String providerName;
   final ValueChanged<SourceSpec> onSelected;
   final VoidCallback? onRetry;
+  final VoidCallback? onBuy;
   final VoidCallback? onRefresh;
   final VoidCallback? onOtherSources;
   final VoidCallback onBack;
@@ -659,13 +705,27 @@ class _StreamPanelState extends State<_StreamPanel> {
           ],
         ),
       ),
-      UiStreamListFailed(:final message) => ErrorView(
-        key: const ValueKey<String>('play-source-failed'),
-        failure: UnexpectedFailure(cause: message),
-        message: message,
-        onRetry: widget.onRetry,
-        onBack: widget.onBack,
-        fullScreen: true,
+      UiStreamListFailed(:final message) => Column(
+        children: <Widget>[
+          Expanded(
+            child: ErrorView(
+              key: const ValueKey<String>('play-source-failed'),
+              failure: UnexpectedFailure(cause: message),
+              message: message,
+              onRetry: widget.onRetry,
+              onBack: widget.onBack,
+              fullScreen: true,
+            ),
+          ),
+          if (widget.onBuy != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: RivuletSpacing.s16),
+              child: BuyButton(
+ key: const ValueKey<String>('play-source-buy'),
+ onActivate: widget.onBuy,
+              ),
+            ),
+        ],
       ),
       UiStreamListReady(:final streams) => _ready(streams),
     };

@@ -1576,7 +1576,10 @@ class AppStringsFa extends AppStrings {
   String get providers_signIn => 'ورود';
 
   @override
-  String get providers_buy => 'خرید حساب';
+  String get providers_buy => 'خرید اشتراک';
+
+  @override
+  String get providers_signUp => 'ثبت نام';
 
   @override
   String get providers_username => 'نام کاربری یا ایمیل';
@@ -2351,7 +2354,7 @@ class AppStringsFa extends AppStrings {
   String get domain_label => 'دامنه';
 
   @override
-  String get domain_change => 'تغییر';
+  String get domain_change => 'تغییر دامنه';
 
   @override
   String get domain_useDefault => 'پیش‌فرض';

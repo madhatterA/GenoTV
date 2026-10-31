@@ -15,6 +15,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../components/ambient_background.dart';
 import '../components/app_chip.dart';
+import '../components/buy_button.dart';
 import '../components/app_text_field.dart';
 import '../components/orb_loader.dart';
 import '../components/tinted_surface.dart';
@@ -48,6 +49,7 @@ class UiProviderAccount {
     this.loggedIn = false,
     this.domain,
     this.domainCustom = false,
+    this.signUp = false,
   });
 
   final String id;
@@ -57,6 +59,9 @@ class UiProviderAccount {
   /// The provider's own page for buying an account.
   final Uri? buyUrl;
   final bool loggedIn;
+
+  /// The link is for signing up to a free account, not buying one.
+  final bool signUp;
 
   /// The provider's main API domain in use (null: this provider has none).
   final String? domain;
@@ -233,13 +238,13 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                                           : () => _domain(account),
                                       onBuy: account.buyUrl == null
                                           ? null
-                                          : widget.buyAsQr
-                                          ? () => showAppDialog<void>(
-                                              context: context,
-                                              builder: (_) =>
-                                                  _LinkQrDialog(name: account.name, url: account.buyUrl!),
-                                            )
-                                          : () => widget.onBuy(account.buyUrl!),
+                                          : () => openBuyLink(
+                                              context,
+                                              name: account.name,
+                                              url: account.buyUrl!,
+                                              onBuy: widget.onBuy,
+                                              asQr: widget.buyAsQr,
+                                            ),
                                     ),
                                   ),
                               ],
@@ -326,12 +331,7 @@ class _ProviderCard extends StatelessWidget {
             Row(
               key: ValueKey<String>('provider-domain-${account.id}'),
               children: <Widget>[
-                Expanded(
-                  child: AppText(
-                    '${AppStrings.of(context).domain_label}: ${account.domain}',
-                    style: styles.caption,
-                  ),
-                ),
+                const Spacer(),
                 if (onDomain != null)
                   AppChip(
                     key: ValueKey<String>('provider-domain-edit-${account.id}'),
@@ -370,11 +370,10 @@ class _ProviderCard extends StatelessWidget {
                               : AppStrings.of(context).providers_signIn,
                           onActivate: onLogin,
                         ),
-                if (onBuy != null)
-                  AppChip(
+                if (onBuy != null && !account.loggedIn)
+                  BuyButton(
+                    signUp: account.signUp,
                     key: ValueKey<String>('provider-buy-${account.id}'),
-                    icon: PhosphorIconsRegular.shoppingCart,
-                    label: AppStrings.of(context).providers_buy,
                     onActivate: onBuy,
                   ),
               ],
@@ -656,6 +655,20 @@ class _QrDialogState extends State<_QrDialog> {
   }
 }
 
+/// Opens a provider's buy page in the browser, or as a QR code where there is none (tvOS).
+Future<void> openBuyLink(
+  BuildContext context, {
+  required String name,
+  required Uri url,
+  required Future<void> Function(Uri url) onBuy,
+  required bool asQr,
+}) => asQr
+    ? showAppDialog<void>(
+        context: context,
+        builder: (_) => _LinkQrDialog(name: name, url: url),
+      )
+    : onBuy(url);
+
 /// A link shown as a QR code and a short URL, for platforms that cannot open a browser.
 class _LinkQrDialog extends StatelessWidget {
   const _LinkQrDialog({required this.name, required this.url});
@@ -672,7 +685,10 @@ class _LinkQrDialog extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppText('${AppStrings.of(context).providers_buy}: $name', style: styles.title),
+        AppText(
+          '${AppStrings.of(context).providers_buy}: $name',
+          style: styles.title,
+        ),
         const SizedBox(height: RivuletSpacing.s24),
         Center(
           child: QrImageView(

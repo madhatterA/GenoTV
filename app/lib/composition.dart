@@ -48,6 +48,7 @@ final class AppComposition {
     required this.settings,
     required this.settingsStore,
     required this.domains,
+    required this.tmdbKey,
     required this.capabilities,
     required this.isTv,
     required this.displayModes,
@@ -82,6 +83,9 @@ final class AppComposition {
   final AppSettings settings;
   final JsonSettingsStore settingsStore;
   final DomainSettings domains;
+
+  /// The user's own TMDB key (Settings > Title API); null value = built-in.
+  final TmdbApiKey tmdbKey;
   final PlatformCapabilitiesService capabilities;
   final bool isTv;
 
@@ -340,6 +344,12 @@ final class AppComposition {
       },
     );
     backupProxyOverride = domains.titleOverride('proxy');
+    final tmdbKey = TmdbApiKey(
+      File(
+        '${(sessionDirectory ?? Directory(Platform.environment['HOME'] ?? '.')).path}/.tmdb-session.json',
+      ),
+    );
+    await tmdbKey.load();
 
     final database = await openDatabase(paths: paths);
     if (mirror != null) {
@@ -439,7 +449,7 @@ final class AppComposition {
         client: TmdbClient(
           http: providerHttp,
           baseUrl: tmdbBaseUrl,
-          domain: () => domains.titleOverride('tmdb'),
+          apiKey: () => tmdbKey.value,
         ),
         omdb: OmdbRatings(
           http: providerHttp,
@@ -487,6 +497,7 @@ final class AppComposition {
       settings: settings,
       settingsStore: settingsStore,
       domains: domains,
+      tmdbKey: tmdbKey,
       capabilities: capabilities,
       isTv: isTv,
       displayModes: displayModes,
@@ -900,7 +911,7 @@ final class AppComposition {
               logger: logger,
               domains: domains,
             ),
-            titleApiPage: (_) => titleApiPage(domains),
+            titleApiPage: (_) => titleApiPage(domains, tmdbKey),
             insight: insight,
             logger: logger,
             logDirectory: logDirectory,
@@ -1002,6 +1013,8 @@ final class AppComposition {
       forgetSaved: _sourceCache?.forget,
       initialProviderId: settingsStore.read(_lastProviderKey),
       logger: logger,
+      onBuy: (url) => openBuyUrl(url, logger),
+      buyAsQr: Platform.operatingSystem == 'tvos',
       onBack: () => Navigator.of(flowContext).pop(),
       onStreamSelected: (spec, entry) {
         Navigator.of(flowContext).pop();

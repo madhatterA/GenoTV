@@ -19,10 +19,18 @@ class UiTitleApiEntry {
     required this.id,
     required this.name,
     required this.domain,
+    this.takesApiKey = false,
+    this.apiKey,
   });
   final String id;
   final String name;
   final String domain;
+
+  /// TMDB direct: no Change Domain; the user's own API key instead.
+  final bool takesApiKey;
+
+  /// The saved key (shown masked); null when none is saved.
+  final String? apiKey;
 }
 
 /// Settings > Title API: the ordered list the app tries top to bottom, each
@@ -33,6 +41,7 @@ class TitleApiScreen extends StatefulWidget {
     required this.onReorder,
     required this.onDomain,
     required this.onReset,
+    this.onApiKey,
     super.key,
   });
 
@@ -40,6 +49,9 @@ class TitleApiScreen extends StatefulWidget {
   final Future<void> Function(int from, int to) onReorder;
   final Future<String?> Function(String id, String? raw) onDomain;
   final Future<void> Function() onReset;
+
+  /// Saves the TMDB key; null clears it (built-in behaviour).
+  final Future<void> Function(String? key)? onApiKey;
 
   @override
   State<TitleApiScreen> createState() => _TitleApiScreenState();
@@ -129,12 +141,41 @@ class _TitleApiScreenState extends State<TitleApiScreen> {
                                   children: [
                                     AppText(entry.name, style: styles.headline),
                                     AppText(
-                                      entry.domain,
+                                      entry.takesApiKey
+                                          ? (entry.apiKey == null
+                                                ? entry.domain
+                                                : '${strings.providers_apiKey}: ${maskedKey(entry.apiKey!)}')
+                                          : entry.domain,
+                                      key: ValueKey<String>(
+                                        'title-api-caption-${entry.id}',
+                                      ),
                                       style: styles.caption,
                                     ),
                                   ],
                                 ),
                               ),
+                              if (entry.takesApiKey)
+                                AppChip(
+                                  key: ValueKey<String>(
+                                    'title-api-key-${entry.id}',
+                                  ),
+                                  icon: PhosphorIconsRegular.key,
+                                  label: strings.providers_apiKey,
+                                  onActivate: () async {
+                                    final saved = await showApiKeyDialog(
+                                      context,
+                                      title:
+                                          '${entry.name} - ${strings.providers_apiKey}',
+                                      current: entry.apiKey ?? '',
+                                      save: (key) async {
+                                        await widget.onApiKey?.call(key);
+                                        return null;
+                                      },
+                                    );
+                                    if (saved == true) _refresh();
+                                  },
+                                )
+                              else
                               AppChip(
                                 key: ValueKey<String>(
                                   'title-api-edit-${entry.id}',

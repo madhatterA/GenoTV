@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:ui/ui.dart';
 
+import 'provider_accounts.dart' show providerBuyUrls;
 import 'source_prefetch.dart';
 
 /// One row of the play-flow provider list: a stable id/display name plus
@@ -54,6 +55,8 @@ class PlayFlowRoute extends StatefulWidget {
     this.prefetch,
     this.forgetSaved,
     this.initialProviderId,
+    this.onBuy,
+    this.buyAsQr = false,
     super.key,
   });
 
@@ -83,6 +86,10 @@ class PlayFlowRoute extends StatefulWidget {
   /// The provider that last played something: its streams open straight away.
   final String? initialProviderId;
 
+  /// Opens a provider's Buy page (see [providerBuyUrls]); null hides Buy.
+  final Future<void> Function(Uri url)? onBuy;
+  final bool buyAsQr;
+
   @override
   State<PlayFlowRoute> createState() => _PlayFlowRouteState();
 }
@@ -92,6 +99,8 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
   UiStreamList _streams = const UiStreamListNone();
   final Map<String, UiProviderState> _states = <String, UiProviderState>{};
   final Map<String, String?> _messages = <String, String?>{};
+  // Providers that failed because the user is not signed in.
+  final Set<String> _signedOut = <String>{};
   int _requestId = 0;
 
   @override
@@ -121,6 +130,7 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
           if (mounted && _selectedId != id) {
             setState(() {
               _states[id] = UiProviderState.failed;
+              if (_isAuth(error)) _signedOut.add(id);
               _messages[id] = error is ProviderFailure
                   ? error.message
                   : AppStrings.of(context).play_providerUnavailable;
@@ -170,6 +180,7 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
       setState(() {
         _states[id] = UiProviderState.ready;
         _messages[id] = null;
+        _signedOut.remove(id);
         _streams = UiStreamListReady(streams);
       });
     } on ProviderFailure catch (error) {
@@ -179,6 +190,7 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
       if (!mounted || requestId != _requestId) return;
       setState(() {
         _states[id] = UiProviderState.failed;
+        if (_isAuth(error)) _signedOut.add(id);
         _messages[id] = error.message;
         _streams = UiStreamListFailed(error.message);
       });
@@ -197,6 +209,9 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
       });
     }
   }
+
+  static bool _isAuth(Object error) =>
+      error is ProviderFailure && error.code == 'provider.auth_required';
 
   Future<void> _insertLink() async {
     final accepted = await showPlayLinkDialog(
@@ -231,6 +246,7 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
           state: _states[entry.id] ?? UiProviderState.idle,
           message: _messages[entry.id],
           progress: _progressOf(entry),
+          buyUrl: _signedOut.contains(entry.id) ? providerBuyUrls[entry.id] : null,
         ),
     ],
     selectedProviderId: _selectedId,
@@ -242,6 +258,8 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
       ),
       final streams => streams,
     },
+    onBuy: widget.onBuy,
+    buyAsQr: widget.buyAsQr,
     onProviderSelected: _select,
     onOtherSources: () => setState(() {
       _requestId++;

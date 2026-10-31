@@ -15,6 +15,7 @@ export 'src/moviejavan_provider.dart';
 export 'src/ccloud_provider.dart';
 export 'src/playtorrio/playtorrio_direct_provider.dart';
 export 'src/omdb_ratings.dart';
+export 'src/tmdb/tmdb_api_key.dart';
 export 'src/tmdb/tmdb_client.dart';
 export 'src/tmdb/tmdb_records.dart';
 export 'src/tmdb/tmdb_catalogue.dart';

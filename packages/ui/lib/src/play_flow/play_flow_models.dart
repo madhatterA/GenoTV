@@ -12,6 +12,7 @@ class UiProviderOption {
     required this.state,
     this.message,
     this.progress,
+    this.buyUrl,
   });
 
   final String id;
@@ -25,6 +26,9 @@ class UiProviderOption {
   /// 0..1 while loading, for a provider that reports how far along it is
   /// (Playtorrio Direct: sites answered); null shows the plain orb.
   final double? progress;
+
+  /// Set when the provider failed because the user is not signed in: its page for buying an account.
+  final Uri? buyUrl;
 }
 
 /// The stream list panel's state, driven entirely by the caller.

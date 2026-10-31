@@ -2921,8 +2921,14 @@ abstract class AppStrings {
   /// No description provided for @providers_buy.
   ///
   /// In en, this message translates to:
-  /// **'Buy account'**
+  /// **'Buy'**
   String get providers_buy;
+
+  /// No description provided for @providers_signUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get providers_signUp;
 
   /// No description provided for @providers_username.
   ///
@@ -4276,7 +4282,7 @@ abstract class AppStrings {
   /// No description provided for @domain_change.
   ///
   /// In en, this message translates to:
-  /// **'Change'**
+  /// **'Change Domain'**
   String get domain_change;
 
   /// No description provided for @domain_useDefault.

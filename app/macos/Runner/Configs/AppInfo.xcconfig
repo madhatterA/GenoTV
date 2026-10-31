@@ -3,7 +3,7 @@
 // Application metadata is kept explicit so builds remain reproducible.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = video_player
+PRODUCT_NAME = GenoTV
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.genotv.videoPlayer

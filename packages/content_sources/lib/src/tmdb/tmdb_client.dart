@@ -14,12 +14,17 @@ class TmdbClient {
     required this.http,
     Uri? baseUrl,
     this.domain,
+    this.apiKey,
     DateTime Function() clock = DateTime.now,
   }) : baseUrl = baseUrl ?? Uri.parse('https://api.themoviedb.org/3'),
        _now = clock;
 
   /// The user's Title API domain for TMDB, read on every request (phase 14).
   final Uri? Function()? domain;
+
+  /// The user's own TMDB key, read on every request; when set, requests go
+  /// straight to TMDB with it instead of through the proxy.
+  final String? Function()? apiKey;
 
   final DateTime Function() _now;
 
@@ -491,7 +496,11 @@ class TmdbClient {
     final base = rebase(baseUrl, Uri.parse(baseUrl.origin), domain?.call());
     final uri = base.replace(
       path: '${base.path}$path',
-      queryParameters: {...query, 'language': language},
+      queryParameters: {
+        ...query,
+        'language': language,
+        if (apiKey?.call() case final key?) 'api_key': key,
+      },
     );
     final key = uri.toString();
     final hit = _cache[key];
