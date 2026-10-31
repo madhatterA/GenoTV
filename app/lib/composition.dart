@@ -21,7 +21,6 @@ import 'provider_accounts.dart';
 import 'subtitle_online.dart';
 import 'source_cache.dart';
 import 'source_prefetch.dart';
-import 'fixture_provider.dart';
 import 'platform_policy.dart';
 import 'play_link.dart';
 import 'play_flow.dart';
@@ -61,7 +60,6 @@ final class AppComposition {
     required this.linkResolver,
     required this.progressRepository,
     required this.favouritesRepository,
-    required this.fixtureProvider,
     required this.providerHttp,
     required this.tmdbCatalogue,
     required this.movieJavanStreams,
@@ -108,7 +106,6 @@ final class AppComposition {
   /// Tells Home that playback saved a position, so it re-reads its library rows.
   final LibraryChanges libraryChanges = LibraryChanges();
   final FavouritesRepository favouritesRepository;
-  final FixtureProvider fixtureProvider;
   final ProviderHttp providerHttp;
   final FallbackTmdbCatalogue tmdbCatalogue;
   final ThirtyNamaProvider thirtyNama;
@@ -412,9 +409,6 @@ final class AppComposition {
       cacheDir: mediaCache,
       state: transportState,
     );
-    final fixtureProvider = await FixtureProvider.create(
-      fixtureDirectory: mediaCache,
-    );
     final providerHttp = ProviderHttp();
     final movieJavanStreams = MovieJavanProvider(
       http: providerHttp,
@@ -514,7 +508,6 @@ final class AppComposition {
       ),
       progressRepository: progressRepository,
       favouritesRepository: favouritesRepository,
-      fixtureProvider: fixtureProvider,
       providerHttp: providerHttp,
       tmdbCatalogue: tmdbCatalogue,
       movieJavanStreams: movieJavanStreams,
@@ -1122,7 +1115,6 @@ final class AppComposition {
     audio.dispose();
     await capabilities.dispose();
     await displayModes.dispose();
-    await fixtureProvider.dispose();
     await thirtyNama.dispose();
     await digiMoviez.dispose();
     await cCloud.dispose();
@@ -1139,92 +1131,3 @@ PlaybackController createPlaybackControllerForLogger(
   AppLogger logger, {
   HdrPolicy hdrPolicy = HdrPolicy.auto,
 }) => createPlaybackController(logger: logger, hdrPolicy: hdrPolicy);
-
-final class FixtureCatalogueView extends StatefulWidget {
-  const FixtureCatalogueView({
-    required this.provider,
-    this.library = false,
-    this.openPlayer,
-    super.key,
-  });
-
-  final FixtureProvider provider;
-  final bool library;
-
-  /// Pushes the player route. `null` in tests that only exercise the
-  /// catalogue (e.g. `composition_test.dart`'s home/library rendering).
-  final Future<void> Function(BuildContext context, PlayerRoute route)?
-  openPlayer;
-
-  @override
-  State<FixtureCatalogueView> createState() => _FixtureCatalogueViewState();
-}
-
-final class _FixtureCatalogueViewState extends State<FixtureCatalogueView> {
-  late final Future<MediaPage> _page = widget.provider.browse(
-    const BrowseQuery(limit: 20),
-  );
-
-  @override
-  Widget build(BuildContext context) => FutureBuilder<MediaPage>(
-    future: _page,
-    builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const LoadingView(fullScreen: true);
-      }
-      if (snapshot.hasError) {
-        return ErrorView(
-          failure: UnexpectedFailure(
-            cause: snapshot.error,
-            stack: snapshot.stackTrace,
-          ),
-          fullScreen: true,
-        );
-      }
-      final items = snapshot.data?.items ?? const <MediaItem>[];
-      if (widget.library) {
-        return LibraryScreen(
-          items: items,
-          scope: BrowseScope.movies,
-          onItemTap: (item) => unawaited(_open(item, context)),
-        );
-      }
-      return HomeScreen(
-        viewModel: HomeViewModel(
-          rows: <HomeRow>[HomeRow(title: 'Fixture catalogue', items: items)],
-        ),
-        onItemTap: (item) => unawaited(_open(item, context)),
-      );
-    },
-  );
-
-  Future<void> _open(MediaItem item, BuildContext context) async {
-    final sources = await widget.provider.resolve(item);
-    if (!context.mounted || sources.isEmpty) return;
-    final openPlayer = widget.openPlayer;
-    if (openPlayer == null) return;
-    await openPlayer(
-      context,
-      PlayerRoute(
-        item,
-        sources.first,
-        markers: item.id == 'fixture-movie'
-            ? const <UiMarker>[
-                UiMarker(
-                  id: 'fixture-intro',
-                  kind: UiMarkerKind.intro,
-                  start: Duration.zero,
-                  end: Duration(seconds: 12),
-                ),
-                UiMarker(
-                  id: 'fixture-credits',
-                  kind: UiMarkerKind.credits,
-                  start: Duration(seconds: 190),
-                  end: Duration(seconds: 209),
-                ),
-              ]
-            : const <UiMarker>[],
-      ),
-    );
-  }
-}

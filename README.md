@@ -1,12 +1,12 @@
 # GenoTV
 
-A fast, lightweight movie and TV streaming player for Windows, macOS, Android and iOS (tvOS later).
+A fast, lightweight movie and TV streaming player for Windows, macOS, Android, Android TV, iOS and Apple TV.
 
 **Goal:** an Infuse-grade interface with near-Kodi playback, without Kodi's size and complexity.
 Browse titles, pick a source, and play: direct HTTP files, HLS, magnet links and torrents
 (streamed while downloading), with casting to Chromecast, DLNA and AirPlay. English and Farsi.
 
-> Work in progress. Details coming soon.
+> Work in progress: features and screens are still changing.
 
 ## Building
 
@@ -17,6 +17,10 @@ cd app
 flutter pub get
 flutter run
 ```
+
+The native playback, download and torrent libraries ship prebuilt in `packages/`;
+their build scripts are in each package's `tool/` folder. Apple TV builds need a
+tvOS-enabled Flutter fork, since stock Flutter has no tvOS target.
 
 ## Credits
 

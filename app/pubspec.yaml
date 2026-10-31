@@ -55,8 +55,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/Butterfly-209.mp4
 
 dependency_overrides:
   media_kit:
