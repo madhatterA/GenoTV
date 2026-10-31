@@ -203,6 +203,20 @@ jobs:
         with:
           path: /tmp/vp-libmpv-ios-recipe-v0.6.0
           key: ios-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
+      - name: Cast FFmpeg cache
+        id: castffmpeg
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: packages/cast/native/ffmpeg
+          key: ios-cast-ffmpeg-${{ hashFiles('packages/cast/tool/build_ffmpeg.sh') }}
+      - name: Cast remux (iOS)
+        run: bash packages/cast/tool/build_remux_ios.sh
+      - name: Save cast FFmpeg cache
+        if: always() && steps.castffmpeg.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: packages/cast/native/ffmpeg
+          key: ios-cast-ffmpeg-${{ hashFiles('packages/cast/tool/build_ffmpeg.sh') }}
       - name: Build
         working-directory: app
         run: |
