@@ -7,6 +7,14 @@ class SparseSourceDisposed implements Exception {
   String toString() => 'SparseSourceDisposed: source disposed while waiting';
 }
 
+/// A read that belongs to a position the player has already left (a far seek
+/// moved on). Ends that connection at once so the player can run its seek.
+class SparseSourceSuperseded extends SparseSourceDisposed {
+  const SparseSourceSuperseded();
+  @override
+  String toString() => 'SparseSourceSuperseded: read left behind by a seek';
+}
+
 /// Internal byte source consumed by [RangeServer].
 abstract interface class SparseSource {
   int? get totalBytes;

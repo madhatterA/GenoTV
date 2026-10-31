@@ -36,7 +36,7 @@ class _GenresPainter extends CustomPainter {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           origin & const Size(9, 9),
-          const Radius.circular(2),
+          const Radius.circular(RivuletRadius.xs),
         ),
         paint,
       );

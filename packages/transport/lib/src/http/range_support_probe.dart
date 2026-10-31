@@ -2,7 +2,18 @@ import 'dart:io';
 
 import 'package:contracts/contracts.dart';
 
+import 'aria2_window.dart' show OriginRateLimited;
 import 'http_options.dart';
+
+const _transientStatuses = {408, 429, 500, 502, 503, 504};
+
+OriginRateLimited _rateLimited(HttpClientResponse response, String what) =>
+    OriginRateLimited(
+      '$what returned ${response.statusCode}',
+      retryAfter: OriginRateLimited.parse(
+        response.headers.value(HttpHeaders.retryAfterHeader),
+      ),
+    );
 
 class RangeProbeResult {
   const RangeProbeResult({
@@ -17,6 +28,8 @@ class RangeProbeResult {
   final bool supported;
 }
 
+const int _defaultAnswerSeconds = 30;
+
 class RangeSupportProbe {
   RangeSupportProbe({
     HttpClient? client,
@@ -28,7 +41,19 @@ class RangeSupportProbe {
   Future<RangeProbeResult> probe(SourceSpec spec) async {
     try {
       configureOriginClient(_client, options);
-      return await _probe(spec);
+      // An origin that accepts the connection and never answers (blocked CDN)
+      // would otherwise leave the opening screen on "Connecting…" forever.
+      final limit = Duration(
+        seconds: options.connectTimeoutSeconds > 0
+            ? options.connectTimeoutSeconds
+            : _defaultAnswerSeconds,
+      );
+      return await _probe(spec).timeout(
+        limit,
+        onTimeout: () => throw TransportFailure.httpUnreachable(
+          cause: 'origin did not answer within ${limit.inSeconds} s',
+        ),
+      );
     } finally {
       _client.close(force: true);
     }
@@ -70,6 +95,10 @@ class RangeSupportProbe {
         supported: true,
       );
     }
+    if (_transientStatuses.contains(response.statusCode)) {
+      await response.drain<void>();
+      throw _rateLimited(response, 'origin HEAD');
+    }
     if (response.statusCode >= 400) {
       await response.drain<void>();
       throw TransportFailure.httpUnreachable(
@@ -85,6 +114,10 @@ class RangeSupportProbe {
       ranged = await request.close();
     } catch (error, stack) {
       throw TransportFailure.httpUnreachable(cause: error, stack: stack);
+    }
+    if (_transientStatuses.contains(ranged.statusCode)) {
+      await ranged.drain<void>();
+      throw _rateLimited(ranged, 'ranged probe');
     }
     if (ranged.statusCode >= 400) {
       await ranged.drain<void>();

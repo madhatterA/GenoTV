@@ -137,7 +137,7 @@ class CastPicker extends StatefulWidget {
   State<CastPicker> createState() => _CastPickerState();
 }
 
-class _CastPickerState extends State<CastPicker> {
+class _CastPickerState extends State<CastPicker> with WidgetsBindingObserver {
   bool _closed = false;
 
   void _close() {
@@ -156,10 +156,23 @@ class _CastPickerState extends State<CastPicker> {
     super.initState();
     widget.controller.state.addListener(_closeWhenCasting);
     widget.controller.startDiscovery();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  // Discovery stops while the app is backgrounded (P12) and resumes after.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      widget.controller.startDiscovery();
+    } else if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      widget.controller.stopDiscovery();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.controller.state.removeListener(_closeWhenCasting);
     widget.controller.stopDiscovery();
     super.dispose();

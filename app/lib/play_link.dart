@@ -61,7 +61,7 @@ Future<LinkKind> classifyLink(
     return _headKind(uri, clientFactory, s);
   }
   if (lower.endsWith('.torrent') && text.isNotEmpty) {
-    if (!File(_filePath(text)).existsSync()) {
+    if (!await File(_filePath(text)).exists()) {
       throw PlayLinkFailure(s.playlink_fileMissing(text));
     }
     return LinkKind.torrentFile;

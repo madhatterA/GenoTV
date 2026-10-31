@@ -86,6 +86,24 @@ class PlatformServicesPlugin :
         Thread(it, "platform-capability-probe")
     }
     private lateinit var mainHandler: Handler
+    @Volatile private var detached = false
+
+    /** Runs [block] on the probe thread unless the engine is gone (Android can still deliver
+     *  a queued audio-device callback after unregister; a terminated executor throws). */
+    private fun submitProbe(block: () -> Unit): Boolean {
+        if (detached) return false
+        return try {
+            capabilityProbeExecutor.execute(block)
+            true
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            false
+        }
+    }
+
+    internal fun stopBackgroundWork() {
+        detached = true
+        capabilityProbeExecutor.shutdownNow()
+    }
 
     private companion object {
         const val mediaChannelId = "platform_services_media"
@@ -134,20 +152,47 @@ class PlatformServicesPlugin :
         }
     }
 
+    private var crashCaptureInstalled = false
+
     override fun onMethodCall(
         call: MethodCall,
         result: Result
     ) {
         when (call.method) {
+            "crash.install" -> {
+                val path = call.argument<String>("path")
+                if (path == null || !path.startsWith("/")) {
+                    result.error("crash.path", "Absolute crash path required", null)
+                } else {
+                    val code = NativeCrash.install(path)
+                    if (code == 0) { crashCaptureInstalled = true; result.success(null) }
+                    else result.error("crash.install", "Native crash capture failed", code)
+                }
+            }
+            "crash.uninstall" -> {
+                if (crashCaptureInstalled) NativeCrash.uninstall()
+                crashCaptureInstalled = false
+                result.success(null)
+            }
+            "crash.proof.abort" -> {
+                if (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) NativeCrash.abort()
+                else result.error("crash.proof.disabled", "Debug build required", null)
+            }
             "capabilities.version" -> result.success(mapOf("os" to "Android ${android.os.Build.VERSION.RELEASE}", "plugin" to "0.0.1"))
-            "capabilities.probe" -> capabilityProbeExecutor.execute {
-                val report = capabilityProbe()
-                mainHandler.post { result.success(report) }
+            "capabilities.probe" -> {
+                val queued = submitProbe {
+                    val report = capabilityProbe()
+                    mainHandler.post { result.success(report) }
+                }
+                if (!queued) result.error("detached", "Plugin is detached from the engine", null)
             }
             "audio.devices" -> result.success(audioDevices())
             "display.modes" -> result.success(displayModes())
             "display.apply" -> applyDisplayMode(call.arguments, result)
             "display.restore" -> restoreDisplayMode(result)
+            "display.brightness.get" -> result.success(getBrightness())
+            "display.brightness.set" -> result.success(setBrightness(call.arguments))
+            "display.brightness.restore" -> result.success(restoreBrightness())
             "lifecycle.keepAwake" -> result.success(setKeepAwake(true))
             "lifecycle.releaseKeepAwake" -> result.success(setKeepAwake(false))
             "audio.negotiate" -> result.success(negotiateAudio(call.arguments))
@@ -161,6 +206,8 @@ class PlatformServicesPlugin :
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        if (crashCaptureInstalled) NativeCrash.uninstall()
+        crashCaptureInstalled = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val manager = appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
             audioDeviceCallback?.let { manager?.unregisterAudioDeviceCallback(it) }
@@ -175,7 +222,7 @@ class PlatformServicesPlugin :
         mediaNotificationManager = null
         audioDeviceCallback = null
         eventSink = null
-        capabilityProbeExecutor.shutdownNow()
+        stopBackgroundWork()
         channel.setMethodCallHandler(null)
         events.setStreamHandler(null)
     }
@@ -188,9 +235,9 @@ class PlatformServicesPlugin :
         eventSink = null
     }
 
-    private fun emitRouteChanged() {
+    internal fun emitRouteChanged() {
         audioCapabilities = null
-        capabilityProbeExecutor.execute {
+        submitProbe {
             audioSnapshot()
             mainHandler.post { eventSink?.success(mapOf("event" to "audioRouteChanged")) }
         }
@@ -551,6 +598,34 @@ class PlatformServicesPlugin :
         return mapOf("passthrough" to supported, "fallbackReason" to
             if (requested && !supported) "AudioTrack getMinBufferSize rejects ${values["codec"]} IEC output; decode to PCM" else null,
             "deviceId" to "auto")
+    }
+
+    private fun getBrightness(): Map<String, Any> {
+        val window = activity?.window ?: return unsupported("display.brightness.get")
+        val own = window.attributes.screenBrightness
+        val level = if (own >= 0f) own else try {
+            android.provider.Settings.System.getInt(
+                activity!!.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS) / 255f
+        } catch (e: Exception) { 0.5f }
+        return mapOf("supported" to true, "level" to level.toDouble())
+    }
+
+    private fun setBrightness(arguments: Any?): Map<String, Any> {
+        val window = activity?.window ?: return unsupported("display.brightness.set")
+        val level = ((arguments as? Map<*, *>)?.get("level") as? Number)?.toFloat()
+            ?: return mapOf("supported" to false, "reason" to "level is required")
+        val attributes = window.attributes
+        attributes.screenBrightness = level.coerceIn(0.01f, 1f)
+        window.attributes = attributes
+        return mapOf("supported" to true)
+    }
+
+    private fun restoreBrightness(): Map<String, Any> {
+        val window = activity?.window ?: return unsupported("display.brightness.restore")
+        val attributes = window.attributes
+        attributes.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        window.attributes = attributes
+        return mapOf("supported" to true)
     }
 
     private fun setKeepAwake(enabled: Boolean): Map<String, Any> {

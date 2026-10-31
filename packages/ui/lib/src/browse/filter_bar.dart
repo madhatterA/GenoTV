@@ -1,3 +1,4 @@
+import '../l10n/genre_labels.dart';
 import '../l10n_gen/app_strings.dart';
 import '../l10n/formatters.dart';
 
@@ -124,7 +125,7 @@ class _FilterBarState extends State<FilterBar> {
   @override
   Widget build(BuildContext context) {
     final q = query;
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
     final chips = <AppChip Function(Key key)>[
       (key) => AppChip(
         key: key,
@@ -159,7 +160,7 @@ class _FilterBarState extends State<FilterBar> {
       for (final o in genres)
         (key) => AppChip(
           key: key,
-          label: o.label,
+          label: genreLabel(context, o.label, id: o.value),
           selected: q.genreIds.contains(o.value),
           onActivate: () => onChanged(
             q.copyWith(
@@ -198,7 +199,7 @@ class _FilterBarState extends State<FilterBar> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(
-          horizontal: RivuletSpacing.gutter(formFactor),
+          horizontal: RivuletSpacing.gutterOf(context),
           vertical: room,
         ),
         child: Row(

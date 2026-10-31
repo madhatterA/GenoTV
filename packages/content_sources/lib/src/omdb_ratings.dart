@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:core/core.dart';
 
 import 'content_source_failure.dart';

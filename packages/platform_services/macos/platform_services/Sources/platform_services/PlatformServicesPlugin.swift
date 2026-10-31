@@ -1,3 +1,7 @@
+@_silgen_name("vp_crash_install") private func crashInstall(_ path: UnsafePointer<CChar>) -> Int32
+@_silgen_name("vp_crash_uninstall") private func crashUninstall()
+@_silgen_name("vp_crash_abort") private func crashAbort()
+
 import Cocoa
 import CoreGraphics
 import AVFoundation
@@ -36,6 +40,21 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "crash.install":
+      guard let args = call.arguments as? [String: Any], let path = args["path"] as? String else {
+        result(FlutterError(code: "crash.path", message: "Absolute crash path required", details: nil)); return
+      }
+      let code = path.withCString { crashInstall($0) }
+      if code == 0 { result(nil) }
+      else { result(FlutterError(code: "crash.install", message: "Native crash capture failed", details: code)) }
+    case "crash.uninstall":
+      crashUninstall(); result(nil)
+    case "crash.proof.abort":
+      #if DEBUG
+      crashAbort()
+      #else
+      result(FlutterError(code: "crash.proof.disabled", message: "Debug build required", details: nil))
+      #endif
     case "capabilities.version":
       result(["os": "macOS " + ProcessInfo.processInfo.operatingSystemVersionString, "plugin": "0.0.1"])
     case "capabilities.probe":
@@ -346,6 +365,7 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
   }
 
   deinit {
+    crashUninstall()
     removeAudioRouteListener()
     removeActivityObservers()
     _ = clearMediaSession()

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show compute;
 import '../pt_runtime.dart';
 import 'package:http/http.dart' as http;
 import 'package:pointycastle/export.dart';
@@ -82,6 +83,11 @@ class CinejoyScraper extends StreamScraper {
     hmac.doFinal(out, 0);
     return out.sublist(0, length);
   }
+
+  static Map<String, dynamic> _sealInIsolate(List<Object?> args) => _sealRequest(
+    path: args[0]! as String,
+    payload: args[1]! as Map<String, dynamic>,
+  );
 
   static Map<String, dynamic> _sealRequest({
     required String path,
@@ -176,7 +182,9 @@ class CinejoyScraper extends StreamScraper {
     required Map<String, dynamic> payload,
   }) async {
     try {
-      final sealed = _sealRequest(path: path, payload: payload);
+      // The P-256 key agreement is pure-Dart big-integer maths (~0.4 s on the
+      // TV): off the UI isolate, or the detail page stutters while sources load.
+      final sealed = await compute(_sealInIsolate, <Object?>[path, payload]);
       final client = http.Client();
       final postRes = await client.post(
         Uri.parse('$_apiBase/g'),

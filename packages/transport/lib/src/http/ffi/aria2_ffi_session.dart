@@ -72,11 +72,14 @@ String _hexBitfield(List<int> bytes) {
 }
 
 final class Aria2FfiSession implements Finalizable {
-  Aria2FfiSession(DynamicLibrary library) : this._(Aria2FfiBindings(library));
+  /// [verifyCertificate] false makes the whole native session skip TLS
+  /// certificate checks (aria2 reads that option once, at session creation).
+  Aria2FfiSession(DynamicLibrary library, {bool verifyCertificate = true})
+    : this._(Aria2FfiBindings(library), verifyCertificate);
 
-  Aria2FfiSession._(this._bindings)
+  Aria2FfiSession._(this._bindings, bool verifyCertificate)
     : _allocator = calloc,
-      _handle = _bindings.create() {
+      _handle = _bindings.create(verifyCertificate ? 1 : 0) {
     if (_handle == nullptr) {
       throw const Aria2FfiException(
         'create session',

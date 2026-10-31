@@ -1,6 +1,6 @@
 // Aggregation ported from PlayTorrioV3 lib/services/scraper/stream_scraper.dart
 // (`scrapeAll`) and lib/pages/player/watch_screen.dart (seeder floor, sort),
-// commit 39b736f. GPL-3.0; see root README.md (Credits) and LICENSE.
+// commit 39b736f. GPL-3.0; see root NOTICE.md.
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
 

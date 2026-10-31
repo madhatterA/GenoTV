@@ -45,11 +45,11 @@ class LocalFileHandle implements StreamHandle {
       throw LocalTransportFailure.unsupportedUri(cause: uri);
     }
     final file = File(uri.toFilePath());
-    if (!await file.exists()) {
-      throw LocalTransportFailure.notFound(cause: file.path);
-    }
     if (await FileSystemEntity.isDirectory(file.path)) {
       throw LocalTransportFailure.notReadable(cause: 'directory: ${file.path}');
+    }
+    if (!await file.exists()) {
+      throw LocalTransportFailure.notFound(cause: file.path);
     }
     late int size;
     try {

@@ -8,7 +8,10 @@ import 'log_record.dart';
 /// before [attach] are held and written when the directory is known. Writes
 /// are queued and appended asynchronously; [flush] waits for them.
 class RotatingFileLogSink {
-  RotatingFileLogSink({this.maxBytes = 5 * 1024 * 1024});
+  RotatingFileLogSink({this.maxBytes = 5 * 1024 * 1024, this.fileName = 'app.log'});
+
+  /// Name of the active file inside the attached directory.
+  final String fileName;
 
   final int maxBytes;
   bool Function() verbose = () => false;
@@ -25,7 +28,7 @@ class RotatingFileLogSink {
 
   void attach(Directory directory, {required bool Function() verbose}) {
     this.verbose = verbose;
-    final file = File('${directory.path}${Platform.pathSeparator}app.log');
+    final file = File('${directory.path}${Platform.pathSeparator}$fileName');
     _size = file.existsSync() ? file.lengthSync() : 0;
     _file = file;
     final early = List<LogRecord>.of(_early);

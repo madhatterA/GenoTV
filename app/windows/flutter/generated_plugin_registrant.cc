@@ -13,6 +13,7 @@
 #include <playback/playback_plugin_c_api.h>
 #include <transport/transport_plugin_c_api.h>
 #include <url_launcher_windows/url_launcher_windows.h>
+#include <video_surface/video_surface_plugin_c_api.h>
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
   FileSelectorWindowsRegisterWithRegistrar(
@@ -29,4 +30,6 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("TransportPluginCApi"));
   UrlLauncherWindowsRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("UrlLauncherWindows"));
+  VideoSurfacePluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("VideoSurfacePluginCApi"));
 }

@@ -4,6 +4,8 @@ import '../l10n/app_text.dart';
 import '../l10n_gen/app_strings.dart';
 import '../platform/adaptive_behavior.dart';
 import '../components/app_row.dart';
+import '../components/app_text_field.dart';
+import '../platform/form_factor.dart';
 import '../navigation/page_top_inset.dart';
 
 import 'package:contracts/contracts.dart';
@@ -41,9 +43,13 @@ class SettingsScreen extends StatefulWidget {
     this.displayChoicesListenable,
     this.settingNotes = const <String, String>{},
     this.onClearCache,
+    this.onCacheUsed,
     this.providersPage,
+    this.titleApiPage,
     this.section,
     this.logDirectory,
+    this.previousCrash = false,
+    this.crashLogText,
     super.key,
   });
 
@@ -51,6 +57,8 @@ class SettingsScreen extends StatefulWidget {
 
   /// Shown on the diagnostics page so the log files can be found.
   final String? logDirectory;
+  final bool previousCrash;
+  final String Function()? crashLogText;
   final AppSettings settings;
   final CapabilityReport capabilities;
   final Set<SettingCapability> available;
@@ -67,14 +75,35 @@ class SettingsScreen extends StatefulWidget {
   /// bytes freed. Without it the Clear cache row is not shown.
   final Future<int> Function()? onClearCache;
 
+  /// Bytes the stream cache holds now; shown next to the cache size limit.
+  final Future<int> Function()? onCacheUsed;
+
   /// Settings → Providers (accounts, sign-in, Buy); listed first when set.
   final WidgetBuilder? providersPage;
+  final WidgetBuilder? titleApiPage;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+/// The order of the root list (Sources sits between Display and Network).
+const _sectionOrder = <SettingSection>[
+  SettingSection.languages,
+  SettingSection.playback,
+  SettingSection.subtitles,
+  SettingSection.audio,
+  SettingSection.video,
+  SettingSection.display,
+  SettingSection.streaming,
+  SettingSection.downloads,
+  SettingSection.performance,
+  SettingSection.advanced,
+];
+
 class _SettingsScreenState extends State<SettingsScreen> {
+  final TextEditingController _find = TextEditingController();
+  String _findText = '';
+
   AppSettings get _settings => widget.settings;
 
   Map<String, String> get _displayChoices =>
@@ -105,6 +134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _entry?.release(_firstSection);
     _firstSection.dispose();
+    _find.dispose();
     widget.displayChoicesListenable?.removeListener(_refresh);
     super.dispose();
   }
@@ -131,6 +161,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         playbackDiagnostics: widget.playbackDiagnostics,
         live: widget.liveDiagnostics,
         logDirectory: widget.logDirectory,
+        previousCrash: widget.previousCrash,
+        crashLogText: widget.crashLogText,
       ),
     ),
   );
@@ -201,8 +233,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return null;
   }
 
-  List<Widget> _rows(SettingSection section) {
+  List<Widget> _rows(
+    SettingSection section, {
+    bool Function(SettingDef def)? where,
+    Set<String>? seen,
+  }) {
     final strings = AppStrings.of(context);
+    final profile = AdaptiveBehavior.of(context);
     final windows = widget.capabilities.diagnostics['os'] == 'windows';
     final fixed =
         _settings.values.read<String>(settingById('audio.outputMode')) ==
@@ -222,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             .toSet() ??
         <String>{};
     return <Widget>[
-      ..._legacyRows(section),
+      if (where == null) ..._legacyRows(section),
       for (final def in visibleSettings(
         section,
         os: widget.capabilities.diagnostics['os'],
@@ -241,7 +278,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _ => null,
         },
       ))
-        if (!windows ||
+        if ((where == null || where(def)) &&
+            (seen == null || seen.add(def.id)) &&
+            (def.id != 'display.fullscreenMode' ||
+                profile.formFactor == FormFactor.desktop) &&
+            (!windows ||
             (def.id != 'audio.passthroughDevice' || passthrough) &&
                 (def.id != 'audio.stereoUpmix' ||
                     widget.capabilities.audioPassthrough ||
@@ -253,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _settings.values.read<String>(
                               settingById('audio.receiver.dolbyDigital'),
                             ) !=
-                            'Disabled'))
+                            'Disabled')))
           SettingRow(
             key: ValueKey<String>('setting-${def.id}'),
             def: def,
@@ -304,13 +345,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 : null,
             note: _settingNote(def),
           ),
-      if (section == SettingSection.streaming && widget.onClearCache != null)
+      if (where == null &&
+          section == SettingSection.streaming &&
+          widget.onCacheUsed != null)
+        SettingValueRow(
+          key: const ValueKey<String>('cache-used'),
+          title: strings.settings_cacheUsed,
+          load: () async => strings.settings_cacheUsedValue(
+            _size(await widget.onCacheUsed!(), strings),
+            choiceLabel(
+              settingById('streaming.cacheSizeLimit'),
+              _settings.values.read<String>(
+                settingById('streaming.cacheSizeLimit'),
+              ),
+              strings,
+            ),
+          ),
+        ),
+      if (where == null &&
+          section == SettingSection.streaming &&
+          widget.onClearCache != null)
         SettingActionRow(
           key: const ValueKey<String>('clear-cache'),
           title: AppStrings.of(context).settings_clearCache,
           run: () async => _freed(await widget.onClearCache!(), strings),
         ),
     ];
+  }
+
+  static String _size(int bytes, AppStrings strings) {
+    const mib = 1024 * 1024;
+    if (bytes < 1024 * mib) {
+      return '${NumberFormat('0', strings.localeName).format((bytes / mib).round())} MB';
+    }
+    return '${NumberFormat('0.0', strings.localeName).format(bytes / (1024 * mib))} GB';
   }
 
   static String _freed(int bytes, AppStrings strings) {
@@ -329,13 +397,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final sections = [
-      for (final section in SettingSection.values)
+      for (final section in _sectionOrder)
         if (section != SettingSection.advanced || _settings.showAdvanced)
           section,
     ];
     final profile = AdaptiveBehavior.of(context);
     final sizes = AdaptiveBehavior.sizesOf(context);
-    final gutter = RivuletSpacing.gutter(profile.formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final gap = RivuletSpacing.rowGap(profile.formFactor);
     return AmbientBackground(
       child: Scaffold(
@@ -355,7 +423,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   gutter,
                 ),
                 child: Align(
-                  alignment: Alignment.topCenter,
+                  alignment: Alignment.topLeft,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: sizes.settingsContentMaxWidth,
@@ -404,29 +472,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
     onActivate: onActivate,
   );
 
-  Widget _sectionList(List<SettingSection> sections) => Column(
+  Widget _pageRow(String key, String label, IconData icon, WidgetBuilder page) =>
+      _sectionRow(
+        key: ValueKey<String>(key),
+        label: label,
+        icon: icon,
+        onActivate: () => pushAndRestoreFocus<void>(
+          Navigator.of(context),
+          AppPageRoute<void>(builder: page),
+        ),
+      );
+
+  Widget _searchField() => Padding(
+    padding: const EdgeInsets.only(bottom: RivuletSpacing.s16),
+    child: AppTextField(
+      fieldKey: const ValueKey<String>('settings-search'),
+      controller: _find,
+      icon: PhosphorIconsRegular.magnifyingGlass,
+      hint: AppStrings.of(context).settings_searchHint,
+      onChanged: (value) => setState(() => _findText = value.trim()),
+    ),
+  );
+
+  /// Settings whose title or description contains the typed text.
+  Widget _searchResults(List<SettingSection> sections) {
+    final strings = AppStrings.of(context);
+    final needle = _findText.toLowerCase();
+    final seen = <String>{};
+    final rows = <Widget>[
+      for (final section in sections)
+        ..._rows(
+          section,
+          seen: seen,
+          where: (def) =>
+              settingLabel(def, strings).toLowerCase().contains(needle) ||
+              settingDescription(def, strings).toLowerCase().contains(needle),
+        ),
+    ];
+    if (rows.isEmpty) {
+      return Padding(
+        key: const ValueKey<String>('settings-search-none'),
+        padding: const EdgeInsets.all(RivuletSpacing.s16),
+        child: AppText(strings.settings_searchNone),
+      );
+    }
+    return AppRowGroup(children: rows);
+  }
+
+  Widget _sectionList(List<SettingSection> sections) {
+    if (_findText.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [_searchField(), _searchResults(sections)],
+      );
+    }
+    return _rootList(sections);
+  }
+
+  Widget _rootList(List<SettingSection> sections) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
+      if (AdaptiveBehavior.of(context).formFactor != FormFactor.tv)
+        _searchField(),
       AppRowGroup(
         children: [
-          if (widget.providersPage case final page?)
-            _sectionRow(
-              key: const ValueKey<String>('section-providers'),
-              focusNode: _firstSection,
-              label: AppStrings.of(context).settings_providers,
-              icon: PhosphorIconsRegular.plugs,
-              onActivate: () => pushAndRestoreFocus<void>(
-                Navigator.of(context),
-                AppPageRoute<void>(builder: page),
-              ),
-            ),
-          for (final section in sections)
+          for (final section in sections) ...[
             _sectionRow(
               key: ValueKey<String>('section-${section.name}'),
-              focusNode:
-                  widget.providersPage == null && section == sections.first
-                  ? _firstSection
-                  : null,
+              focusNode: section == sections.first ? _firstSection : null,
               label: sectionInfo(AppStrings.of(context))[section]!.$1,
               icon: sectionInfo(AppStrings.of(context))[section]!.$2,
               onActivate: () => pushAndRestoreFocus<void>(
@@ -439,21 +552,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     playbackDiagnostics: widget.playbackDiagnostics,
                     liveDiagnostics: widget.liveDiagnostics,
                     logDirectory: widget.logDirectory,
+                    previousCrash: widget.previousCrash,
+                    crashLogText: widget.crashLogText,
                     audioDevices: widget.audioDevices,
                     displayChoices: widget.displayChoices,
                     displayChoicesListenable: widget.displayChoicesListenable,
                     settingNotes: widget.settingNotes,
                     onClearCache: widget.onClearCache,
+                    onCacheUsed: widget.onCacheUsed,
                     section: section,
                   ),
                 ),
               ),
             ),
+            if (section == SettingSection.display) ...[
+              if (widget.providersPage case final page?)
+                _pageRow(
+                  'section-providers',
+                  AppStrings.of(context).settings_providers,
+                  PhosphorIconsRegular.plugs,
+                  page,
+                ),
+              if (widget.titleApiPage case final page?)
+                _pageRow(
+                  'section-titleapi',
+                  AppStrings.of(context).settings_titleApi,
+                  PhosphorIconsRegular.globe,
+                  page,
+                ),
+            ],
+          ],
         ],
       ),
-      SizedBox(
-        height: RivuletSpacing.rowGap(AdaptiveBehavior.of(context).formFactor),
-      ),
+      const SizedBox(height: RivuletSpacing.s24),
       AppRowGroup(
         children: [
           _languageRow(),

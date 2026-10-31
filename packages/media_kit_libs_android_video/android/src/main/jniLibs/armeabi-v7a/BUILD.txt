@@ -9,8 +9,17 @@ harfbuzz=a321c4fee56b15247c10f9aa3db7e7ccb3b8173b
 libass=e8ad72accd3a84268275a9385beb701c9284e5b3
 mpv=78d43740f52db817d98bcf24fb30a76ab6fa13ff
 media-kit-android-helper=42054e5d479f39ccbb0ae604862e2bcaf59b74c2
-3149773711567569af4b20aa5d435980b5018871a93098fdad70a5080d66f4c4  ./packages/playback/native/android/patches/audiotrack-sink-rate.patch
-50a5bf7a669111ac7a2ee7d6312b27f2672b9c756b504cce8e7a6e33e7ac9869  ./packages/playback/native/android/patches/egl-zero-context-flags.patch
-55d897c2ad034387b4f80ede0a815ce5c03bb5b4e8fbc4f07d8ef22baf109e47  ./packages/playback/native/android/patches/h264-annexb-four-byte-startcodes.patch
-c91553e15456a48ee6d322c5cecc3a5cb692d29b1f228711ac13aa3dee48043c  ./packages/media_kit_libs_android_video/android/src/main/jniLibs/armeabi-v7a/libmediakitandroidhelper.so
-1885230d5c54a216dd945ff4f217cadf5d54b6142f18148c453221bbdabde7b0  ./packages/media_kit_libs_android_video/android/src/main/jniLibs/armeabi-v7a/libmpv.so
+overlay=vo-mediacodec-embed-overlay-surface alpha=premultiplied software-osd=mp_draw_sub_bitmaps
+deps/ffmpeg/_build/config.h:#define CONFIG_SWSCALE_ALPHA 1
+deps/ffmpeg/_build/config_components.h:#define CONFIG_DVBSUB_DECODER 1
+deps/ffmpeg/_build/config_components.h:#define CONFIG_DVDSUB_DECODER 1
+deps/ffmpeg/_build/config_components.h:#define CONFIG_PGSSUB_DECODER 1
+deps/ffmpeg/_build/config_components.h:#define CONFIG_SUP_DEMUXER 1
+51a30a35e3343df84942549ff23bc88d7c123205991f13f56bbfc21aceb3821f  ../../packages/playback/native/android/patches/android-mediacodec-overlay.patch
+3149773711567569af4b20aa5d435980b5018871a93098fdad70a5080d66f4c4  ../../packages/playback/native/android/patches/audiotrack-sink-rate.patch
+50a5bf7a669111ac7a2ee7d6312b27f2672b9c756b504cce8e7a6e33e7ac9869  ../../packages/playback/native/android/patches/egl-zero-context-flags.patch
+0f5406a6cf0d146fe42ed6c45bdb9722fd11ef232735bf72e7ec30ae8e48d3ba  ../../packages/playback/native/android/patches/ffmpeg-dovi-mediacodec.patch
+55d897c2ad034387b4f80ede0a815ce5c03bb5b4e8fbc4f07d8ef22baf109e47  ../../packages/playback/native/android/patches/h264-annexb-four-byte-startcodes.patch
+1a4287fee7e86ed0e1d1a376549a73c435c9a3b1e254149f1bfa031f26bb77cc  ../../packages/playback/native/android/patches/mpv-dovi-config.patch
+5a0c47683b226300c36b3a6c8a73923cf3077d5c08259e456d868e51597bdaa9  ../../packages/media_kit_libs_android_video/android/src/main/jniLibs/armeabi-v7a/libmediakitandroidhelper.so
+78b647ea6887846c6bd381e6654be00eaa24f73aadbc5807309a1d90221b284e  ../../packages/media_kit_libs_android_video/android/src/main/jniLibs/armeabi-v7a/libmpv.so

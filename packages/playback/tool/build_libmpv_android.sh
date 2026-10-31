@@ -3,9 +3,9 @@
 set -euo pipefail
 abi=${ANDROID_ABI:-arm64-v8a}
 case "$abi" in
-  arm64-v8a) arch=arm64; triple=aarch64-linux-android ;;
-  armeabi-v7a) arch=armv7l; triple=armv7a-linux-androideabi ;;
-  x86_64) arch=x86_64; triple=x86_64-linux-android ;;
+  arm64-v8a) arch=arm64; ffmpeg_build=_build-arm64; triple=aarch64-linux-android ;;
+  armeabi-v7a) arch=armv7l; ffmpeg_build=_build; triple=armv7a-linux-androideabi ;;
+  x86_64) arch=x86_64; ffmpeg_build=_build-x64; triple=x86_64-linux-android ;;
   *) echo "Unsupported Android ABI: $abi" >&2; exit 2 ;;
 esac
 root=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -82,19 +82,28 @@ test "$(git -C deps/mpv rev-parse HEAD)" = "$v_mpv"
 ./patch.sh
 git -C deps/mpv apply "$root/packages/playback/native/android/patches/egl-zero-context-flags.patch"
 git -C deps/mpv apply "$root/packages/playback/native/android/patches/audiotrack-sink-rate.patch"
+git -C deps/mpv apply "$root/packages/playback/native/android/patches/android-mediacodec-overlay.patch"
 git -C deps/ffmpeg apply "$root/packages/playback/native/android/patches/h264-annexb-four-byte-startcodes.patch"
+git -C deps/mpv apply "$root/packages/playback/native/android/patches/mpv-dovi-config.patch"
+git -C deps/ffmpeg apply "$root/packages/playback/native/android/patches/ffmpeg-dovi-mediacodec.patch"
+cp "$root/packages/playback/native/android/dovi_choice.h" deps/ffmpeg/libavcodec/vp_dovi_choice.h
 # mpv's runtime version uses git describe, not Meson's VERSION project file.
 version=$(git -C deps/mpv show HEAD:VERSION | tr -d '\n')
-git -C deps/mpv tag -f "v$version-vp-egl-zero-flags-1-audio-rates-1" "$v_mpv"
+git -C deps/mpv tag -f "v$version-vp-egl-zero-flags-1-audio-rates-1-overlay-1" "$v_mpv"
 cp flavors/default.sh scripts/ffmpeg.sh
 python3 - <<'PY'
 from pathlib import Path
 p = Path('scripts/ffmpeg.sh')
 # The default flavour disables every filter; mpv's lavfi chain (Kodi stereo upmix `pan`) needs these.
-p.write_text(p.read_text().replace('--ranlib=$RANLIB', '--ranlib=$RANLIB --nm=llvm-nm')
+p.write_text(p.read_text().replace('--disable-swscale-alpha', '')
+    .replace('--enable-decoder=dvdsub', '--enable-decoder=pgssub --enable-demuxer=sup --enable-decoder=dvdsub '
+             '--enable-decoder=truehd --enable-decoder=mlp --enable-parser=mlp --enable-demuxer=truehd --enable-demuxer=mlp')
+    .replace('--ranlib=$RANLIB', '--ranlib=$RANLIB --nm=llvm-nm')
     .replace('--enable-filter=overlay \\',
              '--enable-filter=overlay --enable-filter=abuffer --enable-filter=abuffersink '
-             '--enable-filter=pan --enable-filter=aformat --enable-filter=aresample \\'))
+             '--enable-filter=pan --enable-filter=aformat --enable-filter=aresample '
+             '--enable-filter=yadif --enable-filter=bwdif --enable-filter=scale --enable-filter=format '
+             '--enable-filter=buffer --enable-filter=buffersink \\'))
 PY
 bash -e build.sh --arch "$arch"
 fetch media-kit-android-helper https://github.com/media-kit/media-kit-android-helper.git 42054e5d479f39ccbb0ae604862e2bcaf59b74c2
@@ -107,12 +116,14 @@ dest="$root/packages/media_kit_libs_android_video/android/src/main/jniLibs/$abi"
 mkdir -p "$dest"
 cp -L prefix/$abi/lib/libmpv.so "$dest/libmpv.so"
 cp helper-$abi/libmediakitandroidhelper.so "$dest/"
-"$toolchain/bin/llvm-strip" --strip-debug "$dest"/*.so
+"$toolchain/bin/llvm-strip" --strip-debug --strip-unneeded "$dest"/*.so
 {
   echo "recipe=$pin ndk=$v_ndk flavour=default abi=$abi jobs=$jobs"
   for dep in mbedtls dav1d libxml2 ffmpeg freetype fribidi harfbuzz libass mpv media-kit-android-helper; do
     echo "$dep=$(git -C "deps/$dep" rev-parse HEAD)"
   done
+  echo 'overlay=vo-mediacodec-embed-overlay-surface alpha=premultiplied software-osd=mp_draw_sub_bitmaps'
+  grep -E '^#define (CONFIG_(PGSSUB|DVDSUB|DVBSUB)_DECODER|CONFIG_SUP_DEMUXER|CONFIG_SWSCALE_ALPHA) ' "deps/ffmpeg/$ffmpeg_build/config.h" "deps/ffmpeg/$ffmpeg_build/config_components.h"
   shasum -a 256 "$root/packages/playback/native/android/patches/"*.patch "$dest"/*.so
 } | tee "$dest/BUILD.txt"
 "$toolchain/bin/llvm-strings" "$dest/libmpv.so" | grep 'vp-egl-zero-flags-1'

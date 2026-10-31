@@ -2,11 +2,11 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd -P)"
-platform="${1:?usage: build_ffmpeg.sh <macos|android|ios|windows> [architecture]}"
+platform="${1:?usage: build_ffmpeg.sh <macos|android|ios|tvos|windows> [architecture]}"
 arch="${2:-$(uname -m)}"
 version=8.0.1
 sha256=05ee0b03119b45c0bdb4df654b96802e909e0a752f72e4fe3794f487229e5a41
-case "$platform" in macos|android|ios|windows) ;; *) echo 'Unsupported platform' >&2; exit 2 ;; esac
+case "$platform" in macos|android|ios|tvos|windows) ;; *) echo 'Unsupported platform' >&2; exit 2 ;; esac
 case "$arch" in arm64|aarch64|x86_64|armeabi-v7a|armv7|x86|i686) ;; *) echo 'Unsupported architecture' >&2; exit 2 ;; esac
 cache="${CAST_FFMPEG_CACHE:-${TMPDIR:-/tmp}/cast-ffmpeg-$(id -u)}"
 # Upstream makefiles need space-free paths; publish into the repo only after install.
@@ -54,6 +54,17 @@ case "$platform" in
     case "$arch" in arm64|aarch64) arch=arm64; cpu=aarch64 ;; x86_64) cpu=x86_64 ;; *) echo 'Invalid iOS architecture' >&2; exit 2 ;; esac
     triple="$arch-apple-ios13.0"
     if [[ "$sdk_name" == iphonesimulator ]]; then triple="$triple-simulator"; fi
+    target=(--enable-cross-compile --target-os=darwin --arch="$cpu"
+      --cc="$(xcrun --sdk "$sdk_name" -f clang)" --sysroot="$sdk"
+      --extra-cflags="-target $triple" --extra-ldflags="-target $triple")
+    ;;
+  tvos)
+    sdk_name="${CAST_IOS_SDK:-appletvos}"
+    case "$sdk_name" in appletvos|appletvsimulator) ;; *) echo 'Invalid tvOS SDK' >&2; exit 2 ;; esac
+    sdk="$(xcrun --sdk "$sdk_name" --show-sdk-path)"
+    case "$arch" in arm64|aarch64) arch=arm64; cpu=aarch64 ;; *) echo 'Invalid tvOS architecture' >&2; exit 2 ;; esac
+    triple="$arch-apple-tvos15.0"
+    if [[ "$sdk_name" == appletvsimulator ]]; then triple="$triple-simulator"; fi
     target=(--enable-cross-compile --target-os=darwin --arch="$cpu"
       --cc="$(xcrun --sdk "$sdk_name" -f clang)" --sysroot="$sdk"
       --extra-cflags="-target $triple" --extra-ldflags="-target $triple")
@@ -113,6 +124,7 @@ printf '%s\n%s\n' "https://ffmpeg.org/releases/ffmpeg-$version.tar.xz" "$sha256"
   > "$work/install/share/ffmpeg/source.txt"
 output="$root/native/ffmpeg/$platform-$arch"
 if [[ "$platform" == ios ]]; then output="$output-${CAST_IOS_SDK:-iphoneos}"; fi
+if [[ "$platform" == tvos ]]; then output="$output-${CAST_IOS_SDK:-appletvos}"; fi
 mkdir -p "$output"
 cp -R "$work/install/." "$output/"
 echo "Installed FFmpeg: $output"

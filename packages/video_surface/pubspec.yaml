@@ -36,6 +36,15 @@ flutter:
     platforms:
       macos:
         pluginClass: VideoSurfacePlugin
+      android:
+        package: com.genotv.video_surface
+        pluginClass: VideoSurfacePlugin
+      ios:
+        pluginClass: VideoSurfacePlugin
+      tvos:
+        pluginClass: VideoSurfacePlugin
+      windows:
+        pluginClass: VideoSurfacePluginCApi
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:

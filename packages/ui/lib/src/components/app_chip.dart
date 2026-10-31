@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../focus/focusable_action.dart';
 import '../l10n/app_text.dart';
 import '../platform/adaptive_behavior.dart';
-import '../platform/form_factor.dart';
+import '../platform/app_haptics.dart';
 import '../theme/rivulet_tokens.dart';
 import 'tinted_surface.dart';
 
-/// A filter chip (DESIGN_SPEC §9.7): `tintFill`, `small` radius; selected is
+/// A filter chip (DESIGN_SPEC §9.7): `tintFill`, `full` radius (capsule); selected is
 /// an `accent` fill with `onAccent` text.
 class AppChip extends StatelessWidget {
   const AppChip({
@@ -31,26 +32,27 @@ class AppChip extends StatelessWidget {
   final FocusNode? focusNode;
   final bool autofocus;
 
-  static const double _height = 36;
-  static const double _heightTv = 44;
-
   @override
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
     final colors = tokens.colors;
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
-    final radius = BorderRadius.circular(RivuletRadius.small);
+    final ff = AdaptiveBehavior.formFactorOf(context);
+    final radius = BorderRadius.circular(RivuletRadius.full);
+    // Selected = fill + check; focus = ring only (never the same signal).
+    final glyph = icon ?? (selected ? PhosphorIconsBold.check : null);
     final foreground = selected ? colors.onAccent : colors.textPrimary;
     final text = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: RivuletSpacing.s16),
+      padding: EdgeInsets.symmetric(
+        horizontal: RivuletControlSize.s.horizontalPadding(ff),
+      ),
       child: Center(
         widthFactor: 1,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            if (icon != null) ...<Widget>[
-              Icon(icon, size: 18, color: foreground),
-              const SizedBox(width: RivuletSpacing.s8),
+            if (glyph != null) ...<Widget>[
+              Icon(glyph, size: RivuletControlSize.s.glyph(ff), color: foreground),
+              SizedBox(width: RivuletControlSize.s.iconGap(ff)),
             ],
             Flexible(
               child: AppText(
@@ -65,7 +67,12 @@ class AppChip extends StatelessWidget {
       ),
     );
     return FocusableAction(
-      onActivate: onActivate,
+      onActivate: onActivate == null
+          ? null
+          : () {
+              AppHaptics.selection(context);
+              onActivate!();
+            },
       enabled: onActivate != null,
       focusNode: focusNode,
       autofocus: autofocus,
@@ -73,8 +80,10 @@ class AppChip extends StatelessWidget {
       minSize: AdaptiveBehavior.hitTargetOf(context),
       centered: true,
       focusRadius: radius,
-      child: SizedBox(
-        height: tv ? _heightTv : _height,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: RivuletControlSize.s.height(ff),
+        ),
         child: selected
             ? DecoratedBox(
                 decoration: BoxDecoration(
@@ -83,7 +92,7 @@ class AppChip extends StatelessWidget {
                 ),
                 child: text,
               )
-            : TintedSurface(radius: RivuletRadius.small, child: text),
+            : TintedSurface(radius: RivuletRadius.full, child: text),
       ),
     );
   }

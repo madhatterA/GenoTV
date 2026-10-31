@@ -34,11 +34,16 @@ final class MediaKitPlaybackController
     SurfaceOutput? output,
   }) : _logger = logger.scoped('playback') {
     EngineBootstrap.ensureInitialised(logger: _logger);
-    // libass: mpv draws the subtitles itself (sub-visibility yes); the native
-    // surface has no Flutter subtitle overlay, so without it nothing shows.
+    // libass draws styled subtitles on GPU output with the bundled Android font.
+    // Android's HDR decoder surface receives the same mpv instance's software OSD overlay.
     _player =
         player ??
-        mk.Player(configuration: const mk.PlayerConfiguration(libass: true));
+        mk.Player(
+          configuration: mk.PlayerConfiguration(
+            libass: true,
+            logLevel: genotvDebugLog ? mk.MPVLogLevel.v : mk.MPVLogLevel.error,
+          ),
+        );
     surfaceOutput =
         output ??
         SurfaceOutput(
@@ -47,11 +52,15 @@ final class MediaKitPlaybackController
             hdrSource: _player.stream.videoParams.map(
               (p) => hdrPolicy.reportsHdr(p.gamma),
             ),
+            mpv: applySurfaceProperties,
+            feed: native.AndroidPlayerFeed.of(_player),
           ),
           texture: _attachTextureOutput,
           logger: _logger,
           onError: (error, stack) => _emitFailure(
-            PlaybackFailure.engineCrashed(cause: error, stack: stack),
+            error is PlaybackFailure
+                ? error
+                : PlaybackFailure.engineCrashed(cause: error, stack: stack),
           ),
         );
     _seekCoalescer = SeekCoalescer(issue: _issueSeek);
@@ -208,8 +217,30 @@ final class MediaKitPlaybackController
         (throw StateError('texture video output has not been prepared'));
   }
 
+  /// Native output options (Android wid/vo); rejected options are logged and skipped.
+  Future<void> applySurfaceProperties(
+    List<(String, String)> properties, {
+    required bool reseek,
+  }) async {
+    final backend = _player.platform as mk.NativePlayer;
+    for (final (name, value) in properties) {
+      await _setMpvProperty(backend, name, value);
+    }
+    if (reseek && _player.state.playlist.medias.isNotEmpty) {
+      await _player.seek(_player.state.position);
+    }
+  }
+
   /// Native rendering must be released before this creates another mpv context.
   Future<void> _attachTextureOutput() async {
+    // media_kit_video has no tvOS texture output: a native-surface failure ends here.
+    if (Platform.operatingSystem == 'tvos') {
+      throw PlaybackFailure.surfaceUnavailable(
+        cause: StateError(
+          'native video surface failed; tvOS has no texture fallback',
+        ),
+      );
+    }
     final backend = _player.platform as mk.NativePlayer;
     for (final name in ['target-trc', 'target-prim', 'target-peak']) {
       await _setMpvProperty(backend, name, 'auto');
@@ -242,6 +273,8 @@ final class MediaKitPlaybackController
     _opened = false;
     _latestMediaInfo = null;
     _defaultsDone = false;
+    _userPickedAudio = false;
+    _userPickedSubtitle = false;
     _heldDecoderCodec = null;
     _heldDecoderMessage = null;
     _pendingVideoDecoderError = null;
@@ -259,14 +292,31 @@ final class MediaKitPlaybackController
     final mediaUri = resolveUri?.call(uri) ?? uri;
     try {
       if (mediaUri.isScheme('file') &&
-          !File(mediaUri.toFilePath()).existsSync()) {
+          !await File(mediaUri.toFilePath()).exists()) {
         throw StateError('Media file does not exist: $mediaUri');
       }
       await surfaceOutput.prepare();
       await _liveOptionTail;
       await _applyEngineOptions(engineOptions);
+      if (mediaUri.host == '127.0.0.1' || mediaUri.host == '::1') {
+        // Our own range server: a connection it ends on purpose (a far seek)
+        // must fail the read at once, not after ffmpeg's 1+3+7 s backoff.
+        await _setMpvProperty(
+          _player.platform as mk.NativePlayer,
+          'stream-lavf-o',
+          'reconnect_delay_max=0',
+        );
+      }
+      await _setMpvProperty(
+        _player.platform as mk.NativePlayer,
+        'tls-verify',
+        verifyCertificates ? 'yes' : 'no',
+      );
       await _player.open(
-        mk.Media(mediaKitResourceFor(mediaUri), httpHeaders: headers),
+        mk.Media(
+          mediaKitResourceFor(await httpsFirstUri(mediaUri)),
+          httpHeaders: headers,
+        ),
         play: false,
       );
       _opened = true;
@@ -639,8 +689,9 @@ final class MediaKitPlaybackController
   Future<void> _setMpvProperty(
     mk.NativePlayer backend,
     String name,
-    String value,
-  ) async {
+    String value, {
+    bool skipRejected = false,
+  }) async {
     await backend.waitForPlayerInitialization;
     await backend.waitForVideoControllerInitializationIfAttached;
     final nameUtf8 = name.toNativeUtf8();
@@ -657,7 +708,13 @@ final class MediaKitPlaybackController
           .mpv_error_string(code)
           .cast<Utf8>()
           .toDartString();
-      throw StateError('mpv rejected $name=$value: $reason ($code)');
+      final error = StateError('mpv rejected $name=$value: $reason ($code)');
+      _logger.error(
+        'Native surface option rejected: $name=$value',
+        error: error,
+      );
+      if (skipRejected) return;
+      throw error;
     }
   }
 
@@ -737,10 +794,34 @@ final class MediaKitPlaybackController
     }
   }
 
+  /// An explicit audio / subtitle pick made through [selectTrack] before the
+  /// default-track pass ran; the pass must keep it.
+  bool get userPickedAudio => _userPickedAudio;
+  bool get userPickedSubtitle => _userPickedSubtitle;
+  bool _userPickedAudio = false;
+  bool _userPickedSubtitle = false;
+  bool _selectingDefaults = false;
+
+  /// [selectTrack] for the default-track pass: not recorded as a user pick.
+  Future<void> selectDefaultTracks(TrackSelection selection) async {
+    _selectingDefaults = true;
+    try {
+      await selectTrack(selection);
+    } finally {
+      _selectingDefaults = false;
+    }
+  }
+
   @override
   Future<void> selectTrack(TrackSelection selection) async {
     _checkUsable();
     _requireOpen();
+    if (!_selectingDefaults) {
+      if (selection.audio != _current.selected.audio) _userPickedAudio = true;
+      if (selection.subtitle != _current.selected.subtitle) {
+        _userPickedSubtitle = true;
+      }
+    }
     try {
       _validateChoice(selection.video, _current.tracks.video);
       _validateChoice(selection.audio, _current.tracks.audio);
@@ -783,7 +864,7 @@ final class MediaKitPlaybackController
     final key = uri.toString();
     if (_externalSubtitleUris.contains(key)) return;
     try {
-      if (uri.isScheme('file') && !File(uri.toFilePath()).existsSync()) {
+      if (uri.isScheme('file') && !await File(uri.toFilePath()).exists()) {
         throw StateError('Subtitle file does not exist: $uri');
       }
       await _resolveSubtitleEncoding(uri);
@@ -904,6 +985,7 @@ final class MediaKitPlaybackController
         await surfaceOutput.dispose();
       } finally {
         await _player.dispose().timeout(const Duration(seconds: 3));
+        await surfaceOutput.dispose(engineDisposed: true);
       }
     } on TimeoutException catch (error, stack) {
       _logger.warn('media engine teardown timed out');
@@ -1074,6 +1156,7 @@ final class MediaKitPlaybackController
       audioChannelLayout: await read('audio-params/hr-channels'),
       audioSampleRate: await readInt('audio-params/samplerate'),
       subtitleFormat: await read('current-tracks/sub/codec'),
+      dolbyVisionProfile: await readInt('current-tracks/video/dolby-vision-profile'),
     );
     if (generation == _mediaInfoGeneration && !_mediaInfoController.isClosed) {
       _latestMediaInfo = info;
@@ -1127,6 +1210,24 @@ final class MediaKitPlaybackController
   List<({bool video, bool resolved})> _decoderOpenLogs = [];
 
   void _onEngineLog(mk.PlayerLog entry) {
+    if (genotvDebugLog) {
+      _logger.debug('mpv ${entry.level} ${entry.prefix}: ${entry.text}');
+    }
+    if (entry.level == 'error' && entry.prefix == 'vo/mediacodec_embed') {
+      final error = native.AndroidSurfaceException(entry.text.trim());
+      if (entry.text.trim().startsWith('overlay:')) {
+        // _emitFailure logs it once, with its code.
+        _emitFailure(PlaybackFailure.engineCrashed(cause: error));
+        FlutterError.reportError(
+          FlutterErrorDetails(exception: error, library: 'playback'),
+        );
+      } else {
+        _logger.error(
+          'Android native overlay: ${entry.text.trim()}',
+          error: error,
+        );
+      }
+    }
     if (entry.level == 'error' &&
         (entry.prefix == 'vd' || entry.prefix == 'ad') &&
         entry.text.trim() == 'Could not open codec.') {
@@ -1325,6 +1426,7 @@ final class MediaKitPlaybackController
   }
 
   PlaybackFailure _classifyFailure(Object error, StackTrace stack) {
+    if (error is PlaybackFailure) return error;
     final message = error.toString().toLowerCase();
     if (message.contains('unsupported') && message.contains('codec')) {
       return PlaybackFailure.unsupportedCodec(

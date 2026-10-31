@@ -8,6 +8,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../components/ambient_background.dart';
 import '../components/app_button.dart';
+import '../components/pull_refresh.dart';
 import '../focus/focus_memory.dart';
 import '../states/empty_view.dart';
 import '../navigation/page_back_button.dart';
@@ -128,6 +129,16 @@ class _PagedTitleGridState extends State<PagedTitleGrid> {
     unawaited(_load());
   }
 
+  /// Pull-to-refresh: start again from page 1; the old titles stay until the
+  /// new first page arrives.
+  Future<void> _refresh() {
+    _generation++;
+    _next = 1;
+    _error = null;
+    _loading = false;
+    return _load();
+  }
+
   Future<void> _load({bool retry = false}) async {
     if (_loading || _next == null || (_error != null && !retry)) return;
     final generation = _generation, query = _query, page = _next!;
@@ -140,6 +151,10 @@ class _PagedTitleGridState extends State<PagedTitleGrid> {
       if (!mounted) return;
       if (generation == _generation) {
         setState(() {
+          if (page == 1) {
+            _items = [];
+            _metadata = {};
+          }
           final ids = _items.map((i) => i.id).toSet();
           _items = [
             ..._items,
@@ -153,7 +168,7 @@ class _PagedTitleGridState extends State<PagedTitleGrid> {
           _next = page >= 500 ? null : result.nextPage;
           if (_entryPending && _items.isNotEmpty) {
             final chipsPrimary =
-                AdaptiveBehavior.of(context).formFactor == FormFactor.tv &&
+                AdaptiveBehavior.formFactorOf(context) == FormFactor.tv &&
                 widget.showFilters;
             final focusEntry =
                 widget.showAppBar &&
@@ -214,7 +229,7 @@ class _PagedTitleGridState extends State<PagedTitleGrid> {
   Widget build(BuildContext context) {
     // TV: the filter bar is the first focus row (DESIGN_SPEC §8.2).
     final chipsPrimary =
-        AdaptiveBehavior.of(context).formFactor == FormFactor.tv &&
+        AdaptiveBehavior.formFactorOf(context) == FormFactor.tv &&
         widget.showAppBar &&
         widget.showFilters;
     final filterBar = widget.showFilters
@@ -257,31 +272,36 @@ class _PagedTitleGridState extends State<PagedTitleGrid> {
                               key: const ValueKey('title-grid-empty'),
                               headline: AppStrings.of(context).library_noMatch,
                             ))
-                : MediaGrid(
-                    key: ValueKey(_generation),
-                    items: _items,
-                    memory: _memory,
-                    firstFocusNode: widget.firstFocusNode ?? _first,
-                    autofocus:
-                        widget.autofocus && !chipsPrimary && !_entryFocusMoved,
-                    focusedId: _focusedId,
-                    onFocused: (item) {
-                      _focusedId = item.id;
-                    },
-                    onItemTap: widget.onItemTap,
-                    onLoadMore: _load,
-                    isLoadingMore: _loading,
-                    scrollController: _scroll,
-                    pageEntry: widget.showAppBar && !chipsPrimary,
-                    header: headerInGrid
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[widget.header!, ?filterBar],
-                          )
-                        : null,
-                    trailingTile: _error != null
-                        ? _retry(fullPage: false)
-                        : null,
+                : PullRefresh(
+                    onRefresh: _refresh,
+                    child: MediaGrid(
+                      key: ValueKey(_generation),
+                      items: _items,
+                      memory: _memory,
+                      firstFocusNode: widget.firstFocusNode ?? _first,
+                      autofocus:
+                          widget.autofocus &&
+                          !chipsPrimary &&
+                          !_entryFocusMoved,
+                      focusedId: _focusedId,
+                      onFocused: (item) {
+                        _focusedId = item.id;
+                      },
+                      onItemTap: widget.onItemTap,
+                      onLoadMore: _load,
+                      isLoadingMore: _loading,
+                      scrollController: _scroll,
+                      pageEntry: widget.showAppBar && !chipsPrimary,
+                      header: headerInGrid
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[widget.header!, ?filterBar],
+                            )
+                          : null,
+                      trailingTile: _error != null
+                          ? _retry(fullPage: false)
+                          : null,
+                    ),
                   ),
           ),
         ],

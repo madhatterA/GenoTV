@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoRouteTransitionMixin;
 import 'package:flutter/widgets.dart';
 
 import '../platform/adaptive_behavior.dart';
@@ -21,7 +22,7 @@ class AppPageRoute<T> extends PageRoute<T> {
   bool get _tv {
     final context = navigator?.context;
     return context != null &&
-        AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+        AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
   }
 
   bool get _reduced {
@@ -70,6 +71,18 @@ class AppPageRoute<T> extends PageRoute<T> {
     Widget child,
   ) {
     if (_tv) return child;
+    // iPhone: the platform's interactive back swipe from the left edge (the
+    // gesture strip is 20 px wide, so poster rows are not stolen).
+    if (AdaptiveBehavior.isIosPhone(context) &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      return CupertinoRouteTransitionMixin.buildPageTransitions<T>(
+        this,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
     final curved = CurvedAnimation(
       parent: animation,
       curve: RivuletMotion.easeOut,

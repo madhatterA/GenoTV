@@ -30,6 +30,8 @@ flutter:
         pluginClass: TransportPlugin
       ios:
         pluginClass: TransportPlugin
+      tvos:
+        pluginClass: TransportPlugin
       macos:
         pluginClass: TransportPlugin
       windows:

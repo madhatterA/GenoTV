@@ -13,6 +13,7 @@ class ChromecastDiscoveryProvider implements DeviceDiscoveryProvider {
   final MdnsLookup _mdnsLookup;
   StreamController<List<CastDevice>>? _controller;
   StreamSubscription<MdnsServiceInfo>? _subscription;
+  Timer? _timeoutTimer;
   final Map<String, CastDevice> _devices = {};
 
   /// Creates a [ChromecastDiscoveryProvider].
@@ -61,7 +62,7 @@ class ChromecastDiscoveryProvider implements DeviceDiscoveryProvider {
     );
 
     // Close after timeout
-    Timer(timeout, () {
+    _timeoutTimer = Timer(timeout, () {
       stopDiscovery();
     });
 
@@ -70,6 +71,8 @@ class ChromecastDiscoveryProvider implements DeviceDiscoveryProvider {
 
   @override
   void stopDiscovery() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
     _subscription?.cancel();
     _subscription = null;
     if (_controller?.isClosed == false) {

@@ -1,7 +1,6 @@
 import '../l10n_gen/app_strings.dart';
 
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../components/glass_surface.dart';
 import '../focus/focusable_action.dart';
@@ -34,7 +33,7 @@ Future<void> showMediaContextMenu({
   FocusNode? returnFocusTo,
   Offset? anchor,
 }) {
-  final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+  final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
   final safePadding = MediaQuery.paddingOf(context);
   final reduced = MediaQuery.disableAnimationsOf(context);
   return showGeneralDialog<void>(
@@ -165,22 +164,3 @@ class _AnchoredMenuLayout extends SingleChildLayoutDelegate {
   @override
   bool shouldRelayout(_AnchoredMenuLayout old) => old.anchor != anchor;
 }
-
-/// The menu every poster offers on right-click or the context-menu key: one
-/// "Details" action that opens the title.
-Future<void> showMediaDetailsMenu({
-  required BuildContext context,
-  required Offset anchor,
-  required VoidCallback onDetails,
-}) => showMediaContextMenu(
-  context: context,
-  anchor: anchor,
-  returnFocusTo: FocusManager.instance.primaryFocus,
-  actions: <MediaContextAction>[
-    MediaContextAction(
-      label: AppStrings.of(context).common_details,
-      icon: PhosphorIconsRegular.info,
-      onSelected: onDetails,
-    ),
-  ],
-);

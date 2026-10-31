@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+
 import '../pt_runtime.dart';
 import 'package:http/http.dart' as http;
 import '../stream_scraper.dart';
@@ -48,8 +50,15 @@ class LookMovieScraper extends StreamScraper {
         ).timeout(const Duration(seconds: 4));
 
         if (res.statusCode == 200) {
-          final data = jsonDecode(res.body);
-          if (data is Map && data['result'] is List && (data['result'] as List).isNotEmpty) {
+          final body = res.body;
+          Future<Object?> decodeBody(String payload) =>
+              Isolate.run(() => jsonDecode(payload));
+          final data = body.length > 50 * 1024
+              ? await decodeBody(body)
+              : jsonDecode(body);
+          if (data is Map &&
+              data['result'] is List &&
+              (data['result'] as List).isNotEmpty) {
             final results = data['result'] as List;
             Map? match;
             if (year != null) {
@@ -73,15 +82,21 @@ class LookMovieScraper extends StreamScraper {
     return null;
   }
 
-  String? _getEpisodeId(String html, int s, int e) {
-    final storageMatch = RegExp(r'''window\[['"](?:movie|show)_storage['"]\]\s*=\s*\{([^}]+)\}''')
-        .firstMatch(html);
+  Future<String?> _getEpisodeId(String html, int s, int e) async {
+    final storageMatch = RegExp(
+      r'''window\[['"](?:movie|show)_storage['"]\]\s*=\s*\{([^}]+)\}''',
+    ).firstMatch(html);
     if (storageMatch != null) {
       final block = storageMatch.group(1)!;
       final sm = RegExp(r'''seasons\s*:\s*(\[[\s\S]+?\])\s*[,}]''').firstMatch(block);
       if (sm != null && sm.group(1) != null) {
         try {
-          final seasons = jsonDecode(sm.group(1)!);
+          final body = sm.group(1)!;
+          Future<Object?> decodeBody(String payload) =>
+              Isolate.run(() => jsonDecode(payload));
+          final seasons = body.length > 50 * 1024
+              ? await decodeBody(body)
+              : jsonDecode(body);
           if (seasons is List) {
             final season = seasons.firstWhere(
               (x) => x is Map && (x['season'] ?? x['meta']?['season'])?.toString() == s.toString(),
@@ -165,8 +180,13 @@ class LookMovieScraper extends StreamScraper {
         final expires = expiresMatch.group(1)!;
 
         final streamId = isTv
-            ? _getEpisodeId(html, season ?? 1, episode ?? 1)
-            : (match['id_movie'] ?? match['id'] ?? RegExp(r'''['"]?(?:id_movie|movieId)['"]?\s*[:=]\s*['"]?(\d+)['"]?''').firstMatch(html)?.group(1))?.toString();
+            ? await _getEpisodeId(html, season ?? 1, episode ?? 1)
+            : (match['id_movie'] ??
+                      match['id'] ??
+                      RegExp(
+                        r'''['"]?(?:id_movie|movieId)['"]?\s*[:=]\s*['"]?(\d+)['"]?''',
+                      ).firstMatch(html)?.group(1))
+                  ?.toString();
 
         if (streamId == null || streamId.isEmpty) return;
 

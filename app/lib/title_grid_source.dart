@@ -63,25 +63,33 @@ Future<List<MediaItem>> loadTmdbTitles(
     }
     ids.add('tmdb:${match.group(1)}:${match.group(2)}');
   }
-  return Future.wait(
+  // One title that cannot be loaded (removed from TMDB, 404) must not take the
+  // rest down: it is logged and left out.
+  final loaded = await Future.wait(
     ids.map((id) async {
       final movie = id.startsWith('tmdb:movie:');
-      final details = await catalogue.details(
-        MediaItem(
-          id: id,
-          title: id,
-          kind: movie ? MediaKind.movie : MediaKind.episode,
-        ),
-      );
-      final item = details.item;
-      return MediaItem(
-        id: item.id,
-        title: item.title,
-        kind: item.kind,
-        artwork: details.poster ?? item.artwork,
-        year: item.year,
-        tmdbId: item.tmdbId,
-      );
+      try {
+        final details = await catalogue.details(
+          MediaItem(
+            id: id,
+            title: id,
+            kind: movie ? MediaKind.movie : MediaKind.episode,
+          ),
+        );
+        final item = details.item;
+        return MediaItem(
+          id: item.id,
+          title: item.title,
+          kind: item.kind,
+          artwork: details.poster ?? item.artwork,
+          year: item.year,
+          tmdbId: item.tmdbId,
+        );
+      } on AppFailure catch (error) {
+        logger?.warn('Stored title could not be loaded: $id', error: error);
+        return null;
+      }
     }),
   );
+  return loaded.whereType<MediaItem>().toList();
 }

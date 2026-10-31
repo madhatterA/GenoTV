@@ -1,6 +1,7 @@
 import '../l10n/app_text.dart';
 
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/rivulet_tokens.dart';
 import 'panel_row.dart';
@@ -101,9 +102,9 @@ class _UpNextPanelState extends State<UpNextPanel> {
                 SizedBox(
                   width: 28,
                   child: item.state == UpNextState.watched
-                      ? Icon(Icons.check_circle, size: 20, color: titleColor)
+                      ? Icon(PhosphorIconsRegular.checkCircle, size: 20, color: titleColor)
                       : item.state == UpNextState.nowPlaying
-                      ? Icon(Icons.play_circle_fill, size: 22, color: fg)
+                      ? Icon(PhosphorIconsRegular.playCircle, size: 22, color: fg)
                       : null,
                 ),
                 Expanded(

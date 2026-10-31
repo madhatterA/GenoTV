@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:content_sources/content_sources.dart';
 import 'package:contracts/contracts.dart';
@@ -16,14 +18,26 @@ class TmdbHomeView extends StatefulWidget {
     required this.onItemTap,
     required this.favourites,
     required this.progress,
+    this.libraryChanged,
     this.retryDelay = const Duration(seconds: 5),
     this.logger,
+    this.snapshot,
     super.key,
   });
+
+  /// `home_snapshot.json` in the cache directory: the last browse rows, shown
+  /// at once on launch and replaced when fresh data arrives. Personal rows
+  /// (Liked, Watched) are never in it.
+  final Future<File>? snapshot;
 
   final TmdbCatalogue catalogue;
   final FavouritesRepository favourites;
   final ProgressRepository progress;
+
+  /// Fires when playback saved a position somewhere other than from Home
+  /// (search, genres, a person page): Home is kept alive under its own
+  /// Navigator and would otherwise show a stale Continue watching row.
+  final Listenable? libraryChanged;
   final AppLogger? logger;
 
   /// How long a failed load waits before trying again on its own, so the
@@ -44,6 +58,14 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
   late Future<HomeViewModel> _model = _load();
   Timer? _retry;
 
+  void _onLibraryChanged() => unawaited(_refreshLibrary());
+
+  @override
+  void initState() {
+    super.initState();
+    widget.libraryChanged?.addListener(_onLibraryChanged);
+  }
+
   /// A failed load schedules a quiet retry (the error stays on screen until
   /// one succeeds); the Retry button reloads immediately.
   Future<HomeViewModel> _load() =>
@@ -51,38 +73,176 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
 
   Future<HomeViewModel> _loadRows() async {
     _retry?.cancel();
-    try {
-      final loaded = await Future.wait(<Future<List<HomeRow>>>[
-        _row(
-          (s) => s.home_trendingMovies,
-          MediaKind.movie,
-          'trending',
-        ).then((row) => [row]),
-        _row(
-          (s) => s.home_trendingShows,
-          MediaKind.episode,
-          'trending',
-        ).then((row) => [row]),
-        _libraryRows(),
-      ]);
-      final rows = [for (final group in loaded) ...group];
-      if (mounted) _outage.updateConnection(healthy: true);
-      return _loaded = HomeViewModel(
+    // Slots in page order: trending movies, trending shows, Liked, Watched.
+    // Every row is requested at once and appears when its own data arrives.
+    final slots = List<List<HomeRow>?>.filled(5, null);
+    final first = Completer<HomeViewModel>();
+    final errors = <(Object, StackTrace)>[];
+    var browseFailed = 0;
+    var freshBrowse = 0;
+    HomeViewModel? model;
+
+    void surface(Object error, StackTrace stack) {
+      widget.logger?.warn('Home row failed', error: error, stack: stack);
+      if (!mounted) return;
+      final network =
+          error is ContentSourceFailure && error.code == 'provider.network';
+      _outage.updateConnection(healthy: !network);
+      if (network ||
+          error is ContentSourceFailure &&
+              error.code == 'provider.unavailable') {
+        _retry?.cancel();
+        _retry = Timer(widget.retryDelay, _quietRetry);
+      }
+    }
+
+    void publish() {
+      // Continue watching (slot 4) leads the page; the other slots keep their order.
+      final rows = [...?slots[4], for (final slot in slots.take(4)) ...?slot];
+      if (model != null) {
+        if (mounted) model!.replaceRows(rows);
+        return;
+      }
+      if (slots[0] == null && slots[1] == null) return;
+      model = _loaded = HomeViewModel(
         rows: rows,
         heroArtwork: widget.catalogue.backdrops,
       );
-    } catch (error) {
-      if (mounted) {
-        final network =
-            error is ContentSourceFailure && error.code == 'provider.network';
-        _outage.updateConnection(healthy: !network);
-        if (network ||
-            error is ContentSourceFailure &&
-                error.code == 'provider.unavailable') {
-          _retry = Timer(widget.retryDelay, _quietRetry);
-        }
+      first.complete(model);
+      for (final (error, stack) in errors) {
+        surface(error, stack);
       }
-      rethrow;
+    }
+
+    void failed(int slot, Object error, StackTrace stack) {
+      if (slot < 2) browseFailed++;
+      if (!first.isCompleted && browseFailed == 2) {
+        surface(error, stack);
+        first.completeError(error, stack);
+      } else if (model != null) {
+        surface(error, stack);
+      } else {
+        errors.add((error, stack));
+      }
+    }
+
+    void track(int slot, Future<List<HomeRow>> rows) => rows.then((value) {
+      if (slot < 2) {
+        freshBrowse++;
+        if (mounted) _outage.updateConnection(healthy: errors.isEmpty);
+      }
+      slots[slot] = value;
+      publish();
+      if (freshBrowse == 2) {
+        unawaited(_writeSnapshot([...slots[0]!, ...slots[1]!]));
+      }
+    }, onError: (Object e, StackTrace s) => failed(slot, e, s));
+
+    track(
+      0,
+      _row(
+        (s) => s.home_trendingMovies,
+        MediaKind.movie,
+        'trending',
+      ).then((row) => [row]),
+    );
+    track(
+      1,
+      _row(
+        (s) => s.home_trendingShows,
+        MediaKind.episode,
+        'trending',
+      ).then((row) => [row]),
+    );
+    track(2, _likedRows());
+    track(3, _watchedRows());
+    track(4, _continueRows());
+    unawaited(
+      _readSnapshot().then((rows) {
+        // Only while no fresh browse row has arrived yet.
+        if (rows == null || freshBrowse > 0 || first.isCompleted) return;
+        slots[0] = [rows[0]];
+        slots[1] = [rows[1]];
+        publish();
+      }),
+    );
+    return first.future;
+  }
+
+  Future<File?> _snapshotFile() async {
+    try {
+      return await widget.snapshot;
+    } catch (error, stack) {
+      widget.logger?.warn('Home snapshot path', error: error, stack: stack);
+      return null;
+    }
+  }
+
+  Map<String, Object?> _itemJson(MediaItem item) => {
+    'id': item.id,
+    'title': item.title,
+    'kind': item.kind.name,
+    'artwork': item.artwork?.toString(),
+    'year': item.year,
+    'tmdbId': item.tmdbId,
+    'imdbId': item.imdbId,
+    'originalLanguage': item.originalLanguage,
+    'backdrop': widget.catalogue.backdrops[item.id]?.toString(),
+  };
+
+  Future<void> _writeSnapshot(List<HomeRow> rows) async {
+    final file = await _snapshotFile();
+    if (file == null) return;
+    try {
+      await file.writeAsString(
+        jsonEncode({
+          'rows': [
+            for (final row in rows) [for (final i in row.items) _itemJson(i)],
+          ],
+        }),
+      );
+    } catch (error, stack) {
+      widget.logger?.warn('Home snapshot write', error: error, stack: stack);
+    }
+  }
+
+  /// The saved [movies, shows] rows, or null when there is no usable file.
+  Future<List<HomeRow>?> _readSnapshot() async {
+    final file = await _snapshotFile();
+    if (file == null) return null;
+    try {
+      if (!await file.exists()) return null;
+      final json = jsonDecode(await file.readAsString()) as Map;
+      final lists = (json['rows'] as List).cast<List>();
+      final backdrops = <String, Uri>{};
+      List<MediaItem> items(List raw) => [
+        for (final m in raw.cast<Map>())
+          () {
+            final id = m['id'] as String;
+            if (m['backdrop'] case final String b) backdrops[id] = Uri.parse(b);
+            return MediaItem(
+              id: id,
+              title: m['title'] as String,
+              kind: MediaKind.values.byName(m['kind'] as String),
+              artwork: (m['artwork'] as String?) == null
+                  ? null
+                  : Uri.parse(m['artwork'] as String),
+              year: m['year'] as int?,
+              tmdbId: m['tmdbId'] as int?,
+              imdbId: m['imdbId'] as String?,
+              originalLanguage: m['originalLanguage'] as String?,
+            );
+          }(),
+      ];
+      final rows = [
+        _rowOf((s) => s.home_trendingMovies, MediaKind.movie, items(lists[0])),
+        _rowOf((s) => s.home_trendingShows, MediaKind.episode, items(lists[1])),
+      ];
+      widget.catalogue.backdrops.addAll(backdrops);
+      return rows;
+    } catch (error, stack) {
+      widget.logger?.warn('Home snapshot read', error: error, stack: stack);
+      return null;
     }
   }
 
@@ -101,20 +261,18 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
 
   @override
   void dispose() {
+    widget.libraryChanged?.removeListener(_onLibraryChanged);
     _retry?.cancel();
     _outage.dispose();
     super.dispose();
   }
 
-  Future<List<HomeRow>> _libraryRows() async {
+  Future<List<HomeRow>> _likedRows() async {
     final liked = await loadTmdbTitles(
       widget.catalogue,
       await widget.favourites.all(),
       logger: widget.logger,
     );
-    final watched = await loadTmdbTitles(widget.catalogue, [
-      for (final entry in await widget.progress.history()) entry.mediaId,
-    ], logger: widget.logger);
     return [
       if (liked.isNotEmpty)
         HomeRow(
@@ -122,6 +280,14 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
           titleOf: (s) => s.common_liked,
           items: liked,
         ),
+    ];
+  }
+
+  Future<List<HomeRow>> _watchedRows() async {
+    final watched = await loadTmdbTitles(widget.catalogue, [
+      for (final entry in await widget.progress.history()) entry.mediaId,
+    ], logger: widget.logger);
+    return [
       if (watched.isNotEmpty)
         HomeRow(
           title: lookupAppStrings(const Locale('en')).common_watched,
@@ -131,20 +297,81 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
     ];
   }
 
+  Future<List<HomeRow>> _libraryRows() async => [
+    for (final group in await Future.wait([
+      _continueRows(),
+      _likedRows(),
+      _watchedRows(),
+    ]))
+      ...group,
+  ];
+
+  /// Saved progress of the Continue watching row, for the cards' bars.
+  final Map<String, PlaybackProgress> _continueProgress =
+      <String, PlaybackProgress>{};
+
+  Future<List<HomeRow>> _continueRows() async {
+    final saved = await widget.progress.continueWatching();
+    final items = await loadTmdbTitles(widget.catalogue, [
+      for (final entry in saved) entry.mediaId,
+    ], logger: widget.logger);
+    _continueProgress
+      ..clear()
+      ..addEntries(saved.map((e) => MapEntry(e.mediaId, e)));
+    return [
+      if (items.isNotEmpty)
+        HomeRow(
+          title: lookupAppStrings(const Locale('en')).common_continueWatching,
+          titleOf: (s) => s.common_continueWatching,
+          items: items,
+          isContinue: true,
+        ),
+    ];
+  }
+
+  /// Takes the title off Continue watching by clearing its saved progress;
+  /// [_undoRemove] puts the same record back.
+  final Map<String, PlaybackProgress> _removed = <String, PlaybackProgress>{};
+
+  Future<bool> _removeContinue(MediaItem item) async {
+    final saved = await widget.progress.get(item.id);
+    if (saved == null) return false;
+    await widget.progress.clear(item.id);
+    _removed[item.id] = saved;
+    await _refreshLibrary();
+    return true;
+  }
+
+  Future<bool> _undoRemove(MediaItem item) async {
+    final saved = _removed.remove(item.id);
+    if (saved == null) return false;
+    await widget.progress.upsert(saved);
+    await _refreshLibrary();
+    return true;
+  }
+
+  Future<void> _refreshLibrary() async {
+    final model = _loaded;
+    if (!mounted || model == null) return;
+    final library = await _libraryRows();
+    if (!mounted || !identical(model, _loaded)) return;
+    model.replaceRows([
+      ...library.where((row) => row.isContinue),
+      ...model.rows.where(
+        (row) =>
+            !row.isContinue && row.title != 'Liked' && row.title != 'Watched',
+      ),
+      ...library.where((row) => !row.isContinue),
+    ]);
+  }
+
   /// Home stays mounted under the pushed page; on return only the local
   /// Liked/Watched rows are re-read and swapped in, nothing is refetched.
   Future<void> _openItem(MediaItem item) async {
     await widget.onItemTap(context, item);
     final model = _loaded;
     if (!mounted || model == null) return;
-    final library = await _libraryRows();
-    if (!mounted || !identical(model, _loaded)) return;
-    model.replaceRows([
-      ...model.rows.where(
-        (row) => row.title != 'Liked' && row.title != 'Watched',
-      ),
-      ...library,
-    ]);
+    await _refreshLibrary();
   }
 
   Future<HomeRow> _row(
@@ -155,17 +382,23 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
     final page = await widget.catalogue.browse(
       BrowseQuery(kind: kind, sort: sort, limit: 20),
     );
-    return HomeRow(
-      title: title(lookupAppStrings(const Locale('en'))),
-      titleOf: title,
-      items: page.items,
-      query: TitleQuery(
-        kind: kind == MediaKind.movie ? TitleKind.movie : TitleKind.tv,
-        base: sort == 'trending' ? TitleBase.trending : TitleBase.discover,
-        sort: sort == 'top_rated' ? TitleSort.rating : TitleSort.popularity,
-      ),
-    );
+    return _rowOf(title, kind, page.items);
   }
+
+  HomeRow _rowOf(
+    String Function(AppStrings) title,
+    MediaKind kind,
+    List<MediaItem> items,
+  ) => HomeRow(
+    title: title(lookupAppStrings(const Locale('en'))),
+    titleOf: title,
+    items: items,
+    query: TitleQuery(
+      kind: kind == MediaKind.movie ? TitleKind.movie : TitleKind.tv,
+      base: TitleBase.trending,
+      sort: TitleSort.popularity,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => Column(
@@ -191,9 +424,12 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
                 fullScreen: true,
               );
             }
-            return HomeScreen(
+            final home = HomeScreen(
               viewModel: snapshot.data!,
               onItemTap: _openItem,
+              progress: _continueProgress,
+              onRemove: _removeContinue,
+              onUndoRemove: _undoRemove,
               onSeeAll: (row) => openTmdbGrid(
                 context,
                 catalogue: widget.catalogue,
@@ -202,6 +438,48 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
                 onItemTap: (item) => widget.onItemTap(context, item),
               ),
               logger: widget.logger,
+            );
+            final source = widget.catalogue;
+            if (source is! FallbackTmdbCatalogue) return home;
+            return Stack(
+              children: [
+                home,
+                StreamBuilder<String>(
+                  stream: source.changes,
+                  builder: (context, _) => source.limited
+                      ? Positioned(
+                          top: 12,
+                          left: 0,
+                          right: 0,
+                          child: IgnorePointer(
+                            child: Center(
+                              child: DecoratedBox(
+                                key: const ValueKey('limited-mode-notice'),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xCC000000),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 6,
+                                  ),
+                                  child: Text(
+                                    AppStrings.of(context).home_limitedMode,
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFFFFF),
+                                      fontSize: 13,
+                                      decoration: TextDecoration.none,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             );
           },
         ),
@@ -214,6 +492,10 @@ class _TmdbHomeViewState extends State<TmdbHomeView> {
 /// when it closes (starts / stops loading every provider's sources).
 ({void Function(MediaItem movie) open, void Function(MediaItem movie) close})?
 moviePageHooks;
+
+/// Set by the composition: the plot in Persian for [details] (TMDB fa-IR,
+/// MovieJavan, CCloud, then English). Used only when the app is in Farsi.
+Future<String?> Function(TmdbDetails details)? persianPlotOf;
 
 /// Loads TMDB details (+ seasons/episodes for a show) for [item] and pushes
 /// the matching detail screen on [context]'s local Navigator. Movie -> Play
@@ -235,7 +517,9 @@ Future<void> openTmdbDetail(
 }) async {
   final navigator = Navigator.of(context);
   try {
+    final farsi = Localizations.localeOf(context).languageCode == 'fa';
     final details = await catalogue.details(item);
+    final plot = farsi ? await persianPlotOf?.call(details) : null;
     if (details.item.kind == MediaKind.movie) {
       moviePageHooks?.open(details.item);
       try {
@@ -244,7 +528,7 @@ Future<void> openTmdbDetail(
           AppPageRoute<void>(
             builder: (routeContext) => Material(
               child: MovieDetailScreen(
-                presentation: _presentationOf(details),
+                presentation: _presentationOf(details, summary: plot),
                 onPlay: () => onPlayMovie(routeContext, details.item),
                 onCastTap: (member) => _openPerson(
                   routeContext,
@@ -305,7 +589,7 @@ Future<void> openTmdbDetail(
       AppPageRoute<void>(
         builder: (routeContext) => Material(
           child: SeriesDetailScreen(
-            presentation: _presentationOf(details),
+            presentation: _presentationOf(details, summary: plot),
             onLinkTap: (link) => _openFilter(
               routeContext,
               catalogue,
@@ -345,7 +629,10 @@ Future<void> openTmdbDetail(
   }
 }
 
-MovieDetailPresentation _presentationOf(TmdbDetails details) =>
+MovieDetailPresentation _presentationOf(
+  TmdbDetails details, {
+  String? summary,
+}) =>
     MovieDetailPresentation(
       item: details.item,
       poster: details.poster,
@@ -392,7 +679,7 @@ MovieDetailPresentation _presentationOf(TmdbDetails details) =>
           ),
       ],
       tagline: details.tagline,
-      summary: details.overview,
+      summary: summary ?? details.overview,
     );
 
 SeriesEpisode _episodeOf(MediaItem episode, double? progress) => SeriesEpisode(
@@ -461,7 +748,7 @@ Future<void> _openPerson(
           _CatalogueOptionsView(
             catalogue: catalogue,
             person: member,
-            builder: (options) => PersonDetailScreen(
+            builder: (options, _) => PersonDetailScreen(
               person: member,
               memory: FocusMemory(),
               initialKind: options.kind,
@@ -498,7 +785,7 @@ Future<void> openTmdbGrid(
     builder: (_) => PopOnEscape(
       child: _CatalogueOptionsView(
         catalogue: catalogue,
-        builder: (options) => PagedTitleGrid(
+        builder: (options, _) => PagedTitleGrid(
           source: (query, page) => loadTmdbTitlePage(catalogue, query, page),
           initialQuery: query,
           title: title,
@@ -518,7 +805,9 @@ List<AppDestination> tmdbDestinations({
   required ProgressRepository progress,
   required FutureOr<void> Function(BuildContext context, MediaItem item)
   onItemTap,
+  Listenable? libraryChanged,
   AppLogger? logger,
+  Future<File>? snapshot,
 }) => [
   AppDestination(
     id: 'home',
@@ -530,8 +819,10 @@ List<AppDestination> tmdbDestinations({
       catalogue: catalogue,
       favourites: favourites,
       progress: progress,
+      libraryChanged: libraryChanged,
       onItemTap: onItemTap,
       logger: logger,
+      snapshot: snapshot,
     ),
   ),
   for (final (id, label, icon, activeIcon, kind) in [
@@ -614,7 +905,7 @@ class TmdbKindView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _CatalogueOptionsView(
     catalogue: catalogue,
-    builder: (options) => PagedTitleGrid(
+    builder: (options, _) => PagedTitleGrid(
       source: (query, page) => loadTmdbTitlePage(catalogue, query, page),
       initialQuery: TitleQuery(kind: kind),
       title: title,
@@ -639,8 +930,9 @@ class TmdbGenresView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _CatalogueOptionsView(
     catalogue: catalogue,
-    builder: (options) => GenresPage(
+    builder: (options, reload) => GenresPage(
       genresByKind: options.genres,
+      onRefresh: reload,
       onSeeAll: (query, title) => openTmdbGrid(
         context,
         catalogue: catalogue,
@@ -743,7 +1035,7 @@ class TmdbSearchView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _CatalogueOptionsView(
     catalogue: catalogue,
-    builder: (options) => SearchScreen(
+    builder: (options, _) => SearchScreen(
       source: (query, page) => loadTmdbTitlePage(catalogue, query, page),
       genresByKind: options.genres,
       countries: options.countries,
@@ -766,13 +1058,27 @@ class _CatalogueOptionsView extends StatefulWidget {
   });
   final TmdbCatalogue catalogue;
   final CastMember? person;
-  final Widget Function(_CatalogueOptions options) builder;
+  final Widget Function(_CatalogueOptions options, Future<void> Function() reload)
+  builder;
   @override
   State<_CatalogueOptionsView> createState() => _CatalogueOptionsViewState();
 }
 
 class _CatalogueOptionsViewState extends State<_CatalogueOptionsView> {
   late Future<_CatalogueOptions> _options = _load();
+
+  /// Pull-to-refresh: the old options stay on screen until the new ones are
+  /// in; a failure is shown by the page's own error view (the awaited future).
+  Future<void> _reload() async {
+    final next = _load();
+    try {
+      await next;
+    } on Object {
+      // Shown by the FutureBuilder below once [next] is the current future.
+    }
+    if (mounted) setState(() => _options = next);
+  }
+
   Future<_CatalogueOptions> _load() async {
     final client = widget.catalogue.client;
     final genres = await Future.wait([
@@ -821,8 +1127,13 @@ class _CatalogueOptionsViewState extends State<_CatalogueOptionsView> {
           );
         }
         if (!snapshot.hasData) return const LoadingView(fullScreen: true);
-        return widget.builder(snapshot.data!);
+        return widget.builder(snapshot.data!, _reload);
       },
     ),
   );
+}
+
+/// Announces that playback saved a position (see [TmdbHomeView.libraryChanged]).
+final class LibraryChanges extends ChangeNotifier {
+  void announce() => notifyListeners();
 }

@@ -46,6 +46,7 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
   StreamSubscription<LtAlertEvent>? _alertSubscription;
   bool _disposed = false;
   CacheGovernor? _governor;
+  AppLogger? _logger;
   // Download-ahead room the cache limit leaves; null without a limit.
   int? _aheadBytes;
   // Ranges whose disk blocks were freed and not written since.
@@ -62,23 +63,25 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
       _everDownloaded = _everDownloaded.add(range);
     }
   }
+
   @override
   int get totalBytes => mapper.fileLength;
   @override
   RangeSet get available {
-    if (_nativeTorrent != null) {
-      // Before metadata arrives, pieceCount() is 0 and the native bitfield
-      // read (transport_lt_torrent_copy_piece_bitfield) correctly rejects a
-      // zero-capacity buffer with a typed error; pieceBitfield() then throws.
-      // A consumer calling currentStatus in that window (e.g. immediately
-      // after open()) must see SourceState.metadata, not a crash -- found via
-      // a real-fixture run, see bug_history.md.
-      if (!_nativeTorrent.metadataReady) return RangeSet.empty();
-      final bits = _nativeTorrent.pieceBitfield();
-      return mapper.rangesForPieces(<int>[
-        for (var i = 0; i < bits.length; i++)
-          if (bits[i] != 0) i,
-      ]);
+    final native = _nativeTorrent;
+    if (native != null) {
+      if (_router.state == SourceState.failed) return RangeSet.empty();
+      try {
+        if (!native.metadataReady) return RangeSet.empty();
+        final bits = native.pieceBitfield();
+        return mapper.rangesForPieces(<int>[
+          for (var i = 0; i < bits.length; i++)
+            if (bits[i] != 0) i,
+        ]);
+      } on LtNativeException catch (error) {
+        _fail(error);
+        return RangeSet.empty();
+      }
     }
     return mapper.rangesForPieces(_pieces);
   }
@@ -90,17 +93,18 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
   /// Keeps this stream inside [budget]'s limit: pieces beyond the ahead window
   /// are not downloaded, and pieces outside the window around the play head
   /// are forgotten and their disk blocks freed.
-  void enableCacheLimit({
+  Future<void> enableCacheLimit({
     required CacheBudget budget,
     required AppLogger logger,
     required String filePath,
-  }) {
+  }) async {
     final native = _nativeTorrent;
     if (native == null) return;
+    _logger = logger;
     final fs = budget.fs;
     // libtorrent creates the file when the metadata arrives.
-    int measure(String path, {int offset = 0, int? length}) =>
-        File(path).existsSync()
+    Future<int> measure(String path, {int offset = 0, int? length}) async =>
+        await File(path).exists()
         ? fs.allocatedBytes(path, offset: offset, length: length)
         : 0;
     _dormantStart = mapper.lastPiece + 1;
@@ -123,19 +127,16 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
       evict: _evict,
       limitAhead: _limitAhead,
       logger: logger,
-      onFailure: (error) => _router.failure = error is TransportFailure
-          ? error
-          : TransportFailure.engineUnavailable(cause: error),
     );
     // Install file and piece priorities together before the first payload.
-    final ahead = budget.aheadFor(_governor!, total: totalBytes);
+    final ahead = await budget.aheadFor(_governor!, total: totalBytes);
     final int boundary = math.min(
       mapper.lastPiece + 1,
       mapper.firstPiece + math.max(1, ahead ~/ mapper.pieceLength),
     );
     native.initializeDownload(fileIndex, mapper.firstPiece, boundary);
     _dormantStart = boundary;
-    _governor!.seekTo(0);
+    await _governor!.seekTo(0);
   }
 
   /// Pieces beyond `head + ahead` get priority 0 so the swarm stops filling
@@ -205,6 +206,7 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
     }
     final status = native.status;
     final stats = native.stats;
+    final pieces = native.pieceBitfield();
     _noteDownloaded();
     return TransportStats(
       downloadBytesPerSecond: status.downloadRate.toDouble(),
@@ -219,8 +221,11 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
         peers: stats.peers,
         swarmSeeds: stats.swarmSeeds < 0 ? null : stats.swarmSeeds,
         swarmPeers: stats.swarmPeers < 0 ? null : stats.swarmPeers,
-        piecesHave: stats.piecesHave,
-        piecesTotal: native.pieceCount,
+        piecesHave: [
+          for (var i = mapper.firstPiece; i <= mapper.lastPiece; i++)
+            if (pieces[i] != 0) i,
+        ].length,
+        piecesTotal: mapper.lastPiece - mapper.firstPiece + 1,
         pieceSize: native.pieceLength,
         availability: stats.distributedCopies,
         infoHash: native.infoHash,
@@ -231,11 +236,15 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
   SourceStatus get currentStatus {
     final native = _nativeTorrent;
     var rate = 0;
-    if (native != null) {
-      final status = native.status;
-      rate = status.downloadRate;
-      _router.updatePeers(status.peers);
-      _router.checkStall();
+    if (native != null && _router.state != SourceState.failed) {
+      try {
+        final status = native.status;
+        rate = status.downloadRate;
+        _router.updatePeers(status.peers);
+        _router.checkStall();
+      } on LtNativeException catch (error) {
+        _fail(error);
+      }
     }
     final ranges = available;
     final failure = _router.failure;
@@ -256,60 +265,101 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
 
   Future<void> seekHint(int byteOffset) async {
     final native = _nativeTorrent;
-    if (native == null) return;
-    final offset = byteOffset.clamp(0, totalBytes - 1);
-    await _governor?.seekTo(offset);
-    final piece = mapper.pieceForFileOffset(offset);
-    _router.waitAt(piece, have: native.pieceAvailable(piece));
-    _scheduler
-        .plan(
-          playHead: offset,
-          mapper: mapper,
-          available: available,
-          bitrateBytesPerSecond: native.status.downloadRate,
-          maxLookAheadBytes: _aheadBytes,
-        )
-        .apply(
-          clear: native.clearPieceDeadlines,
-          prioritize: (piece, priority) => native.setPiecePriority(
-            piece,
-            _evictedPieces.contains(piece) ? 0 : priority,
-          ),
-          deadline: native.setPieceDeadline,
-        );
+    if (native == null || _router.state == SourceState.failed) return;
+    try {
+      final offset = byteOffset.clamp(0, totalBytes - 1);
+      await _governor?.seekTo(offset);
+      if (_router.state == SourceState.failed) return;
+      final piece = mapper.pieceForFileOffset(offset);
+      _router.waitAt(piece, have: native.pieceAvailable(piece));
+      _scheduler
+          .plan(
+            playHead: offset,
+            mapper: mapper,
+            available: available,
+            bitrateBytesPerSecond: native.status.downloadRate,
+            maxLookAheadBytes: _aheadBytes,
+          )
+          .apply(
+            clear: native.clearPieceDeadlines,
+            prioritize: (piece, priority) => native.setPiecePriority(
+              piece,
+              _evictedPieces.contains(piece) ? 0 : priority,
+            ),
+            deadline: native.setPieceDeadline,
+            demandedPieces: _demandedPieces.where(
+              (p) => !native.pieceAvailable(p),
+            ),
+          );
+    } on LtNativeException catch (error) {
+      _fail(error);
+    }
   }
 
   @override
   Future<void> waitFor(ByteRange range) async {
-    await seekHint(range.start);
-    if (_nativeTorrent != null) {
-      // Availability is a piece bitfield, but the default picker may choose
-      // distant pieces first. Demand every missing piece covering this range
-      // before waiting so a range request cannot starve behind unrelated data.
-      for (final piece in mapper.piecesForFileRange(range)) {
-        // A read wants this piece again: the scheduler may no longer zero it.
-        _evictedPieces.remove(piece);
-        if (!_nativeTorrent.pieceAvailable(piece) &&
-            _demandedPieces.add(piece)) {
-          _nativeTorrent.setPiecePriority(piece, 7);
-          _nativeTorrent.setPieceDeadline(piece, 0);
+    final reader = Object();
+    final waitClock = Stopwatch()..start();
+    _governor?.readAt(reader, range.start);
+    try {
+      await seekHint(range.start);
+      _ensureLive();
+      final native = _nativeTorrent;
+      if (native != null) {
+        for (final piece in mapper.piecesForFileRange(range)) {
+          _evictedPieces.remove(piece);
+          if (!native.pieceAvailable(piece)) {
+            _demandedPieces.add(piece);
+            native.setPiecePriority(piece, 7);
+            native.setPieceDeadline(piece, 0);
+          }
+        }
+        _logger?.debug(
+          'Torrent reader waiting',
+          data: {
+            'range': '$range',
+            'missingPieces': mapper
+                .piecesForFileRange(range)
+                .where((p) => !native.pieceAvailable(p))
+                .take(16)
+                .toList(),
+            'demandedPieces': _demandedPieces.length,
+            'deadlineMs': 0,
+            'aheadBytes': _aheadBytes,
+          },
+        );
+      }
+      while (true) {
+        _ensureLive();
+        if (available.containsRange(range)) break;
+        _router.checkStall();
+        if (_router.state == SourceState.failed) throw _router.failure!;
+        if (native == null) {
+          await _nextChange();
+        } else {
+          await Future.any<void>([
+            _nextChange(),
+            Future<void>.delayed(torrentStallThreshold),
+          ]);
         }
       }
-    }
-    while (true) {
-      _ensureLive();
-      if (available.containsRange(range)) break;
-      _router.checkStall();
-      final failure = _router.failure;
-      if (failure != null) throw failure;
-      if (_nativeTorrent == null) {
-        await _nextChange();
-      } else {
-        await Future.any<void>([
-          _nextChange(),
-          Future<void>.delayed(torrentStallThreshold),
-        ]);
+      if (native != null) {
+        _demandedPieces.removeWhere(native.pieceAvailable);
+        if (waitClock.elapsedMilliseconds > 250) {
+          final st = native.status;
+          _logger?.debug(
+            'Torrent reader served after wait',
+            data: {
+              'range': '$range',
+              'waitMs': waitClock.elapsedMilliseconds,
+              'rateBps': st.downloadRate,
+              'peers': st.peers,
+            },
+          );
+        }
       }
+    } finally {
+      _governor?.readDone(reader);
     }
   }
 
@@ -323,6 +373,7 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
   /// response, never a bare "Bad state" from the native handle.
   void _ensureLive() {
     if (_disposed) throw const SparseSourceDisposed();
+    if (_router.state == SourceState.failed) throw _router.failure!;
     final native = _nativeTorrent;
     if (native == null || !native.isClosed) return;
     final failure = TransportFailure.engineUnavailable(
@@ -332,6 +383,19 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
     _router.state = SourceState.failed;
     _changes.add(null);
     throw failure;
+  }
+
+  TransportFailure _fail(Object error) {
+    if (_router.state == SourceState.failed && _router.failure != null) {
+      return _router.failure!;
+    }
+    final failure = error is TransportFailure
+        ? error
+        : TransportFailure.engineUnavailable(cause: error);
+    _router.failure = failure;
+    _router.state = SourceState.failed;
+    if (!_changes.isClosed) _changes.add(null);
+    return failure;
   }
 
   void _onAlert(LtAlertEvent event) {
@@ -370,6 +434,7 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
     if (_nativeTorrent != null) {
       final reader = Object();
       var offset = range.start;
+      _governor?.readAt(reader, offset);
       try {
         while (offset <= range.endInclusive) {
           _ensureLive();
@@ -389,6 +454,10 @@ class TorrentSparseSource implements SparseSource, TransportStatsProvider {
           _governor?.readAt(reader, offset);
         }
       } finally {
+        _logger?.debug(
+          'Torrent reader released',
+          data: {'range': '$range', 'offset': offset},
+        );
         _governor?.readDone(reader);
       }
       return;

@@ -39,7 +39,14 @@ abstract interface class DisplayModeService {
 
   /// Switches to the closest supported mode for this content cadence, or
   /// returns null if none is close enough, or permission was unavailable.
-  Future<DisplayModeLease?> matchFor({required double contentFps, int? width, int? height});
+  /// [dynamicRange] (`sdr`, `hdr10`, `hlg`, `dv`) is a hint for platforms whose
+  /// display switch also carries the range (tvOS); others ignore it.
+  Future<DisplayModeLease?> matchFor({
+    required double contentFps,
+    int? width,
+    int? height,
+    String? dynamicRange,
+  });
 }
 
 /// Holds the **restore obligation**: the previous display mode MUST be

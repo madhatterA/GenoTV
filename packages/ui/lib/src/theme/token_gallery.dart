@@ -67,7 +67,7 @@ class TokenGallery extends StatelessWidget {
             _ShelfSample(
               tileWidth: tokens.geometry.posterWidth,
               tileHeight: tokens.geometry.posterHeight,
-              gap: tokens.geometry.posterGap,
+              gap: RivuletSpacing.s8,
               count: tokens.geometry.shelfPosterCount,
               scale: 1,
               color: colors.surfaceRaised,
@@ -81,10 +81,51 @@ class TokenGallery extends StatelessWidget {
             _ShelfSample(
               tileWidth: tokens.geometry.cwWidth,
               tileHeight: tokens.geometry.cwHeight,
-              gap: tokens.geometry.cwGap,
+              gap: RivuletSpacing.s8,
               count: tokens.geometry.shelfCwCount,
               scale: 1,
               color: colors.surfaceRaised,
+            ),
+            const SizedBox(height: 24),
+            Text('Control tiers and shape roles', style: styles.title),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              children: <Widget>[
+                for (final tier in RivuletControlSize.values)
+                  _Shape(
+                    label:
+                        '${tier.name.toUpperCase()} ${tier.height(profile.formFactor).toInt()} / ${tier.glyph(profile.formFactor).toInt()}',
+                    width: tier.height(profile.formFactor) * 2.5,
+                    height: tier.height(profile.formFactor),
+                    radius: RivuletRadius.full,
+                    color: colors.tintFill,
+                    glyph: tier.glyph(profile.formFactor),
+                  ),
+                _Shape(
+                  label: 'card medium',
+                  width: 96,
+                  height: 64,
+                  radius: RivuletRadius.medium,
+                  color: colors.surfaceRaised,
+                ),
+                _Shape(
+                  label: 'surface large',
+                  width: 120,
+                  height: 64,
+                  radius: RivuletRadius.large,
+                  color: colors.surfaceRaised,
+                ),
+                _Shape(
+                  label: 'badge xs',
+                  width: 64,
+                  height: 24,
+                  radius: RivuletRadius.xs,
+                  color: colors.accent,
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             Text('Focus states', style: styles.title),
@@ -115,6 +156,43 @@ class TokenGallery extends StatelessWidget {
   }
 }
 
+class _Shape extends StatelessWidget {
+  const _Shape({
+    required this.label,
+    required this.width,
+    required this.height,
+    required this.radius,
+    required this.color,
+    this.glyph,
+  });
+
+  final String label;
+  final double width;
+  final double height;
+  final double radius;
+  final Color color;
+  final double? glyph;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Container(
+        width: width,
+        height: height,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: glyph == null ? null : Icon(Icons.play_arrow, size: glyph),
+      ),
+      Text(label, style: RivuletTokens.of(context).typeStyles.caption),
+    ],
+  );
+}
+
 class _Swatch extends StatelessWidget {
   const _Swatch({required this.label, required this.color});
 
@@ -128,7 +206,7 @@ class _Swatch extends StatelessWidget {
     padding: const EdgeInsets.all(6),
     decoration: BoxDecoration(
       color: color,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(RivuletRadius.medium),
       border: Border.all(color: Colors.white24),
     ),
     child: Text(
@@ -175,7 +253,7 @@ class _ShelfSample extends StatelessWidget {
               height: tileHeight * scale,
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(RivuletRadius.xs),
               ),
             ),
           ],
@@ -208,7 +286,7 @@ class _FocusSample extends StatelessWidget {
           height: 56,
           decoration: BoxDecoration(
             color: focused ? colors.surfaceRaised : colors.bgBase,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(RivuletRadius.medium),
             border: Border.all(
               color: focused ? colors.accent : colors.textSecondary,
               width: focused ? 2 : 1,

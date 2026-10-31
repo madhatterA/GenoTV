@@ -8,7 +8,7 @@ Pod::Spec.new do |s|
   s.summary          = 'Native transport engine bindings.'
   s.description      = 'libtorrent and libaria2 transport bindings for Flutter.'
   s.static_framework = true
-  s.homepage         = 'https://github.com/madhatterA/GenoTV'
+  s.homepage         = 'https://github.com/genotv/video-player'
   s.license          = { :type => 'BSD-3-Clause' }
   s.author           = { 'Transport maintainers' => 'maintainers@example.invalid' }
   s.source           = { :path => '.' }
@@ -67,6 +67,10 @@ Pod::Spec.new do |s|
     transport_lt_torrent_set_piece_deadline transport_lt_torrent_clear_piece_deadlines
     transport_lt_torrent_status transport_lt_pop_alerts transport_lt_torrent_save_resume
     transport_lt_torrent_load_resume
+    transport_lt_fs_allocated_bytes transport_lt_fs_free_bytes transport_lt_fs_punch_hole
+    transport_lt_session_get transport_lt_session_save_state transport_lt_session_set
+    transport_lt_torrent_evict_pieces transport_lt_torrent_get transport_lt_torrent_initialize_download
+    transport_lt_torrent_set transport_lt_torrent_stats transport_aria2_get_option
   ]
   lt_retain_flags = lt_symbols.map { |sym| '-Wl,-u,_' + sym }.join(' ')
   s.user_target_xcconfig = {

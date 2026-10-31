@@ -50,7 +50,7 @@ class JsonSettingsStore implements SettingsStore {
 
   @override
   Future<void> load() async {
-    if (!file.existsSync()) return;
+    if (!await file.exists()) return;
     try {
       final decoded = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       _values

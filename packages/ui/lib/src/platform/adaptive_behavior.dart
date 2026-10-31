@@ -6,17 +6,22 @@ import 'package:flutter/widgets.dart';
 import '../accessibility/ui_accessibility.dart';
 import '../theme/rivulet_tokens.dart';
 import 'form_factor.dart';
+import 'siri_remote.dart';
 
 /// Input/output facts the composition root supplies (Part boundary: widgets
 /// never read `dart:io` or `defaultTargetPlatform`). Defaults describe a
 /// pointer + keyboard desktop; a touch phone or D-pad host passes its own.
 @immutable
-
 class PlatformCapabilities {
-  const PlatformCapabilities({this.isTv = false});
+  const PlatformCapabilities({this.isTv = false, this.remoteTouches});
   const PlatformCapabilities.touch() : this();
-  const PlatformCapabilities.directionalPad() : this(isTv: true);
+  const PlatformCapabilities.directionalPad({Stream<SiriTouch>? remoteTouches})
+    : this(isTv: true, remoteTouches: remoteTouches);
   final bool isTv;
+
+  /// The remote's touch surface (Apple TV): swipes scrub in the player and
+  /// never move focus. Null when the remote has no touch surface.
+  final Stream<SiriTouch>? remoteTouches;
 }
 
 /// Which input the user used last (DESIGN_SPEC §6.2).
@@ -70,6 +75,29 @@ class AdaptiveBehavior extends StatefulWidget {
       context.dependOnInheritedWidgetOfExactType<_Config>()?.capabilities ??
       const PlatformCapabilities();
 
+  /// Form factor only. Unlike [of], does not rebuild the caller when the
+  /// input mode changes.
+  static FormFactor formFactorOf(BuildContext context) => resolveFormFactor(
+    isTv: capabilitiesOf(context).isTv,
+    platform: defaultTargetPlatform,
+    size: MediaQuery.sizeOf(context),
+  );
+
+  /// iPhone-class device: the one place that picks iOS-only phone behaviour
+  /// (interactive back swipe).
+  static bool isIosPhone(BuildContext context) =>
+      defaultTargetPlatform == TargetPlatform.iOS &&
+      formFactorOf(context) == FormFactor.phone;
+
+  /// Desktop shortcuts use Cmd on macOS and Ctrl elsewhere.
+  static bool get usesCommandKey =>
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  /// Whether the OS's main shortcut modifier is held (Cmd on macOS, Ctrl else).
+  static bool primaryModifierHeld() => usesCommandKey
+      ? HardwareKeyboard.instance.isMetaPressed
+      : HardwareKeyboard.instance.isControlPressed;
+
   /// Form factor, live input mode and blur permission. Rebuilds the caller
   /// when the input mode, size or accessibility opacity changes.
   static DeviceProfile of(BuildContext context) {
@@ -96,7 +124,7 @@ class AdaptiveBehavior extends StatefulWidget {
 
   /// Every row of DESIGN_SPEC §4.5 for the current form factor and window.
   static RivuletSizes sizesOf(BuildContext context) =>
-      RivuletSizes.of(of(context).formFactor, MediaQuery.sizeOf(context));
+      RivuletSizes.of(formFactorOf(context), MediaQuery.sizeOf(context));
 
   /// Minimum hit target: 48 while the last input was touch, else §4.5's
   /// value; 0 on TV (focus, not hit targets).
@@ -129,10 +157,7 @@ class AdaptiveBehavior extends StatefulWidget {
 
 class _AdaptiveBehaviorState extends State<AdaptiveBehavior> {
   late final ValueNotifier<InputMode> _mode = ValueNotifier(
-    _initialInputMode(
-      widget.capabilities.isTv,
-      MediaQuery.sizeOf(context),
-    ),
+    _initialInputMode(widget.capabilities.isTv, MediaQuery.sizeOf(context)),
   );
 
   bool get _isTv => widget.capabilities.isTv;

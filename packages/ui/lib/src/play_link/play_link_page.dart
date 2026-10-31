@@ -35,7 +35,7 @@ class PlayLinkPage extends StatefulWidget {
 
   /// Opens the file picker; returns the chosen .torrent path, or null if the
   /// viewer cancelled.
-  final Future<String?> Function() pickTorrent;
+  final Future<String?> Function()? pickTorrent;
 
   @override
   State<PlayLinkPage> createState() => _PlayLinkPageState();
@@ -111,7 +111,7 @@ class _PlayLinkPageState extends State<PlayLinkPage> {
         body: FocusTraversalGroup(
           policy: ReadingOrderTraversalPolicy(),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+            padding: const EdgeInsets.fromLTRB(RivuletSpacing.s24, RivuletSpacing.s24, RivuletSpacing.s24, RivuletSpacing.s48),
             children: [
               PlayLinkInput(onPlay: _play, pickTorrent: widget.pickTorrent),
               const SizedBox(height: RivuletSpacing.s32),

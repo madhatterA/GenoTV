@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:collection';
+
+import 'package:core/core.dart' show rebase;
+
 import '../content_source_failure.dart';
 import '../provider_http.dart';
 import 'tmdb_records.dart';
@@ -5,8 +10,34 @@ import 'tmdb_records.dart';
 /// TMDB v3 client. No key in the app: [http] routes api.themoviedb.org to
 /// the backup proxy, which adds it (BACKUP_PROXY.md, owner 2026-10-10).
 class TmdbClient {
-  TmdbClient({required this.http, Uri? baseUrl})
-    : baseUrl = baseUrl ?? Uri.parse('https://api.themoviedb.org/3');
+  TmdbClient({
+    required this.http,
+    Uri? baseUrl,
+    this.domain,
+    DateTime Function() clock = DateTime.now,
+  }) : baseUrl = baseUrl ?? Uri.parse('https://api.themoviedb.org/3'),
+       _now = clock;
+
+  /// The user's Title API domain for TMDB, read on every request (phase 14).
+  final Uri? Function()? domain;
+
+  final DateTime Function() _now;
+
+  /// Same URL (query and language included) already in flight: one request.
+  final _inFlight = <String, Future<Map<String, dynamic>>>{};
+
+  /// Successful responses only, oldest first; errors are never stored.
+  final _cache =
+      <String, ({DateTime at, Duration ttl, Map<String, dynamic> json})>{};
+  static const _maxCached = 200;
+  static const _maxConcurrent = 6;
+  static const _listTtl = Duration(seconds: 60);
+  static const _detailTtl = Duration(minutes: 10);
+  static final _detailPath = RegExp(
+    r'^/(movie|tv)/\d+|^/(genre|configuration)',
+  );
+  int _active = 0;
+  final _waiting = Queue<Completer<void>>();
 
   final ProviderHttp http;
   final Uri baseUrl;
@@ -444,16 +475,61 @@ class TmdbClient {
     ];
   }
 
+  /// The plot in Persian (`fa-IR`), for Farsi mode only; everything else
+  /// stays `en-US`. Null when TMDB has no Persian plot.
+  Future<String?> overviewFa(int id, {required bool isTv}) async {
+    final json = await _get('/${isTv ? 'tv' : 'movie'}/$id', const {}, 'fa-IR');
+    final text = json['overview']?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
+  }
+
   Future<Map<String, dynamic>> _get(
     String path,
-    Map<String, String> query,
-  ) async {
-    final uri = baseUrl.replace(
-      path: '${baseUrl.path}$path',
-      queryParameters: {...query, 'language': 'en-US'},
+    Map<String, String> query, [
+    String language = 'en-US',
+  ]) {
+    final base = rebase(baseUrl, Uri.parse(baseUrl.origin), domain?.call());
+    final uri = base.replace(
+      path: '${base.path}$path',
+      queryParameters: {...query, 'language': language},
     );
-    final json = await http.getJson(uri);
-    if (json is! Map) throw const ContentSourceFailure.invalidResponse();
-    return json.map((key, value) => MapEntry('$key', value));
+    final key = uri.toString();
+    final hit = _cache[key];
+    if (hit != null) {
+      if (_now().difference(hit.at) < hit.ttl) return Future.value(hit.json);
+      _cache.remove(key);
+    }
+    return _inFlight[key] ??= _fetch(uri, key, path).whenComplete(() {
+      _inFlight.remove(key); // block body: a returned future would be awaited
+    });
+  }
+
+  Future<Map<String, dynamic>> _fetch(Uri uri, String key, String path) async {
+    if (_active >= _maxConcurrent) {
+      final turn = Completer<void>();
+      _waiting.add(turn);
+      await turn.future; // the finishing request hands its slot over
+    } else {
+      _active++;
+    }
+    try {
+      final json = await http.getJson(uri);
+      if (json is! Map) throw const ContentSourceFailure.invalidResponse();
+      final result = json.map((k, v) => MapEntry('$k', v));
+      _cache.remove(key);
+      _cache[key] = (
+        at: _now(),
+        ttl: _detailPath.hasMatch(path) ? _detailTtl : _listTtl,
+        json: result,
+      );
+      if (_cache.length > _maxCached) _cache.remove(_cache.keys.first);
+      return result;
+    } finally {
+      if (_waiting.isNotEmpty) {
+        _waiting.removeFirst().complete();
+      } else {
+        _active--;
+      }
+    }
   }
 }

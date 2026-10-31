@@ -22,10 +22,21 @@ final class LtFfiSession {
   LtFfiSession({
     DynamicLibrary? library,
     this._alertInterval = const Duration(milliseconds: 100),
+    Uint8List? state,
   }) : _allocator = calloc {
     _library = library ?? openLibrary();
     _bindings = LtBindings(_library);
-    _handle = _bindings.create();
+    if (state == null || state.isEmpty) {
+      _handle = _bindings.create();
+    } else {
+      final p = _allocator.allocate<Uint8>(state.length);
+      try {
+        p.asTypedList(state.length).setAll(0, state);
+        _handle = _bindings.createWithState(p, state.length);
+      } finally {
+        _allocator.free(p);
+      }
+    }
     if (_handle == nullptr) {
       throw const LtNativeException(
         'create session',
@@ -71,6 +82,23 @@ final class LtFfiSession {
       return buffer.toDartString(length: length.clamp(0, 1023));
     } finally {
       _allocator.free(buffer);
+    }
+  }
+
+  /// DHT routing-table bytes to restore on the next launch (the session must
+  /// have run with DHT on to have anything worth keeping).
+  Uint8List saveState() {
+    _checkOpen();
+    final needed = _bindings.saveState(_handle, nullptr, 0);
+    if (needed < 0) throw LtNativeException('save state', error);
+    final capacity = needed * 2 + 4096;
+    final p = _allocator.allocate<Uint8>(capacity);
+    try {
+      final n = _bindings.saveState(_handle, p, capacity);
+      if (n < 0) throw LtNativeException('save state', error);
+      return Uint8List.fromList(p.asTypedList(n));
+    } finally {
+      _allocator.free(p);
     }
   }
 
@@ -281,6 +309,20 @@ final class LtTorrent {
   bool get isClosed => _closed;
   LtBindings get _b => session._bindings;
   Allocator get _a => session._allocator;
+
+  int _checkedResult(String operation, int result) {
+    if (result < 0) {
+      final message = session.error;
+      throw LtNativeException(
+        operation,
+        message.isEmpty
+            ? 'native call returned $result without an error message'
+            : message,
+      );
+    }
+    return result;
+  }
+
   void _check() {
     if (_closed || session.isDisposed) {
       throw StateError('libtorrent torrent is closed');
@@ -289,22 +331,23 @@ final class LtTorrent {
 
   bool get metadataReady {
     _check();
-    return _b.metadataReady(nativeHandle) != 0;
+    return _checkedResult('metadata ready', _b.metadataReady(nativeHandle)) !=
+        0;
   }
 
   int get fileCount {
     _check();
-    return _b.fileCount(nativeHandle);
+    return _checkedResult('file count', _b.fileCount(nativeHandle));
   }
 
   int get pieceLength {
     _check();
-    return _b.pieceLength(nativeHandle);
+    return _checkedResult('piece length', _b.pieceLength(nativeHandle));
   }
 
   int get pieceCount {
     _check();
-    return _b.pieceCount(nativeHandle);
+    return _checkedResult('piece count', _b.pieceCount(nativeHandle));
   }
 
   String get infoHash {
@@ -321,15 +364,23 @@ final class LtTorrent {
 
   bool pieceAvailable(int piece) {
     _check();
-    return _b.pieceAvailable(nativeHandle, piece) != 0;
+    return _checkedResult(
+          'piece available',
+          _b.pieceAvailable(nativeHandle, piece),
+        ) !=
+        0;
   }
 
   Uint8List pieceBitfield() {
     _check();
-    final p = _a.allocate<Uint8>(pieceCount);
+    final count = pieceCount;
+    if (count == 0) return Uint8List(0);
+    final p = _a.allocate<Uint8>(count);
     try {
-      final n = _b.copyBitfield(nativeHandle, p, pieceCount);
-      if (n < 0) throw LtNativeException('piece bitfield', session.error);
+      final n = _checkedResult(
+        'piece bitfield',
+        _b.copyBitfield(nativeHandle, p, count),
+      );
       return Uint8List.fromList(p.asTypedList(n));
     } finally {
       _a.free(p);
@@ -473,9 +524,10 @@ final class LtTorrent {
     final total = _a.allocate<Int64>(sizeOf<Int64>());
     final rate = _a.allocate<Int32>(sizeOf<Int32>());
     try {
-      if (_b.status(nativeHandle, peers, state, done, total, rate) != 0) {
-        throw LtNativeException('status', session.error);
-      }
+      _checkedResult(
+        'status',
+        _b.status(nativeHandle, peers, state, done, total, rate),
+      );
       return LtTorrentStatus(
         peers.value,
         state.value,
@@ -513,14 +565,21 @@ final class LtTorrent {
     }
   }
 
-  Uint8List saveResume({int capacity = 1024 * 1024}) {
+  /// Native contract: capacity 0 (null buffer) returns the byte size needed;
+  /// otherwise the bytes written. -1 is an error (see [LtSession.error]); -2 is
+  /// a buffer that grew too small between the two calls.
+  Uint8List saveResume() {
     _check();
+    final needed = _b.saveResume(nativeHandle, nullptr, 0);
+    if (needed < 0) throw LtNativeException('save resume', session.error);
+    final capacity = needed * 2 + 4096; // headroom: stats change between calls
     final p = _a.allocate<Uint8>(capacity);
     try {
       final n = _b.saveResume(nativeHandle, p, capacity);
-      if (n < 0) {
-        throw LtNativeException('save resume', 'resume data needs ${-n} bytes');
+      if (n == -2) {
+        throw LtNativeException('save resume', 'resume data outgrew $capacity bytes');
       }
+      if (n < 0) throw LtNativeException('save resume', session.error);
       return Uint8List.fromList(p.asTypedList(n));
     } finally {
       _a.free(p);

@@ -29,11 +29,15 @@ header declarations are used at compile time; ANGLE is loaded dynamically.
 The app rendering boundary is `VideoOutput::VideoOutput` in
 `packages/media_kit_video/windows/video_output.cc`: it calls
 `mpv_render_context_create` with `MPV_RENDER_API_TYPE_OPENGL` and ANGLE's
-`eglGetProcAddress`. The `d3d11` Meson feature is a separate standalone VO
-backend (pinned mpv `meson.build` lines984–992), requiring both shaderc and
-SPIRV-Cross. It is disabled for this verified app rendering boundary;
-the app's `plain-gl`, `egl-angle`, `d3d-hwaccel` and `d3d9-hwaccel` paths stay
-enabled. No standalone shader compiler is added for that unused VO.
+`eglGetProcAddress`. Since ch04 p07 mpv is also built with `d3d11`, `libplacebo`
+(gpu-next) and their shader toolchain: shaderc, SPIRV-Cross (with glslang, SPIRV-Tools,
+SPIRV-Headers) and libplacebo itself (Direct3D 11 only; Vulkan/OpenGL off), all from the pinned
+commits in `source-pins.txt`, built static into the one DLL via hand-written `shaderc.pc` /
+`spirv-cross-c-shared.pc`. libplacebo's Meson submodules (glad, jinja, markupsafe,
+Vulkan-Headers, fast_float) and shaderc's third_party deps are fetched by pin and copied in.
+The native video surface (`packages/video_surface/windows`) uses it: `vo=gpu-next`,
+`gpu-api=d3d11`, zero-copy `hwdec=d3d11va`, PQ swapchain when the monitor is HDR.
+The `plain-gl`/`egl-angle` render API stays for the Flutter-texture fallback.
 
 The runtime version suffix is `vp-windows-audio-1`.
 The exact upstream FFmpeg compatibility patch

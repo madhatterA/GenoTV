@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../platform/adaptive_behavior.dart';
 import '../platform/form_factor.dart';
 
 /// Rivulet-derived design vocabulary: color, geometry, motion, focus and
@@ -96,6 +97,7 @@ final class RivuletColors {
     required this.textPrimary,
     required this.textSecondary,
     required this.textTertiary,
+    required this.decorative,
     required this.accent,
     required this.onAccent,
     required this.danger,
@@ -126,7 +128,8 @@ final class RivuletColors {
     surfaceRaised: Color(0xFF202020),
     textPrimary: Color(0xFFF4F4F4),
     textSecondary: Color(0xADFFFFFF),
-    textTertiary: Color(0x70FFFFFF),
+    textTertiary: Color(0x99FFFFFF),
+    decorative: Color(0x70FFFFFF),
     accent: Color(0xFFFFD166),
     onAccent: Color(0xFF1A1300),
     danger: Color(0xFFFF6B6B),
@@ -179,6 +182,9 @@ final class RivuletColors {
   final Color textPrimary;
   final Color textSecondary;
   final Color textTertiary;
+
+  /// Non-text decoration (icons, skeleton blocks); too dim for text.
+  final Color decorative;
 
   /// The only accent (DESIGN_SPEC §4.1).
   final Color accent;
@@ -241,6 +247,7 @@ final class RivuletColors {
     textPrimary: Color.lerp(textPrimary, other.textPrimary, t)!,
     textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
     textTertiary: Color.lerp(textTertiary, other.textTertiary, t)!,
+    decorative: Color.lerp(decorative, other.decorative, t)!,
     accent: Color.lerp(accent, other.accent, t)!,
     onAccent: Color.lerp(onAccent, other.onAccent, t)!,
     danger: Color.lerp(danger, other.danger, t)!,
@@ -290,17 +297,6 @@ final class RivuletGeometry {
     required this.cwHeight,
     required this.shelfPosterCount,
     required this.shelfCwCount,
-    required this.rowTopInset,
-    required this.rowBottomInset,
-    required this.rowLeading,
-    required this.rowTrailing,
-    required this.posterGap,
-    required this.cwGap,
-    required this.heroPillWidth,
-    required this.heroPillHeight,
-    required this.heroButtonRadius,
-    required this.heroCircleDiameter,
-
     required this.heroItemCap,
     required this.railHeight,
     required this.railPadV,
@@ -322,31 +318,6 @@ final class RivuletGeometry {
   final int shelfPosterCount;
   final int shelfCwCount;
 
-  /// MediaRowMetrics.swift:77-78 — `rowTopInset = 8`, `rowBottomInset = 8`.
-  final double rowTopInset;
-  final double rowBottomInset;
-
-  /// MediaRowMetrics.swift:87-88 — `rowLeading = 52`, `rowTrailing = 52`.
-  /// The app-wide content margin; shared with the hero and expanded detail.
-  final double rowLeading;
-  final double rowTrailing;
-
-  /// MediaRowMetrics.swift:91-92 — `posterGap = 8`, `cwGap = 8`.
-  final double posterGap;
-  final double cwGap;
-
-  /// HeroButtonRowView.swift:186-187 — `pillWidth = 250`, `buttonHeight = 66`.
-  final double heroPillWidth;
-  final double heroPillHeight;
-
-  /// HeroButtonRowView.swift:208 — `cornerRadius = 33` (== buttonHeight / 2).
-  final double heroButtonRadius;
-
-  /// HeroButtonRowView.swift:354,387-388 — circle control is 66x66.
-  final double heroCircleDiameter;
-
-  /// HeroButtonRowView.swift:231,377 — stroke line width 0.5pt.
-
   /// PlexHomeViewController.swift:3536 — `heroItemCap = 9`.
   final int heroItemCap;
 
@@ -363,20 +334,6 @@ final class RivuletGeometry {
   final double railTopRowGap;
   final double railButtonDiameter;
 
-  /// `MediaRowMetrics.swift:22-48` — the shelf equation: at any resting
-  /// scroll position the peek on either side of a full-bleed row equals
-  /// `rowLeading - gap`, because the leftmost full tile sits at `rowLeading`
-  /// and the previous tile shows only the gap-sized remainder before it.
-  static double shelfPeek(double rowLeading, double gap) => rowLeading - gap;
-
-  /// `MediaRowMetrics.swift:22-48` — proves the shelf equation holds:
-  /// `1920 = 2*rowLeading + N*tileWidth + (N-1)*gap`.
-  bool shelfEquationHolds({
-    required double tileWidth,
-    required int count,
-    required double gap,
-  }) => 2 * rowLeading + count * tileWidth + (count - 1) * gap == 1920;
-
   static const RivuletGeometry standard = RivuletGeometry(
     posterWidth: 296,
     posterHeight: 444,
@@ -384,21 +341,10 @@ final class RivuletGeometry {
     cwHeight: 277,
     shelfPosterCount: 6,
     shelfCwCount: 5,
-    rowTopInset: 8,
-    rowBottomInset: 8,
-    rowLeading: 52,
-    rowTrailing: 52,
-    posterGap: 8,
-    cwGap: 8,
-    heroPillWidth: 250,
-    heroPillHeight: 66,
-    heroButtonRadius: 33,
-    heroCircleDiameter: 66,
-
     heroItemCap: 9,
     railHeight: 260,
     railPadV: 34,
-    railPadH: 42,
+    railPadH: 48,
     railButtonGap: 20,
     railTopRowGap: 32,
     railButtonDiameter: 74,
@@ -430,6 +376,22 @@ final class RivuletMotion {
   static const Duration base = Duration(milliseconds: 200);
   static const Duration panel = Duration(milliseconds: 260);
   static const Duration page = Duration(milliseconds: 240);
+
+  /// How long a toast stays: short, and long (TV, Undo, one-time hints).
+  static const Duration toast = Duration(seconds: 3);
+  static const Duration toastLong = Duration(seconds: 5);
+
+  /// Window for the second Back that leaves the app (Android).
+  static const Duration backExit = Duration(seconds: 2);
+
+  /// Seek/volume badge: held this long, then fades over the same time.
+  static const Duration seekBadge = Duration(milliseconds: 600);
+
+  /// Key seeks closer than this continue from the previous target.
+  static const Duration keySeekStack = Duration(milliseconds: 400);
+
+  /// Presses closer than this add up in the seek badge ("+20 s").
+  static const Duration seekBadgeStack = Duration(milliseconds: 600);
 
   /// InputConfig.swift:14 — `holdThreshold: TimeInterval = 0.4`.
   final Duration holdThreshold;
@@ -534,6 +496,8 @@ final class RivuletTypeStyles {
     RivuletColors colors, {
     required bool tv,
   }) {
+    // TV secondary text is 75% white (Part 07 p01).
+    final secondary = tv ? const Color(0xBFFFFFFF) : colors.textSecondary;
     TextStyle style(
       double phoneDesktop,
       double tvSize,
@@ -553,9 +517,9 @@ final class RivuletTypeStyles {
       display: style(34, 38, FontWeight.w700, 1.15, colors.textPrimary),
       title: style(24, 28, FontWeight.w700, 1.2, colors.textPrimary),
       headline: style(19, 22, FontWeight.w600, 1.25, colors.textPrimary),
-      body: style(16, 18, FontWeight.w400, 1.45, colors.textPrimary),
-      label: style(15, 17, FontWeight.w500, 1.3, colors.textPrimary),
-      caption: style(13, 15, FontWeight.w500, 1.3, colors.textSecondary),
+      body: style(16, 20, FontWeight.w400, 1.45, colors.textPrimary),
+      label: style(15, 18, FontWeight.w500, 1.3, colors.textPrimary),
+      caption: style(14, 17, FontWeight.w500, 1.3, secondary),
       panelRow: TextStyle(
         fontFamily: RivuletTokens.fontFamily,
         package: RivuletTokens.fontPackage,
@@ -567,7 +531,7 @@ final class RivuletTypeStyles {
         fontFamily: RivuletTokens.fontFamily,
         package: RivuletTokens.fontPackage,
         fontSize: 18,
-        color: colors.textSecondary,
+        color: secondary,
       ),
     );
   }
@@ -608,12 +572,28 @@ final class RivuletTypeStyles {
 
 /// 4 px grid constants and per-form-factor spacing (DESIGN_SPEC §4.3).
 abstract final class RivuletSpacing {
+  /// Desktop windows at least this wide (logical px) get the persistent
+  /// sidebar instead of the menu pill; Part 07 p10.
+  static const double sidebarMinWindow = 1100;
+  static const double sidebarWidth = 220;
+
+  /// Desktop page content never gets wider than this; extra window width is
+  /// margin either side (Part 07 p11).
+  static const double contentMaxWidth = 1800;
+
+  /// Desktop vertical scrollbar thickness.
+  static const double scrollbarThickness = 6;
+
+  /// Key-name column in the shortcut sheet.
+  static const double shortcutKeyColumn = 160;
   static const double s4 = 4;
   static const double s8 = 8;
   static const double s12 = 12;
   static const double s16 = 16;
+  static const double s20 = 20;
   static const double s24 = 24;
   static const double s32 = 32;
+  static const double s40 = 40;
   static const double s48 = 48;
   static const double s64 = 64;
 
@@ -624,26 +604,93 @@ abstract final class RivuletSpacing {
     FormFactor.tv => s48,
   };
 
+  /// Page gutter for this screen: on a phone in landscape it also clears the
+  /// left/right safe inset (notch), never less than [gutter].
+  static double gutterOf(BuildContext context) {
+    final f = AdaptiveBehavior.formFactorOf(context);
+    if (f != FormFactor.phone) return gutter(f);
+    final p = MediaQuery.paddingOf(context);
+    return math.max(gutter(f), math.max(p.left, p.right) + s16);
+  }
+
   /// Gap between rows/sections.
   static double rowGap(FormFactor f) => f == FormFactor.phone ? s24 : s32;
 
   /// Gap between posters/cards in a row or grid.
   static double itemGap(FormFactor f) => f == FormFactor.phone ? s12 : s16;
 
-  /// Page top content inset below the menu pill row (phone: plus the top
-  /// safe area, added by the caller).
-  static double topInset(FormFactor f) => switch (f) {
-    FormFactor.phone => 72,
-    FormFactor.desktop => 80,
-    FormFactor.tv => 88,
+  /// Gap from a section header to its row.
+  static double headerGap(FormFactor f) => f == FormFactor.tv ? s16 : s12;
+
+  /// Title-safe zone of the TV canvas (960 x 540): 5% of each edge, rounded
+  /// up to the 4 px grid vertically. Every TV overlay stays inside it.
+  static const double tvSafeX = 48;
+  static const double tvSafeY = 28;
+  static const EdgeInsets tvSafe = EdgeInsets.symmetric(
+    horizontal: tvSafeX,
+    vertical: tvSafeY,
+  );
+
+  /// Offset of the top controls (menu pill, search, back) below the safe top.
+  static double controlTop(FormFactor f) =>
+      f == FormFactor.phone ? s12 : (f == FormFactor.tv ? tvSafeY : s16);
+
+  /// Page content top, measured from the safe top: control top + M control
+  /// height + 16 (replaces the fixed 72/80/88 inset).
+  static double contentTop(FormFactor f) =>
+      controlTop(f) + RivuletControlSize.m.height(f) + s16;
+}
+
+/// Control height tiers (Part 07 p02). Heights per form factor; TV on the
+/// 960-wide canvas. S chips, M buttons/fields, L hero actions, XL play/pause.
+enum RivuletControlSize {
+  s(40, 32, 44, 16, 16, 20),
+  m(48, 40, 52, 20, 20, 24),
+  l(56, 48, 64, 24, 24, 28),
+  xl(64, 56, 74, 28, 28, 32);
+
+  const RivuletControlSize(
+    this._phone,
+    this._desktop,
+    this._tv,
+    this._glyphPhone,
+    this._glyphDesktop,
+    this._glyphTv,
+  );
+
+  final double _phone;
+  final double _desktop;
+  final double _tv;
+  final double _glyphPhone;
+  final double _glyphDesktop;
+  final double _glyphTv;
+
+  double height(FormFactor f) => switch (f) {
+    FormFactor.phone => _phone,
+    FormFactor.desktop => _desktop,
+    FormFactor.tv => _tv,
   };
+
+  double glyph(FormFactor f) => switch (f) {
+    FormFactor.phone => _glyphPhone,
+    FormFactor.desktop => _glyphDesktop,
+    FormFactor.tv => _glyphTv,
+  };
+
+  /// 0.4 x height on the 4 px grid (capsule optical balance).
+  double horizontalPadding(FormFactor f) => (height(f) * 0.4 / 4).round() * 4;
+
+  /// Icon-to-label gap.
+  double iconGap(FormFactor f) => f == FormFactor.tv ? 12 : 8;
 }
 
 /// DESIGN_SPEC §4.4.
 abstract final class RivuletRadius {
-  static const double small = 10;
   static const double medium = 14;
   static const double large = 22;
+
+  /// Badges.
+  static const double xs = 4;
 
   /// Pills and circular buttons.
   static const double full = 999;
@@ -679,13 +726,13 @@ final class RivuletSizes {
         formFactor: formFactor,
         size: size,
         minHitTarget: 48,
-        iconButton: 44,
-        iconGlyph: 22,
-        buttonHeight: 48,
-        menuPillHeight: 44,
+        iconButton: RivuletControlSize.m.height(FormFactor.phone),
+        iconGlyph: RivuletControlSize.m.glyph(FormFactor.phone),
+        buttonHeight: RivuletControlSize.m.height(FormFactor.phone),
+        menuPillHeight: RivuletControlSize.m.height(FormFactor.phone),
         posterWidth: 112,
         continueCardWidth: 232,
-        heroHeight: h * 0.62,
+        heroHeight: h * 0.5,
         heroTextMaxWidth: w - 2 * gutter,
         menuPanelWidth: math.min(320, w * 0.85),
         settingsContentMaxWidth: w,
@@ -696,10 +743,10 @@ final class RivuletSizes {
         formFactor: formFactor,
         size: size,
         minHitTarget: 40,
-        iconButton: 40,
-        iconGlyph: 20,
-        buttonHeight: 44,
-        menuPillHeight: 44,
+        iconButton: RivuletControlSize.m.height(FormFactor.desktop),
+        iconGlyph: RivuletControlSize.m.glyph(FormFactor.desktop),
+        buttonHeight: RivuletControlSize.m.height(FormFactor.desktop),
+        menuPillHeight: RivuletControlSize.m.height(FormFactor.desktop),
         posterWidth: (w * 0.125).clamp(150, 230).toDouble(),
         continueCardWidth: (w * 0.21).clamp(260, 380).toDouble(),
         heroHeight: math.min(h * 0.7, w * 0.5),
@@ -713,10 +760,10 @@ final class RivuletSizes {
         formFactor: formFactor,
         size: size,
         minHitTarget: null,
-        iconButton: 48,
-        iconGlyph: 26,
-        buttonHeight: 52,
-        menuPillHeight: 52,
+        iconButton: RivuletControlSize.m.height(FormFactor.tv),
+        iconGlyph: RivuletControlSize.m.glyph(FormFactor.tv),
+        buttonHeight: RivuletControlSize.m.height(FormFactor.tv),
+        menuPillHeight: RivuletControlSize.m.height(FormFactor.tv),
         posterWidth: 148,
         continueCardWidth: 280,
         heroHeight: h * 0.72,
@@ -743,6 +790,9 @@ final class RivuletSizes {
   final double menuPillHeight;
   final double posterWidth;
   final double continueCardWidth;
+
+  /// Poster beside the title on a phone detail page.
+  static const double phoneDetailPoster = 96;
   final double heroHeight;
   final double heroTextMaxWidth;
   final double menuPanelWidth;
@@ -765,6 +815,13 @@ final class RivuletSizes {
     final n = ((width - 2 * gutter + gap) / ((cardWidth ?? posterWidth) + gap))
         .floor();
     return math.max(2, n);
+  }
+
+  /// Card width that makes [columns] cards fill [width] between both gutters.
+  double gridCardWidth(double width, int columns) {
+    final gap = RivuletSpacing.itemGap(formFactor);
+    final gutter = RivuletSpacing.gutter(formFactor);
+    return (width - 2 * gutter - (columns - 1) * gap) / columns;
   }
 
   int get gridColumns => columnsFor(size.width);

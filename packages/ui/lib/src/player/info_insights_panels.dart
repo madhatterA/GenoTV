@@ -40,7 +40,7 @@ class InfoPanel extends StatelessWidget {
       children: <Widget>[
         if (description case final description? when description.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: RivuletSpacing.s16),
             child: AppText(
               description,
               key: const ValueKey<String>('info-description'),
@@ -52,10 +52,10 @@ class InfoPanel extends StatelessWidget {
           info,
         )) ...<Widget>[
           AppText(group.title, style: tokens.typeStyles.label),
-          const SizedBox(height: 6),
+          const SizedBox(height: RivuletSpacing.s8),
           for (final row in group.rows)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s4),
               child: Row(
                 children: <Widget>[
                   SizedBox(
@@ -68,14 +68,14 @@ class InfoPanel extends StatelessWidget {
                 ],
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: RivuletSpacing.s12),
         ],
         ValueListenableBuilder<String?>(
           valueListenable: audioOutput ?? _none,
           builder: (context, line, _) => line == null || line.isEmpty
               ? const SizedBox.shrink()
               : Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: RivuletSpacing.s12),
                   child: AppText(
                     AppStrings.of(context).player_audioOutput(line),
                     key: const ValueKey<String>('info-audio-output'),
@@ -87,7 +87,7 @@ class InfoPanel extends StatelessWidget {
           AppStrings.of(context).player_tracks,
           style: tokens.typeStyles.label,
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: RivuletSpacing.s8),
         _TrackSummaryRow(
           label: AppStrings.of(context).player_video,
           tracks: tracks.video,
@@ -193,7 +193,7 @@ class _TrackSummaryRow extends StatelessWidget {
                 AppStrings.of(context).localeName == 'fa' ? '\u060c ' : ', ',
               );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -360,7 +360,7 @@ class _InsightsPanelState extends State<InsightsPanel> {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: RivuletSpacing.s12),
         Expanded(child: _buildBody(tokens)),
       ],
     );
@@ -388,7 +388,7 @@ class _InsightsPanelState extends State<InsightsPanel> {
         children: <Widget>[
           for (final member in _cast ?? const <CastMember>[])
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -405,7 +405,7 @@ class _InsightsPanelState extends State<InsightsPanel> {
         children: <Widget>[
           for (final item in _trivia ?? const <String>[])
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s8),
               child: AppText.content(item, style: tokens.typeStyles.body),
             ),
         ],
@@ -415,7 +415,7 @@ class _InsightsPanelState extends State<InsightsPanel> {
         children: <Widget>[
           for (final entry in _filmography ?? const <FilmographyEntry>[])
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -449,7 +449,7 @@ class _TabLabel extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Padding(
-      padding: const EdgeInsets.only(right: 20),
+      padding: const EdgeInsets.only(right: RivuletSpacing.s20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -463,7 +463,7 @@ class _TabLabel extends StatelessWidget {
                   : tokens.colors.textSecondary,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: RivuletSpacing.s4),
           Container(
             height: 2,
             width: 24,

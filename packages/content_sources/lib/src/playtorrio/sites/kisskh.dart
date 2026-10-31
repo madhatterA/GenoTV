@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+
 import '../pt_runtime.dart';
 import 'package:http/http.dart' as http;
 import '../stream_scraper.dart';
@@ -64,7 +66,12 @@ class KissKhScraper extends StreamScraper {
         ).timeout(const Duration(seconds: 6));
 
         if (searchRes.statusCode != 200) return;
-        final results = jsonDecode(searchRes.body);
+        final searchBody = searchRes.body;
+        Future<Object?> decodeSearchBody(String payload) =>
+            Isolate.run(() => jsonDecode(payload));
+        final results = searchBody.length > 50 * 1024
+            ? await decodeSearchBody(searchBody)
+            : jsonDecode(searchBody);
         if (results is! List || results.isEmpty) return;
 
         Map? drama;
@@ -97,7 +104,12 @@ class KissKhScraper extends StreamScraper {
         ).timeout(const Duration(seconds: 8));
 
         if (detailRes.statusCode != 200) return;
-        final detail = jsonDecode(detailRes.body);
+        final detailBody = detailRes.body;
+        Future<Object?> decodeDetailBody(String payload) =>
+            Isolate.run(() => jsonDecode(payload));
+        final detail = detailBody.length > 50 * 1024
+            ? await decodeDetailBody(detailBody)
+            : jsonDecode(detailBody);
         if (detail is! Map || detail['episodes'] is! List) return;
 
         final targetEpNum = episode ?? 1;

@@ -1,3 +1,5 @@
+import 'persian_plot.dart';
+
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
 
@@ -9,8 +11,12 @@ import 'stream_values.dart';
 /// `<root>/api/...` with a fixed public key in the path; the app falls back
 /// to mirror hosts when the primary one fails.
 class CCloudProvider implements SourceProvider {
-  CCloudProvider({required this.http, required this.logger, List<Uri>? roots})
-    : roots =
+  CCloudProvider({
+    required this.http,
+    required this.logger,
+    List<Uri>? roots,
+    this.domain,
+  }) : _roots =
           roots ??
           [
             Uri.parse('https://server-hi-speed-iran.info'),
@@ -22,18 +28,109 @@ class CCloudProvider implements SourceProvider {
 
   final ProviderHttp http;
   final AppLogger logger;
-  final List<Uri> roots;
+  final List<Uri> _roots;
+
+  /// The user's domain for this use (Title API or Providers), read on every
+  /// request; tried first, the built-in mirrors stay as fallback (phase 14).
+  final Uri? Function()? domain;
+
+  List<Uri> get roots => [if (domain?.call() case final d?) d, ..._roots];
 
   @override
   String get id => 'ccloud';
   @override
   String get displayName => 'CCloud';
+
+  /// Records of titles shown so far, by catalogue id (`ccloud:movie|tv:<id>`);
+  /// the API has no single-title lookup. Posters/backdrops per id.
+  final Map<String, Map<String, dynamic>> records = {};
+  final Map<String, Uri> backdrops = {};
+  static final _idPattern = RegExp(r'^ccloud:(movie|tv):(\d+)(?::s\d+e\d+)?$');
+
+  /// Newest first (`created`); "top_rated" = by IMDb; "popular" = the server's
+  /// "most popular" genre (18). Pages are read in order until the slice fits.
   @override
-  Future<MediaPage> browse(BrowseQuery query) async =>
-      MediaPage(items: [], total: 0, hasMore: false);
+  Future<MediaPage> browse(BrowseQuery query) async {
+    final tv = query.kind == MediaKind.episode;
+    final sort = query.sort ?? 'trending';
+    final genre = sort == 'popular' ? 18 : 0;
+    final order = sort == 'top_rated' ? 'imdb' : 'created';
+    final want = query.offset + query.limit + 1;
+    final all = <Map<String, dynamic>>[];
+    for (var page = 0; all.length < want && page < 10; page++) {
+      final rows = _list(
+        await _get([
+          tv ? 'serie' : 'movie',
+          'by',
+          'filtres',
+          '$genre',
+          order,
+          '$page',
+        ]),
+      ).map(_map).where((p) => p['id'] != null).toList();
+      if (rows.isEmpty) break;
+      all.addAll(rows);
+    }
+    final slice = all.skip(query.offset).take(query.limit).toList();
+    return MediaPage(
+      items: [for (final p in slice) _item(p)],
+      total: null,
+      hasMore: all.length > query.offset + slice.length,
+    );
+  }
+
   @override
-  Future<MediaPage> search(String query, {int limit = 50}) async =>
-      MediaPage(items: [], total: 0, hasMore: false);
+  Future<MediaPage> search(String query, {int limit = 50}) async {
+    if (query.trim().isEmpty)
+      return MediaPage(items: [], total: 0, hasMore: false);
+    final rows = (await _search(query.trim())).map(_map).toList();
+    return MediaPage(
+      items: [for (final p in rows.take(limit)) _item(p)],
+      total: null,
+      hasMore: false,
+    );
+  }
+
+  MediaItem _item(Map<String, dynamic> p) {
+    final tv = p['type'] == 'serie';
+    final id = 'ccloud:${tv ? 'tv' : 'movie'}:${p['id']}';
+    records[id] = p;
+    final back = Uri.tryParse('${p['cover']}');
+    if (back != null && back.hasScheme) backdrops[id] = back;
+    final poster = Uri.tryParse('${p['image']}');
+    final year = p['year'] is int && p['year'] > 0 ? p['year'] as int : null;
+    return MediaItem(
+      id: id,
+      title: '${p['title']}'.trim(),
+      kind: tv ? MediaKind.episode : MediaKind.movie,
+      artwork: poster != null && poster.hasScheme ? poster : null,
+      year: year,
+    );
+  }
+
+  /// The record of a catalogue title shown earlier in this session.
+  Map<String, dynamic> recordOf(String itemId) {
+    final r = records[itemId.split(':').take(3).join(':')];
+    if (r == null || !_idPattern.hasMatch(itemId)) {
+      throw const ContentSourceFailure.notFound();
+    }
+    return r;
+  }
+
+  /// Season number -> episode numbers of a catalogue series.
+  Future<Map<int, List<int>>> episodeNumbers(String itemId) async {
+    final id = recordOf(itemId)['id'];
+    final out = <int, List<int>>{};
+    for (final (s, e, _) in _numbered(
+      _list(await _get(['season', 'by', 'serie', '$id'])),
+    )) {
+      if (s != null && e != null) (out[s] ??= []).add(e);
+    }
+    for (final list in out.values) {
+      list.sort();
+    }
+    return out;
+  }
 
   @override
   Future<List<SourceSpec>> resolve(MediaItem item) async {
@@ -43,6 +140,8 @@ class CCloudProvider implements SourceProvider {
       throw const ContentSourceFailure.notFound('Choose an episode first.');
     }
     try {
+      final own = _idPattern.firstMatch(item.id);
+      if (own != null) return await _resolveOwn(item, own[1] == 'tv');
       // The server matches text literally and stores some titles without
       // punctuation ("Spider Man Brand New Day"), others with it.
       final plain = item.title
@@ -70,6 +169,29 @@ class CCloudProvider implements SourceProvider {
     }
   }
 
+  /// A catalogue title plays from its own record (no title matching).
+  Future<List<SourceSpec>> _resolveOwn(MediaItem item, bool tv) async {
+    final record = recordOf(item.id);
+    final specs = orderStreams(
+      tv
+          ? _episodeSources(
+              item,
+              _list(await _get(['season', 'by', 'serie', '${record['id']}'])),
+            )
+          : _list(record['sources']).expand((s) => _spec(_map(s), null)),
+    );
+    if (specs.isEmpty) throw const ContentSourceFailure.notFound();
+    logger.info('Resolved $id ${item.id}: ${specs.length} streams');
+    return specs;
+  }
+
+  /// The Persian story of [item] (text after "درباره فیلم:") from the poster
+  /// matched by title and year; null when not found.
+  Future<String?> persianPlot(MediaItem item) async {
+    final poster = _pick(item, await _search(item.title));
+    return storyAfter(poster?['description']?.toString(), 'درباره فیلم:');
+  }
+
   Future<List<dynamic>> _search(String query) async =>
       _list(_map(await _get(['search', query]))['posters']);
 
@@ -80,7 +202,15 @@ class CCloudProvider implements SourceProvider {
     for (final root in roots) {
       try {
         return await http.getJson(
-          root.replace(pathSegments: ['api', ...segments, _apiKey, '']),
+          root.replace(
+            pathSegments: [
+              ...root.pathSegments.where((s) => s.isNotEmpty),
+              'api',
+              ...segments,
+              _apiKey,
+              '',
+            ],
+          ),
         );
       } on ContentSourceFailure catch (error) {
         if (error.code != 'provider.network' &&
@@ -110,9 +240,11 @@ class CCloudProvider implements SourceProvider {
         (candidates.length == 1 ? candidates.single : null);
   }
 
-  List<SourceSpec> _episodeSources(MediaItem item, List<dynamic> seasons) {
+  /// Every episode source with its (season, episode, season title).
+  Iterable<(int?, int?, Map<String, dynamic>, String)> _sources(
+    List<dynamic> seasons,
+  ) sync* {
     final named = RegExp(r'S(\d+)E(\d+)', caseSensitive: false);
-    final specs = <SourceSpec>[];
     for (final season in seasons.map(_map)) {
       final seasonTitle = '${season['title'] ?? ''}';
       for (final episode in _list(season['episodes']).map(_map)) {
@@ -121,18 +253,26 @@ class CCloudProvider implements SourceProvider {
               ?.pathSegments
               .lastOrNull;
           final match = named.firstMatch(file ?? '');
-          final s = int.tryParse(match?[1] ?? '') ?? _seasonNumber(seasonTitle);
-          final e =
-              int.tryParse(match?[2] ?? '') ??
-              int.tryParse('${episode['title']}'.trim());
-          if (s == item.seasonNumber && e == item.episodeNumber) {
-            specs.addAll(_spec(source, seasonTitle));
-          }
+          yield (
+            int.tryParse(match?[1] ?? '') ?? _seasonNumber(seasonTitle),
+            int.tryParse(match?[2] ?? '') ??
+                int.tryParse('${episode['title']}'.trim()),
+            source,
+            seasonTitle,
+          );
         }
       }
     }
-    return specs;
   }
+
+  Iterable<(int?, int?, String)> _numbered(List<dynamic> seasons) =>
+      _sources(seasons).map((x) => (x.$1, x.$2, x.$4));
+
+  List<SourceSpec> _episodeSources(MediaItem item, List<dynamic> seasons) => [
+    for (final (s, e, source, group) in _sources(seasons))
+      if (s == item.seasonNumber && e == item.episodeNumber)
+        ..._spec(source, group),
+  ];
 
   Iterable<SourceSpec> _spec(Map<String, dynamic> source, String? group) sync* {
     final uri = Uri.tryParse('${source['url']}');

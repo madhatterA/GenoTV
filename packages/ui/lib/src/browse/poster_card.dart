@@ -51,8 +51,9 @@ class PosterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
     final fraction = fractionOf(progress);
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
-    final showCaption = !tv || (Focus.maybeOf(context)?.hasFocus ?? false);
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
+    // TV: titles always show, one line; the focused card keeps two.
+    final lines = tv && !(Focus.maybeOf(context)?.hasFocus ?? false) ? 1 : 2;
     final artwork = item.artwork;
     return RepaintBoundary(
       child: Column(
@@ -89,25 +90,26 @@ class PosterCard extends StatelessWidget {
             ),
           ),
           SizedBox(
+            width: double.infinity,
             height: captionBlockHeight(context),
-            child: showCaption
-                ? Padding(
-                    padding: const EdgeInsets.only(top: RivuletSpacing.s8),
-                    // The card's own Semantics label (FocusableCard) already
-                    // names it.
-                    child: ExcludeSemantics(
-                      child: AppText.content(
-                        item.title,
-                        key: const ValueKey<String>('title-card-name'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: tokens.typeStyles.caption.copyWith(
-                          color: tokens.colors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  )
-                : null,
+            child: Padding(
+              padding: const EdgeInsets.only(top: RivuletSpacing.s8),
+              // The card's own Semantics label (FocusableCard) already
+              // names it.
+              child: ExcludeSemantics(
+                child: AppText.content(
+                  item.title,
+                  key: const ValueKey<String>('title-card-name'),
+                  maxLines: lines,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: tokens.typeStyles.caption.copyWith(
+                    color: tokens.colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

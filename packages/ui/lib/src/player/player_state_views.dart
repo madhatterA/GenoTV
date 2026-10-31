@@ -9,15 +9,12 @@ import 'package:flutter/material.dart';
 
 import 'player_chrome_controller.dart';
 
-/// Top-left status label — occupies the same spot the paused indicator
-/// uses in Rivulet and shares its typography, styled "quiet text-only cue,
-/// no spinner" (`PlayerContainerViewController.swift:224-232`: font 22
-/// medium, `UIColor.white.withAlphaComponent(0.6)`, positioned
-/// `top: 44, leading: 64`, lines 306-313).
 import '../components/app_button.dart';
 import '../components/orb_loader.dart';
+import '../accessibility/ui_accessibility.dart';
 import '../components/tinted_surface.dart';
 import '../theme/rivulet_tokens.dart';
+import '../states/error_view.dart' show errorIconFor;
 
 String playerFailureMessage(AppFailure failure, AppStrings strings) =>
     switch (failure.code) {
@@ -42,17 +39,19 @@ String playerFailureMessage(AppFailure failure, AppStrings strings) =>
 class PlayerLoadingLabel extends StatelessWidget {
   const PlayerLoadingLabel({super.key});
 
+  /// Sits under the centred orb, inside the safe area (Part 07 p01).
   @override
-  Widget build(BuildContext context) => Positioned(
-    top: 44,
-    left: 64,
-    child: AppText(
-      AppStrings.of(context).player_loading,
-      key: const ValueKey<String>('player-loading-label'),
-      style: TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w500,
-        color: RivuletTokens.of(context).colors.textSecondary,
+  Widget build(BuildContext context) => Positioned.fill(
+    child: SafeArea(
+      child: Align(
+        alignment: const Alignment(0, 0.4),
+        child: AppText(
+          AppStrings.of(context).player_loading,
+          key: const ValueKey<String>('player-loading-label'),
+          textAlign: TextAlign.center,
+          style: RivuletTokens.of(context).typeStyles.body
+              .copyWith(color: RivuletTokens.of(context).colors.textSecondary),
+        ),
       ),
     ),
   );
@@ -102,7 +101,10 @@ class PlayerPauseScrim extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opacity = switch (presentation) {
+    // Opaque mode (colour-keyed native video): a dimming scrim would hide the video.
+    final opacity = switch (UiAccessibility.opaqueOf(context)
+        ? PausePresentation.frame
+        : presentation) {
       PausePresentation.frame => 0.0,
       PausePresentation.ambient => 0.28,
       PausePresentation.dimmed => 0.6,
@@ -128,13 +130,16 @@ class PlayerCompatibilityNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Positioned(
-    top: 44,
-    left: 64,
-    right: 64,
+    top: RivuletSpacing.s40,
+    left: RivuletSpacing.s64,
+    right: RivuletSpacing.s64,
     child: TintedSurface.overMedia(
       key: const ValueKey<String>('player-compatibility-notice'),
-      radius: RivuletRadius.small,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      radius: RivuletRadius.large,
+      padding: const EdgeInsets.symmetric(
+        horizontal: RivuletSpacing.s16,
+        vertical: RivuletSpacing.s8,
+      ),
       child: AppText(message, style: RivuletTokens.of(context).typeStyles.body),
     ),
   );
@@ -143,11 +148,13 @@ class PlayerCompatibilityNotice extends StatelessWidget {
 /// Focused error overlay with retry/dismiss, gated by
 /// [PlayerChromeController.canDismissError] (pitfall: "Block re-dismiss for
 /// 300 ms after mode change").
-class PlayerErrorOverlay extends StatelessWidget {
+class PlayerErrorOverlay extends StatefulWidget {
   const PlayerErrorOverlay({
     required this.failure,
     required this.chrome,
     required this.onRetry,
+    this.onTryAnotherSource,
+    this.onClose,
     super.key,
   });
 
@@ -155,60 +162,112 @@ class PlayerErrorOverlay extends StatelessWidget {
   final PlayerChromeController chrome;
   final VoidCallback? onRetry;
 
+  /// Opens the source list for the same title; the button is hidden without it.
+  final VoidCallback? onTryAnotherSource;
+
+  /// Leaves the player (back to the title page).
+  final VoidCallback? onClose;
+
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: chrome,
-    builder: (context, _) => Center(
-      child: TintedSurface.overMedia(
-        key: const ValueKey<String>('player-error-overlay'),
-        radius: RivuletRadius.large,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                Icons.error_outline,
-                color: RivuletTokens.of(context).colors.textTertiary,
-                size: 40,
-              ),
-              const SizedBox(height: 12),
-              AppText(
-                playerFailureMessage(failure, AppStrings.of(context)),
-                key: const ValueKey<String>('player-error-message'),
-                style: RivuletTokens.of(context).typeStyles.title,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.center,
-                runSpacing: 12,
-                children: <Widget>[
-                  AppButton.secondary(
-                    key: const ValueKey<String>('player-error-dismiss'),
-                    label: AppStrings.of(context).common_dismiss,
-                    overMedia: true,
-                    onActivate: chrome.canDismissError
-                        ? chrome.dismissError
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  AppButton.primary(
-                    key: const ValueKey<String>('player-error-retry'),
-                    label: AppStrings.of(context).common_retry,
-                    onActivate: chrome.canDismissError
-                        ? () {
-                            chrome.retryFromError();
-                            onRetry?.call();
-                          }
-                        : null,
-                  ),
-                ],
-              ),
-            ],
+  State<PlayerErrorOverlay> createState() => _PlayerErrorOverlayState();
+}
+
+class _PlayerErrorOverlayState extends State<PlayerErrorOverlay> {
+  final FocusNode _retryNode = FocusNode(debugLabel: 'player-error-retry');
+
+  @override
+  void initState() {
+    super.initState();
+    // The player surface holds focus, so autofocus alone would not move it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _retryNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _retryNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chrome = widget.chrome;
+    final failure = widget.failure;
+    final onRetry = widget.onRetry;
+    final onTryAnotherSource = widget.onTryAnotherSource;
+    final onClose = widget.onClose;
+    return AnimatedBuilder(
+      animation: chrome,
+      builder: (context, _) => Center(
+        child: TintedSurface.overMedia(
+          key: const ValueKey<String>('player-error-overlay'),
+          radius: RivuletRadius.large,
+          child: Padding(
+            padding: const EdgeInsets.all(RivuletSpacing.s24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  errorIconFor(failure.code),
+                  color: RivuletTokens.of(context).colors.decorative,
+                  size: 40,
+                ),
+                const SizedBox(height: RivuletSpacing.s12),
+                AppText(
+                  AppStrings.of(context).player_errorTitle,
+                  style: RivuletTokens.of(context).typeStyles.title,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: RivuletSpacing.s8),
+                AppText(
+                  playerFailureMessage(failure, AppStrings.of(context)),
+                  key: const ValueKey<String>('player-error-message'),
+                  style: RivuletTokens.of(context).typeStyles.body,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: RivuletSpacing.s20),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: RivuletSpacing.s12,
+                  runSpacing: RivuletSpacing.s12,
+                  children: <Widget>[
+                    AppButton.primary(
+                      key: const ValueKey<String>('player-error-retry'),
+                      label: AppStrings.of(context).common_retry,
+                      focusNode: _retryNode,
+                      // Always enabled so it can take focus on arrival; the
+                      // 300 ms guard is checked when it is pressed.
+                      onActivate: () {
+                        if (!chrome.canDismissError) return;
+                        chrome.retryFromError();
+                        onRetry?.call();
+                      },
+                    ),
+                    if (onTryAnotherSource != null)
+                      AppButton.secondary(
+                        key: const ValueKey<String>('player-error-another'),
+                        label: AppStrings.of(context).player_tryAnotherSource,
+                        overMedia: true,
+                        onActivate: chrome.canDismissError
+                            ? onTryAnotherSource
+                            : null,
+                      ),
+                    AppButton.secondary(
+                      key: const ValueKey<String>('player-error-dismiss'),
+                      label: AppStrings.of(context).common_close,
+                      overMedia: true,
+                      onActivate: chrome.canDismissError
+                          ? (onClose ?? chrome.dismissError)
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

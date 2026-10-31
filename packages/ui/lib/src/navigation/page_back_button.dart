@@ -9,6 +9,8 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../components/app_icon_button.dart';
 import '../l10n/app_text.dart';
 import '../platform/adaptive_behavior.dart';
+import 'app_shell.dart' show AppShellScope;
+import '../theme/rivulet_tokens.dart';
 import 'page_top_inset.dart';
 
 /// Owner fix (round-a item 6): every pushed page (detail, series,
@@ -31,15 +33,33 @@ class PageBackButton extends StatelessWidget {
     final button = AppIconButton(
       key: const ValueKey<String>('top-back'),
       glass: true,
-      icon: PhosphorIconsRegular.arrowLeft,
+      icon: isFarsi(context)
+          ? PhosphorIconsRegular.arrowRight
+          : PhosphorIconsRegular.arrowLeft,
       semanticLabel: AppStrings.of(context).common_back,
       onActivate: onPressed ?? () => Navigator.of(context).maybePop(),
     );
     final iconButton = AdaptiveBehavior.sizesOf(context).iconButton;
+    final top = pill.top + (pill.height - iconButton) / 2;
+    // Farsi: the layout stays LTR (DESIGN_SPEC §10.3) but the back control
+    // sits at the right edge, the start side of right-to-left reading.
+    if (isFarsi(context)) {
+      return Align(
+        alignment: Alignment.topRight,
+        heightFactor: 1,
+        child: Padding(
+          padding: EdgeInsets.only(
+            right: RivuletSpacing.gutterOf(context),
+            top: top,
+          ),
+          child: button,
+        ),
+      );
+    }
     return Padding(
       padding: EdgeInsets.only(
         left: (pill.left - menuBackSlotOf(context)).clamp(0, double.infinity),
-        top: pill.top + (pill.height - iconButton) / 2,
+        top: top,
       ),
       child: button,
     );
@@ -84,8 +104,11 @@ class PageHeader extends StatelessWidget {
         children: [
           if (showBackButton) const PageBackButton(),
           Positioned(
-            left: pill.right + 16,
-            right: 16,
+            left: pill.right + RivuletSpacing.s16,
+            right: RivuletSpacing.s16 +
+                (showBackButton && isFarsi(context)
+                    ? menuBackSlotOf(context)
+                    : 0),
             top: pill.top,
             height: pill.height
                 .clamp(AdaptiveBehavior.hitTargetOf(context), double.infinity)
@@ -155,6 +178,8 @@ class PopOnEscape extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Listener(
     onPointerDown: (event) {
+      // Inside the shell, the shell handles the mouse back button.
+      if (AppShellScope.maybeOf(context) != null) return;
       if (event.buttons & kBackMouseButton != 0) {
         if (onPop != null) {
           onPop!();

@@ -1,0 +1,192 @@
+diff --git a/libavcodec/mediacodec_wrapper.c b/libavcodec/mediacodec_wrapper.c
+index 34ec213..c5c8bb1 100644
+--- a/libavcodec/mediacodec_wrapper.c
++++ b/libavcodec/mediacodec_wrapper.c
+@@ -34,6 +34,7 @@
+ #include "avcodec.h"
+ #include "ffjni.h"
+ #include "mediacodec_wrapper.h"
++#include "vp_dovi_choice.h"
+ 
+ struct JNIAMediaCodecListFields {
+ 
+@@ -363,6 +364,11 @@ int ff_AMediaCodecProfile_getProfileFromAVCodecContext(AVCodecContext *avctx)
+ }
+ 
+ char *ff_AMediaCodecList_getCodecNameByType(const char *mime, int profile, int encoder, void *log_ctx)
++{
++    return ff_AMediaCodecList_getCodecNameByTypeLevel(mime, profile, -1, encoder, log_ctx);
++}
++
++char *ff_AMediaCodecList_getCodecNameByTypeLevel(const char *mime, int profile, int level, int encoder, void *log_ctx)
+ {
+     int ret;
+     int i;
+@@ -489,7 +495,7 @@ char *ff_AMediaCodecList_getCodecNameByType(const char *mime, int profile, int e
+             }
+ 
+             profile_count = (*env)->GetArrayLength(env, profile_levels);
+-            if (!profile_count) {
++            if (!profile_count && level < 0) {
+                 found_codec = 1;
+             }
+             for (k = 0; k < profile_count; k++) {
+@@ -510,7 +516,14 @@ char *ff_AMediaCodecList_getCodecNameByType(const char *mime, int profile, int e
+                     goto done;
+                 }
+ 
+-                found_codec = profile == supported_profile;
++                if (level >= 0) {
++                    int supported_level = (*env)->GetIntField(env, profile_level, jfields.level_id);
++                    if (ff_jni_exception_check(env, 1, log_ctx) < 0)
++                        goto done;
++                    found_codec = vp_dovi_supports(profile, level, supported_profile, supported_level);
++                } else {
++                    found_codec = profile == supported_profile;
++                }
+ 
+                 if (profile_level) {
+                     (*env)->DeleteLocalRef(env, profile_level);
+diff --git a/libavcodec/mediacodec_wrapper.h b/libavcodec/mediacodec_wrapper.h
+index 1b81e6d..926ace2 100644
+--- a/libavcodec/mediacodec_wrapper.h
++++ b/libavcodec/mediacodec_wrapper.h
+@@ -58,6 +58,7 @@
+ int ff_AMediaCodecProfile_getProfileFromAVCodecContext(AVCodecContext *avctx);
+ 
+ char *ff_AMediaCodecList_getCodecNameByType(const char *mime, int profile, int encoder, void *log_ctx);
++char *ff_AMediaCodecList_getCodecNameByTypeLevel(const char *mime, int profile, int level, int encoder, void *log_ctx);
+ 
+ typedef struct FFAMediaFormat FFAMediaFormat;
+ struct FFAMediaFormat {
+diff --git a/libavcodec/mediacodecdec.c b/libavcodec/mediacodecdec.c
+index 2146490..53258dd 100644
+--- a/libavcodec/mediacodecdec.c
++++ b/libavcodec/mediacodecdec.c
+@@ -26,6 +26,8 @@
+ #include <string.h>
+ 
+ #include "libavutil/avassert.h"
++#include "libavutil/dovi_meta.h"
++#include "vp_dovi_choice.h"
+ #include "libavutil/common.h"
+ #include "libavutil/opt.h"
+ #include "libavutil/intreadwrite.h"
+@@ -307,6 +309,7 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
+ {
+     int ret;
+     int sdk_int;
++    int dovi_profile = 0;
+ 
+     const char *codec_mime = NULL;
+ 
+@@ -349,6 +352,34 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
+         ret = hevc_set_extradata(avctx, format);
+         if (ret < 0)
+             goto done;
++        for (int i = 0; i < avctx->nb_coded_side_data; i++) {
++            const AVPacketSideData *sd = &avctx->coded_side_data[i];
++            if (sd->type != AV_PKT_DATA_DOVI_CONF ||
++                sd->size < sizeof(AVDOVIDecoderConfigurationRecord))
++                continue;
++            const AVDOVIDecoderConfigurationRecord *cfg = (const void *) sd->data;
++            dovi_profile = cfg->dv_profile;
++            VPDoviChoice candidate = vp_dovi_choice(cfg->dv_profile, cfg->dv_level, 1);
++            char *name = candidate.profile ? ff_AMediaCodecList_getCodecNameByTypeLevel(
++                candidate.mime, candidate.profile, candidate.level, 0, avctx) : NULL;
++            VPDoviChoice choice = vp_dovi_choice(cfg->dv_profile, cfg->dv_level, name != NULL);
++            av_free(name);
++            codec_mime = choice.mime;
++            if (choice.profile) {
++                ff_AMediaFormat_setInt32(format, "profile", choice.profile);
++                ff_AMediaFormat_setInt32(format, "level", choice.level);
++                av_log(avctx, AV_LOG_INFO, "DV MediaCodec: mime=%s profile=%d level=%d\n",
++                       codec_mime, choice.profile, choice.level);
++            } else {
++                av_log(avctx, AV_LOG_WARNING,
++                       "DV MediaCodec: no compatible Dolby Vision decoder; HEVC fallback (DV profile %d level %d)\n",
++                       cfg->dv_profile, cfg->dv_level);
++                if (choice.incompatible_base)
++                    av_log(avctx, AV_LOG_WARNING,
++                           "Dolby Vision P5 has no compatible HEVC base layer: colours will be wrong\n");
++            }
++            break;
++        }
+         break;
+ #endif
+ #if CONFIG_MPEG2_MEDIACODEC_DECODER
+@@ -405,7 +436,36 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
+     s->ctx->delay_flush = s->delay_flush;
+     s->ctx->use_ndk_codec = s->use_ndk_codec;
+ 
+-    if ((ret = ff_mediacodec_dec_init(avctx, s->ctx, codec_mime, format)) < 0) {
++    ret = ff_mediacodec_dec_init(avctx, s->ctx, codec_mime, format);
++    if (ret < 0 && !strcmp(codec_mime, "video/dolby-vision")) {
++        s->ctx = NULL; /* Failed init releases its context. */
++        av_log(avctx, AV_LOG_WARNING, "DV MediaCodec rejected configuration; retrying HEVC fallback\n");
++        if (dovi_profile == 5)
++            av_log(avctx, AV_LOG_WARNING,
++                   "Dolby Vision P5 has no compatible HEVC base layer: colours will be wrong\n");
++        ff_AMediaFormat_delete(format);
++        format = ff_AMediaFormat_new(s->use_ndk_codec);
++        if (!format) {
++            ret = AVERROR(ENOMEM);
++            goto done;
++        }
++        ret = hevc_set_extradata(avctx, format);
++        if (ret < 0)
++            goto done;
++        codec_mime = "video/hevc";
++        ff_AMediaFormat_setString(format, "mime", codec_mime);
++        ff_AMediaFormat_setInt32(format, "width", avctx->width);
++        ff_AMediaFormat_setInt32(format, "height", avctx->height);
++        s->ctx = av_mallocz(sizeof(*s->ctx));
++        if (!s->ctx) {
++            ret = AVERROR(ENOMEM);
++            goto done;
++        }
++        s->ctx->delay_flush = s->delay_flush;
++        s->ctx->use_ndk_codec = s->use_ndk_codec;
++        ret = ff_mediacodec_dec_init(avctx, s->ctx, codec_mime, format);
++    }
++    if (ret < 0) {
+         s->ctx = NULL;
+         goto done;
+     }
+diff --git a/libavcodec/mediacodecdec_common.c b/libavcodec/mediacodecdec_common.c
+index 03bee11..2e938bb 100644
+--- a/libavcodec/mediacodecdec_common.c
++++ b/libavcodec/mediacodecdec_common.c
+@@ -605,12 +605,30 @@ int ff_mediacodec_dec_init(AVCodecContext *avctx, MediaCodecDecContext *s,
+         }
+     }
+ 
+-    profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
++    if (!strcmp(mime, "video/dolby-vision")) {
++        int32_t dv_profile;
++        if (!ff_AMediaFormat_getInt32(format, "profile", &dv_profile)) {
++            ret = AVERROR(EINVAL);
++            goto fail;
++        }
++        profile = dv_profile;
++    } else {
++        profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
++    }
+     if (profile < 0) {
+         av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
+     }
+ 
+-    s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, profile, 0, avctx);
++    if (!strcmp(mime, "video/dolby-vision")) {
++        int32_t dv_level;
++        if (!ff_AMediaFormat_getInt32(format, "level", &dv_level)) {
++            ret = AVERROR(EINVAL);
++            goto fail;
++        }
++        s->codec_name = ff_AMediaCodecList_getCodecNameByTypeLevel(mime, profile, dv_level, 0, avctx);
++    } else {
++        s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, profile, 0, avctx);
++    }
+     if (!s->codec_name) {
+         // getCodecNameByType() can fail due to missing JVM, while NDK
+         // mediacodec can be used without JVM.

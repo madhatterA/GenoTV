@@ -1,5 +1,7 @@
 import '../pt_runtime.dart';
 import 'dart:convert';
+import 'dart:isolate';
+
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
@@ -92,7 +94,9 @@ class FourKHDHubScraper extends StreamScraper {
 
       debugPrint('[4KHDHub] Fetching detail page: $pageUrl');
       final html = await _fetchText(pageUrl);
-      final doc = html_parser.parse(html);
+      Future<dom.Document> parseBody(String payload) =>
+          Isolate.run(() => html_parser.parse(payload));
+      final doc = await parseBody(html);
 
       if (type == 'series' && season != null && episode != null) {
         final seasonStr = season.toString().padLeft(2, '0');
@@ -142,7 +146,9 @@ class FourKHDHubScraper extends StreamScraper {
       final searchUrl = '$baseUrl/?s=${Uri.encodeComponent(name)}';
       debugPrint('[4KHDHub] Searching $searchUrl');
       final html = await _fetchText(searchUrl);
-      final doc = html_parser.parse(html);
+      Future<dom.Document> parseBody(String payload) =>
+          Isolate.run(() => html_parser.parse(payload));
+      final doc = await parseBody(html);
 
       final formatFilter = isSeries ? 'Series' : 'Movies';
 

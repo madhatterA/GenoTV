@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
@@ -51,6 +53,7 @@ class PlayFlowRoute extends StatefulWidget {
     this.logger,
     this.prefetch,
     this.forgetSaved,
+    this.initialProviderId,
     super.key,
   });
 
@@ -68,7 +71,7 @@ class PlayFlowRoute extends StatefulWidget {
 
   /// Called after the Insert-link dialog closed on a playable link.
   final VoidCallback onLinkAccepted;
-  final Future<String?> Function() pickTorrent;
+  final Future<String?> Function()? pickTorrent;
   final AppLogger? logger;
 
   /// Stream lists already loading for [media] (opened from its movie page).
@@ -76,6 +79,9 @@ class PlayFlowRoute extends StatefulWidget {
 
   /// Drops a provider's saved stream list for a title (Refresh / Retry).
   final Future<void> Function(String providerId, MediaItem item)? forgetSaved;
+
+  /// The provider that last played something: its streams open straight away.
+  final String? initialProviderId;
 
   @override
   State<PlayFlowRoute> createState() => _PlayFlowRouteState();
@@ -122,6 +128,14 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
           }
         },
       );
+    }
+    final remembered = widget.providers
+        .where((e) => e.id == widget.initialProviderId && e.provider != null)
+        .firstOrNull;
+    if (remembered != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedId == null) unawaited(_select(remembered.id));
+      });
     }
   }
 
@@ -229,6 +243,11 @@ class _PlayFlowRouteState extends State<PlayFlowRoute> {
       final streams => streams,
     },
     onProviderSelected: _select,
+    onOtherSources: () => setState(() {
+      _requestId++;
+      _selectedId = null;
+      _streams = const UiStreamListNone();
+    }),
     onStreamSelected: (spec) => widget.onStreamSelected(
       spec,
       widget.providers.firstWhere((e) => e.id == _selectedId),

@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import '../platform/adaptive_behavior.dart';
 
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/rivulet_tokens.dart';
 
@@ -137,7 +138,7 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
       constraints: BoxConstraints(maxWidth: compact ? 350 : 540),
       child: TintedSurface.overMedia(
         radius: RivuletRadius.large,
-        padding: EdgeInsets.all(compact ? 16 : 32),
+        padding: EdgeInsets.all(compact ? RivuletSpacing.s16 : RivuletSpacing.s32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,10 +148,10 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
               style: Theme.of(context).textTheme.labelLarge
                   ?.copyWith(color: colors.textSecondary, letterSpacing: 2),
             ),
-            SizedBox(height: compact ? 8 : 16),
+            SizedBox(height: compact ? RivuletSpacing.s8 : RivuletSpacing.s16),
             if (widget.nextArtwork != null && !compact)
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(RivuletRadius.medium),
                 child: Image(
                   image: widget.nextArtwork!,
                   height: compact ? 110 : 180,
@@ -158,7 +159,7 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
                   fit: BoxFit.cover,
                 ),
               ),
-            SizedBox(height: compact ? 8 : 16),
+            SizedBox(height: compact ? RivuletSpacing.s8 : RivuletSpacing.s16),
             AppText.content(
               widget.nextTitle,
               style: TextStyle(
@@ -168,11 +169,11 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
               ),
             ),
             if (widget.isLoading) ...<Widget>[
-              const SizedBox(height: 12),
+              const SizedBox(height: RivuletSpacing.s12),
               const OrbLoader.medium(),
             ],
             if (widget.errorMessage case final message?) ...<Widget>[
-              const SizedBox(height: 12),
+              const SizedBox(height: RivuletSpacing.s12),
               AppText(message, style: TextStyle(color: colors.textSecondary)),
               if (widget.onRetry != null)
                 TextButton(
@@ -181,7 +182,7 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
                 ),
             ],
             if (widget.nextDescription case final description?) ...<Widget>[
-              const SizedBox(height: 8),
+              const SizedBox(height: RivuletSpacing.s8),
               AppText.content(
                 description,
                 maxLines: 2,
@@ -189,7 +190,7 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
                 style: TextStyle(color: colors.textSecondary, fontSize: 16),
               ),
             ],
-            SizedBox(height: compact ? 12 : 24),
+            SizedBox(height: compact ? RivuletSpacing.s12 : RivuletSpacing.s24),
             Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 12,
@@ -201,10 +202,10 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
                   onPressed: widget.isLoading || widget.errorMessage != null
                       ? null
                       : _playNext,
-                  icon: const Icon(Icons.play_arrow_rounded),
+                  icon: const Icon(PhosphorIconsRegular.play),
                   label: AppText(AppStrings.of(context).player_playNext),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: RivuletSpacing.s12),
                 SizedBox(
                   width: 48,
                   height: 48,
@@ -241,11 +242,11 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
                   onPressed: _cancelled
                       ? null
                       : () => setState(() => _paused = !_paused),
-                  icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+                  icon: Icon(_paused ? PhosphorIconsRegular.play : PhosphorIconsRegular.pause),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: RivuletSpacing.s8),
             Wrap(
               spacing: 8,
               children: <Widget>[
@@ -303,7 +304,7 @@ class PostVideoOverlayState extends State<PostVideoOverlay>
             child: Align(
               alignment: Alignment.centerRight,
               child: Padding(
-                padding: EdgeInsets.all(compact ? 12 : 64),
+                padding: EdgeInsets.all(compact ? RivuletSpacing.s12 : RivuletSpacing.s64),
                 child: SingleChildScrollView(child: card),
               ),
             ),

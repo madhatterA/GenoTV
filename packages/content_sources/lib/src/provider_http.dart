@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:core/core.dart';
+
 import 'content_source_failure.dart';
 
 class ProviderHttp {
@@ -37,7 +40,11 @@ class ProviderHttp {
     );
     if (body == null) return null;
     try {
-      return jsonDecode(body);
+      Future<Object?> decodeBody(String payload) =>
+          Isolate.run(() => jsonDecode(payload));
+      return body.length > 50 * 1024
+          ? await decodeBody(body)
+          : jsonDecode(body);
     } catch (error) {
       throw ContentSourceFailure.invalidResponse(error);
     }
@@ -63,7 +70,12 @@ class ProviderHttp {
           .join('&'),
     );
     try {
-      return jsonDecode(body!);
+      final payload = body!;
+      Future<Object?> decodePayload(String payload) =>
+          Isolate.run(() => jsonDecode(payload));
+      return payload.length > 50 * 1024
+          ? await decodePayload(payload)
+          : jsonDecode(payload);
     } catch (error) {
       throw ContentSourceFailure.invalidResponse(error);
     }
@@ -81,13 +93,48 @@ class ProviderHttp {
       body: jsonEncode(body),
     );
     try {
-      return jsonDecode(response!);
+      final payload = response!;
+      Future<Object?> decodePayload(String payload) =>
+          Isolate.run(() => jsonDecode(payload));
+      return payload.length > 50 * 1024
+          ? await decodePayload(payload)
+          : jsonDecode(payload);
     } catch (error) {
       throw ContentSourceFailure.invalidResponse(error);
     }
   }
 
+  /// Raw response bytes (subtitle files are not always UTF-8).
+  Future<Uint8List> getBytes(
+    Uri uri, {
+    Map<String, String> headers = const {},
+  }) async => (await _fetch('GET', uri, headers: headers))!;
+
   Future<String?> _request(
+    String method,
+    Uri uri, {
+    required Map<String, String> headers,
+    bool allowNotFound = false,
+    String? body,
+  }) async {
+    final bytes = await _fetch(
+      method,
+      uri,
+      headers: headers,
+      allowNotFound: allowNotFound,
+      body: body,
+    );
+    if (bytes == null) return null;
+    try {
+      return utf8
+          .decode(bytes, allowMalformed: false)
+          .replaceFirst('\uFEFF', '');
+    } on FormatException catch (error) {
+      throw ContentSourceFailure.invalidResponse(error);
+    }
+  }
+
+  Future<Uint8List?> _fetch(
     String method,
     Uri uri, {
     required Map<String, String> headers,
@@ -109,15 +156,16 @@ class ProviderHttp {
       if (response.statusCode == 404) {
         throw const ContentSourceFailure.notFound();
       }
+      if (response.statusCode == 429) {
+        throw const ContentSourceFailure.quotaReached(429);
+      }
       if (response.statusCode >= 400) {
-        throw const ContentSourceFailure.unavailable();
+        throw ContentSourceFailure.unavailable(response.statusCode);
       }
       final bytes = await response
           .fold<List<int>>(<int>[], (out, chunk) => out..addAll(chunk))
           .timeout(const Duration(seconds: 30));
-      return utf8
-          .decode(bytes, allowMalformed: false)
-          .replaceFirst('\uFEFF', '');
+      return Uint8List.fromList(bytes);
     } on ContentSourceFailure {
       rethrow;
     } on FormatException catch (error) {

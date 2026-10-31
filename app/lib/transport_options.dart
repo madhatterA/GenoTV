@@ -21,7 +21,7 @@ TransportOptions transportOptionsFor(SettingsValues values) {
     proxy: text('streaming.proxy'),
     userAgent: text('streaming.userAgent'),
     headers: parseHeaders(text('streaming.headers')),
-    verifyTls: text('streaming.tls') != "Don't verify",
+    verifyTls: verifyCertificates, // app-wide rule, core network_policy.dart
     connectionsLimit: number('downloads.connectionLimit'),
     peerLimit: number('downloads.peerLimit'),
     seeding: switch (text('downloads.seeding')) {

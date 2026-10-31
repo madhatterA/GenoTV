@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/rivulet_tokens.dart';
 
@@ -110,15 +111,15 @@ class _PanelRowState extends State<PanelRow> {
           excludeFromSemantics: true,
           onTap: widget.onTap,
           child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 3),
+            margin: const EdgeInsets.symmetric(vertical: RivuletSpacing.s4),
             padding: EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: widget.compact ? 9 : 16,
+              horizontal: RivuletSpacing.s20,
+              vertical: widget.compact ? RivuletSpacing.s8 : RivuletSpacing.s16,
             ),
             constraints: BoxConstraints(minHeight: widget.compact ? 44 : 64),
             decoration: BoxDecoration(
               color: background,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(RivuletRadius.medium),
               border: _focused
                   ? Border.all(
                       color: widget.tokens.colors.accent,
@@ -135,8 +136,8 @@ class _PanelRowState extends State<PanelRow> {
                 child: highContrast && widget.selected
                     ? Row(
                         children: [
-                          const Icon(Icons.check, size: 20),
-                          const SizedBox(width: 8),
+                          const Icon(PhosphorIconsRegular.check, size: 20),
+                          const SizedBox(width: RivuletSpacing.s8),
                           Expanded(child: widget.child),
                         ],
                       )

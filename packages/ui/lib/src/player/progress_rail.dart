@@ -1,8 +1,9 @@
-import '../l10n/app_text.dart';
+import '../theme/rivulet_tokens.dart';
 import '../l10n_gen/app_strings.dart';
 
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 
 /// A Plex chapter/intro/credits/commercial band on the rail.
@@ -69,7 +70,6 @@ class _Metrics {
   static const double handleRingInset = 6; // update(...):404,595,636
 
   static const double readoutTimecodeSize = 50; // readoutTimecodeLabel:233
-  static const double readoutEyebrowSize = 16; // readoutEyebrowLabel:228
   static const double currentTimeSize = 22; // currentTimeLabel:186
   static const double remainingTimeSize = 22; // remainingTimeLabel:189
   static const double endsAtSize = 17; // endsAtLabel:193
@@ -107,6 +107,7 @@ class ProgressRail extends StatefulWidget {
     this.playerChrome = false,
     this.elapsedUnderPlayhead = false,
     this.labelSize,
+    this.hoverPreview = false,
     super.key,
   });
 
@@ -161,19 +162,27 @@ class ProgressRail extends StatefulWidget {
   final bool elapsedUnderPlayhead;
   final double? labelSize;
 
+  /// Desktop pointer: hovering the rail shows the time + thumbnail card
+  /// (drives [onScrubUpdate] for the frame request; no seek, no scrub state).
+  final bool hoverPreview;
+
   @override
   State<ProgressRail> createState() => _ProgressRailState();
 }
 
 class _ProgressRailState extends State<ProgressRail> {
   Duration? _scrubTime;
+  Duration? _hoverTime;
   double _dragPixels = 0;
+  Offset? _tapDown;
+  bool _dragged = false;
 
   bool get _isScrubbing => _scrubTime != null;
 
   void _startDrag(double localX, double width) {
     if (widget.duration <= Duration.zero || widget.isSkeleton) return;
     _dragPixels = localX;
+    _dragged = true;
     final fraction = (localX / width).clamp(0.0, 1.0);
     setState(() {
       _scrubTime = widget.duration * fraction;
@@ -191,6 +200,29 @@ class _ProgressRailState extends State<ProgressRail> {
     widget.onScrubUpdate?.call(time);
   }
 
+  void _tapSeek(double localX, double width) {
+    _startDrag(localX, width);
+    _dragged = false;
+    _endDrag();
+  }
+
+  void _hover(double localX, double width) {
+    if (!widget.hoverPreview ||
+        _isScrubbing ||
+        widget.duration <= Duration.zero ||
+        widget.isSkeleton ||
+        width <= 0) {
+      return;
+    }
+    final time = widget.duration * (localX / width).clamp(0.0, 1.0);
+    setState(() => _hoverTime = time);
+    widget.onScrubUpdate?.call(time);
+  }
+
+  void _hoverExit() {
+    if (_hoverTime != null) setState(() => _hoverTime = null);
+  }
+
   void _endDrag() {
     final time = _scrubTime;
     if (time == null) return;
@@ -203,6 +235,10 @@ class _ProgressRailState extends State<ProgressRail> {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final duration = widget.duration;
     final displayTime = _isScrubbing ? _scrubTime! : widget.position;
+    final overlayTime = _scrubTime ?? _hoverTime;
+    final overlayProgress = overlayTime != null && duration > Duration.zero
+        ? (overlayTime.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0)
+        : 0.0;
     final progress = duration > Duration.zero
         ? (displayTime.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0)
         : 0.0;
@@ -235,45 +271,67 @@ class _ProgressRailState extends State<ProgressRail> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  GestureDetector(
-                    key: const ValueKey<String>('progress-rail-track'),
-                    behavior: HitTestBehavior.opaque,
-                    onHorizontalDragStart: (d) =>
-                        _startDrag(d.localPosition.dx, width),
-                    onHorizontalDragUpdate: (d) =>
-                        _updateDrag(d.delta.dx, width),
-                    onHorizontalDragEnd: (_) => _endDrag(),
-                    child: SizedBox(
-                      height:
-                          _Metrics.handleEmphasis +
-                          _Metrics.handleRingInset * 2,
-                      width: double.infinity,
-                      child: CustomPaint(
-                        size: Size(
-                          width,
-                          _Metrics.handleEmphasis +
+                  MouseRegion(
+                    onHover: (e) => _hover(e.localPosition.dx, width),
+                    onExit: (_) => _hoverExit(),
+                    child: Listener(
+                      onPointerDown: (e) {
+                        _tapDown = e.localPosition;
+                        _dragged = false;
+                      },
+                      onPointerUp: (e) {
+                        final down = _tapDown;
+                        _tapDown = null;
+                        // A press that never became a drag is a tap/click.
+                        if (!_dragged &&
+                            down != null &&
+                            (e.localPosition - down).distance < kTouchSlop) {
+                          _tapSeek(e.localPosition.dx, width);
+                        }
+                      },
+                      child: GestureDetector(
+                        key: const ValueKey<String>('progress-rail-track'),
+                        behavior: HitTestBehavior.opaque,
+                        onHorizontalDragStart: (d) =>
+                            _startDrag(d.localPosition.dx, width),
+                        onHorizontalDragUpdate: (d) =>
+                            _updateDrag(d.delta.dx, width),
+                        onHorizontalDragEnd: (_) => _endDrag(),
+                        child: SizedBox(
+                          height:
+                              _Metrics.handleEmphasis +
                               _Metrics.handleRingInset * 2,
-                        ),
-                        painter: _ProgressRailPainter(
-                          progress: progress,
-                          currentProgress: currentProgress,
-                          trackHeight: trackHeight,
-                          isScrubbing: _isScrubbing,
-                          scrubEmphasis: scrubEmphasis,
-                          pausedAtRest: pausedAtRest,
-                          isSkeleton: widget.isSkeleton,
-                          markers: widget.markers,
-                          duration: duration,
-                          bufferedAhead: widget.bufferedAhead,
-                          position: widget.position,
-                          brightness: Theme.of(context).brightness,
-                          playerChrome: widget.playerChrome,
+                          width: double.infinity,
+                          child: CustomPaint(
+                            size: Size(
+                              width,
+                              _Metrics.handleEmphasis +
+                                  _Metrics.handleRingInset * 2,
+                            ),
+                            painter: _ProgressRailPainter(
+                              progress: progress,
+                              currentProgress: currentProgress,
+                              trackHeight: trackHeight,
+                              isScrubbing: _isScrubbing,
+                              scrubEmphasis: scrubEmphasis,
+                              pausedAtRest: pausedAtRest,
+                              isSkeleton: widget.isSkeleton,
+                              markers: widget.markers,
+                              duration: duration,
+                              bufferedAhead: widget.bufferedAhead,
+                              position: widget.position,
+                              brightness: Theme.of(context).brightness,
+                              playerChrome: widget.playerChrome,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                   SizedBox(
-                    height: widget.playerChrome ? 5 : _Metrics.labelBandSpacing,
+                    height: widget.playerChrome
+                        ? RivuletSpacing.s4
+                        : _Metrics.labelBandSpacing,
                   ),
                   _RailLabels(
                     displayTime: displayTime,
@@ -293,7 +351,7 @@ class _ProgressRailState extends State<ProgressRail> {
                   child: IgnorePointer(
                     child: AnimatedOpacity(
                       key: const ValueKey<String>('scrub-overlay-fade'),
-                      opacity: _isScrubbing ? 1 : 0,
+                      opacity: overlayTime != null ? 1 : 0,
                       // One-clock rule (`PlayerProgressBarView.swift:24-28`):
                       // the readout/thumbnail fade with the scrub state,
                       // never a separate animator; reduced motion snaps.
@@ -304,13 +362,13 @@ class _ProgressRailState extends State<ProgressRail> {
                       duration: reduceMotion
                           ? Duration.zero
                           : _Metrics.animation,
-                      child: _isScrubbing
+                      child: overlayTime != null
                           ? Stack(
                               clipBehavior: Clip.none,
                               children: _buildScrubOverlay(
                                 width: width,
-                                progress: progress,
-                                displayTime: displayTime,
+                                progress: overlayProgress,
+                                displayTime: overlayTime,
                                 railBottomInset:
                                     _Metrics.labelBandSpacing +
                                     _labelsHeight() +
@@ -342,21 +400,10 @@ class _ProgressRailState extends State<ProgressRail> {
     required double railBottomInset,
   }) {
     final playheadX = width * progress;
-    final eyebrow = _chapterEyebrowText(displayTime);
     final timecode = formatProgressTime(displayTime);
 
-    // Approximate readout box size from font metrics (no live TextPainter
-    // needed for layout purposes at fixed sizes/weights).
-    final timecodeWidth =
-        timecode.length * (_Metrics.readoutTimecodeSize * 0.62);
-    final eyebrowWidth = eyebrow == null
-        ? 0.0
-        : eyebrow.length * (_Metrics.readoutEyebrowSize * 0.66);
-    final readoutWidth = math.max(timecodeWidth, eyebrowWidth);
-    final readoutSpacing = eyebrow == null ? 0.0 : 4.0;
-    final readoutHeight =
-        (eyebrow == null ? 0.0 : _Metrics.readoutEyebrowSize + readoutSpacing) +
-        _Metrics.readoutTimecodeSize;
+    final readoutWidth = timecode.length * (_Metrics.readoutTimecodeSize * 0.62);
+    final readoutHeight = _Metrics.readoutTimecodeSize;
 
     final halfReadout = readoutWidth / 2;
     final clampedCenter = playheadX
@@ -379,20 +426,24 @@ class _ProgressRailState extends State<ProgressRail> {
     // that infuse-ref is the primary visual authority for player phases.
     // See the phase report's "what still differs" section.
     final thumbBottom = railBottomInset + _Metrics.thumbnailGap;
-    final readoutBottom =
-        thumbBottom + _Metrics.thumbnailHeight + _Metrics.thumbnailReadoutGap;
+    // No picture, no box: the readout drops onto the rail's gap instead.
+    final hasThumb = widget.thumbnail != null;
+    final readoutBottom = hasThumb
+        ? thumbBottom + _Metrics.thumbnailHeight + _Metrics.thumbnailReadoutGap
+        : thumbBottom;
 
     final widgets = <Widget>[
-      Positioned(
-        left: thumbCenterX - halfThumb,
-        bottom: thumbBottom,
-        child: _ThumbnailCard(image: widget.thumbnail),
-      ),
+      if (hasThumb)
+        Positioned(
+          left: thumbCenterX - halfThumb,
+          bottom: thumbBottom,
+          child: _ThumbnailCard(image: widget.thumbnail),
+        ),
       Positioned(
         left: clampedCenter - halfReadout,
         bottom: readoutBottom,
         width: readoutWidth,
-        child: _ReadoutLabel(eyebrow: eyebrow, timecode: timecode),
+        child: _ReadoutLabel(timecode: timecode),
       ),
     ];
 
@@ -471,24 +522,6 @@ class _ProgressRailState extends State<ProgressRail> {
         ),
       ),
     );
-  }
-
-  /// "CHAPTER n · NAME" for the chapter containing [time] (1-based ordinal,
-  /// uppercased name), or `null` when there's no chapter at that time or it
-  /// has no name. Source: `chapterEyebrowText(at:)`,
-  /// `PlayerProgressBarView.swift:739-751`.
-  String? _chapterEyebrowText(Duration time) {
-    for (var i = 0; i < widget.chapters.length; i++) {
-      final chapter = widget.chapters[i];
-      final start = chapter.start;
-      final end = chapter.end ?? widget.duration;
-      if (time < start || time >= end) continue;
-      final name = chapter.name?.trim();
-      if (name == null || name.isEmpty) return null;
-      return AppStrings.of(context)
-          .player_chapterEyebrow(i + 1, name.toUpperCase());
-    }
-    return null;
   }
 }
 
@@ -604,30 +637,14 @@ class _RailLabels extends StatelessWidget {
 }
 
 class _ReadoutLabel extends StatelessWidget {
-  const _ReadoutLabel({required this.eyebrow, required this.timecode});
+  const _ReadoutLabel({required this.timecode});
 
-  final String? eyebrow;
   final String timecode;
 
   @override
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     children: <Widget>[
-      if (eyebrow != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: AppText(
-            eyebrow!,
-            key: const ValueKey<String>('rail-scrub-eyebrow'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: _Metrics.readoutEyebrowSize,
-              fontWeight: FontWeight.w600,
-              letterSpacing: _Metrics.readoutEyebrowSize * 0.12,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
-          ),
-        ),
       Text(
         timecode,
         key: const ValueKey<String>('rail-scrub-timecode'),
@@ -656,7 +673,7 @@ class _ThumbnailCard extends StatelessWidget {
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
       color: Colors.white.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(RivuletRadius.medium),
       border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
       boxShadow: <BoxShadow>[
         BoxShadow(

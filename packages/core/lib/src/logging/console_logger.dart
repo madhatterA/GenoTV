@@ -15,7 +15,10 @@ typedef LogSink = void Function(LogRecord record);
 /// (see phase-01-logging.md "Pitfalls").
 class ConsoleLogger implements AppLogger {
   ConsoleLogger({
-    this.minimumLevel = LogLevel.debug,
+    // Same flag as Flutter's kReleaseMode.
+    this.minimumLevel = const bool.fromEnvironment('dart.vm.product')
+        ? LogLevel.info
+        : LogLevel.debug,
     LogSink? sink,
     this.scope = 'app',
   }) : _sink = sink ?? developerSink;

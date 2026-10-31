@@ -27,9 +27,11 @@ class SubtitleImportException implements Exception {
 typedef SubtitleEntry = ({String name, Uint8List bytes});
 
 bool _isSubtitleName(String name) {
-  final dot = name.lastIndexOf('.');
-  return dot >= 0 &&
-      subtitleExtensions.contains(name.substring(dot + 1).toLowerCase());
+  // Some uploads are named `Movie.srt.txt`: judge the extension under the .txt.
+  final lower = name.toLowerCase();
+  final base = lower.endsWith('.srt.txt') || lower.endsWith('.ass.txt') ? lower.substring(0, lower.length - 4) : lower;
+  final dot = base.lastIndexOf('.');
+  return dot >= 0 && subtitleExtensions.contains(base.substring(dot + 1));
 }
 
 /// Every subtitle entry of the zip in [zip] (stored or deflate); other entries
@@ -175,14 +177,32 @@ Future<List<({String name, Uri uri})>> stageSubtitles(
   List<SubtitleEntry> entries,
 ) async {
   final dir = await Directory.systemTemp.createTemp('subtitles_');
-  final staged = <({String name, Uri uri})>[];
-  for (var i = 0; i < entries.length; i++) {
-    final entry = entries[i];
-    final file = File('${dir.path}${Platform.pathSeparator}$i-${entry.name}');
-    await file.writeAsString(decodeSubtitleBytes(entry.bytes));
-    staged.add((name: entry.name, uri: file.uri));
+  try {
+    final staged = <({String name, Uri uri})>[];
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      final file = File('${dir.path}${Platform.pathSeparator}$i-${entry.name}');
+      await file.writeAsString(decodeSubtitleBytes(entry.bytes));
+      staged.add((name: entry.name, uri: file.uri));
+    }
+    _stagedDirs.add(dir);
+    return staged;
+  } catch (_) {
+    await dir.delete(recursive: true);
+    rethrow;
   }
-  return staged;
+}
+
+final List<Directory> _stagedDirs = <Directory>[];
+
+/// Deletes every directory [stageSubtitles] created; call when the playback
+/// session ends and the staged files are no longer referenced.
+Future<void> clearStagedSubtitles() async {
+  final dirs = List<Directory>.of(_stagedDirs);
+  _stagedDirs.clear();
+  for (final dir in dirs) {
+    if (await dir.exists()) await dir.delete(recursive: true);
+  }
 }
 
 /// The "Add subtitle file…" picker: subtitle or zip chosen by the viewer,

@@ -2,6 +2,7 @@ import '../../l10n/app_text.dart';
 import '../../platform/adaptive_behavior.dart';
 
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class OverlayShell extends StatelessWidget {
   const OverlayShell({
@@ -33,7 +34,7 @@ class OverlayShell extends StatelessWidget {
                   trailing: IconButton(
                     key: const ValueKey<String>('close-player-overlay'),
                     onPressed: onClose,
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(PhosphorIconsRegular.x),
                   ),
                 ),
                 Expanded(child: child),

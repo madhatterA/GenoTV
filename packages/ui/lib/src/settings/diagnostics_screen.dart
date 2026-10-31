@@ -60,6 +60,8 @@ class DiagnosticsScreen extends StatelessWidget {
     this.copyText,
     this.live,
     this.logDirectory,
+    this.previousCrash = false,
+    this.crashLogText,
     super.key,
   });
 
@@ -69,6 +71,8 @@ class DiagnosticsScreen extends StatelessWidget {
 
   /// Where the app writes its log files; shown (and copied) when set.
   final String? logDirectory;
+  final bool previousCrash;
+  final String Function()? crashLogText;
 
   /// Replaces [playbackDiagnostics] and follows it while the page is open.
   final ValueListenable<Map<String, String>>? live;
@@ -197,17 +201,13 @@ class DiagnosticsScreen extends StatelessWidget {
         const SizedBox(height: RivuletSpacing.s16),
         AppRowGroup(children: [for (final r in shown) row(r)]),
         SizedBox(
-          height: RivuletSpacing.rowGap(
-            AdaptiveBehavior.of(context).formFactor,
-          ),
+          height: RivuletSpacing.rowGap(AdaptiveBehavior.formFactorOf(context)),
         ),
       ];
     }
 
     final sizes = AdaptiveBehavior.sizesOf(context);
-    final gutter = RivuletSpacing.gutter(
-      AdaptiveBehavior.of(context).formFactor,
-    );
+    final gutter = RivuletSpacing.gutterOf(context);
     return AmbientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -222,7 +222,7 @@ class DiagnosticsScreen extends StatelessWidget {
               ),
               children: [
                 Align(
-                  alignment: Alignment.topCenter,
+                  alignment: Alignment.topLeft,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: sizes.settingsContentMaxWidth,
@@ -235,6 +235,16 @@ class DiagnosticsScreen extends StatelessWidget {
                           style: styles.title,
                         ),
                         const SizedBox(height: RivuletSpacing.s24),
+                        if (previousCrash) ...[
+                          AppText(
+                            AppStrings.of(context).diagnostics_previousCrash,
+                            key: const ValueKey<String>(
+                              'previous-crash-notice',
+                            ),
+                            style: styles.body,
+                          ),
+                          const SizedBox(height: RivuletSpacing.s16),
+                        ],
                         Align(
                           alignment: Alignment.centerLeft,
                           child: AppButton.secondary(
@@ -245,7 +255,7 @@ class DiagnosticsScreen extends StatelessWidget {
                               await (copyText ??
                                   (value) => Clipboard.setData(
                                     ClipboardData(text: value),
-                                  ))(text);
+                                  ))('$text\n${crashLogText?.call() ?? ''}');
                               if (context.mounted) {
                                 showAppToast(
                                   context,
@@ -258,7 +268,7 @@ class DiagnosticsScreen extends StatelessWidget {
                         ),
                         SizedBox(
                           height: RivuletSpacing.rowGap(
-                            AdaptiveBehavior.of(context).formFactor,
+                            AdaptiveBehavior.formFactorOf(context),
                           ),
                         ),
                         ...section(AppStrings.of(context).player_video, video),

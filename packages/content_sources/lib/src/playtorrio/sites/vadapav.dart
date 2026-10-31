@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+
 import '../pt_runtime.dart';
 import 'package:http/http.dart' as http;
 import '../stream_scraper.dart';
@@ -81,7 +83,12 @@ class VadapavScraper extends StreamScraper {
                 .timeout(const Duration(seconds: 12));
 
             if (res.statusCode == 200) {
-              final data = jsonDecode(res.body);
+              final body = res.body;
+              Future<Object?> decodeBody(String payload) =>
+                  Isolate.run(() => jsonDecode(payload));
+              final data = body.length > 50 * 1024
+                  ? await decodeBody(body)
+                  : jsonDecode(body);
               if (data is Map && data['streams'] is List) {
                 final streams = data['streams'] as List;
                 debugPrint('[Vadapav] Received ${streams.length} streams for $id');

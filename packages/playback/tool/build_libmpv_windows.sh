@@ -38,6 +38,17 @@ fetch libxml2 GNOME/libxml2
 fetch ffmpeg FFmpeg/FFmpeg
 fetch mpv mpv-player/mpv
 fetch zlib madler/zlib
+fetch libplacebo haasn/libplacebo
+fetch glad Dav1dde/glad
+fetch jinja pallets/jinja
+fetch markupsafe pallets/markupsafe
+fetch vulkanheaders KhronosGroup/Vulkan-Headers
+fetch fastfloat fastfloat/fast_float
+fetch shaderc google/shaderc
+fetch glslang KhronosGroup/glslang
+fetch spirvheaders KhronosGroup/SPIRV-Headers
+fetch spirvtools KhronosGroup/SPIRV-Tools
+fetch spirvcross KhronosGroup/SPIRV-Cross
 cd "$cache/src/mpv"
 patch_file="$root/packages/playback/native/windows/mpv-wasapi-mmreg.patch"
 if patch --dry-run -p1 < "$patch_file" >/dev/null 2>&1; then
@@ -87,6 +98,46 @@ cmake -S libxml2 -B "$cache/libxml2" -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cmake --build "$cache/libxml2" -j "$jobs"
 cmake --install "$cache/libxml2"
 fi
+# gpu-next + d3d11 (mpv's d3d11 context + libplacebo's pl_d3d11 wrap): shaderc, SPIRV-Cross and
+# libplacebo from pinned source, all static so libmpv stays one DLL. Hand-written .pc files
+# expose the static archives under the names mpv/libplacebo look up (shaderc, spirv-cross-c-shared).
+if [[ ! -s "$cache/prefix/lib/libplacebo.a" ]]; then
+  cd "$cache/src"
+  for sub in glad jinja markupsafe fastfloat; do
+    d=$sub; [[ $sub = fastfloat ]] && d=fast_float
+    rm -rf "libplacebo/3rdparty/$d" && cp -r "$sub" "libplacebo/3rdparty/$d"
+  done
+  rm -rf libplacebo/3rdparty/Vulkan-Headers && cp -r vulkanheaders libplacebo/3rdparty/Vulkan-Headers
+  for sub in glslang:glslang spirvtools:spirv-tools spirvheaders:spirv-headers; do
+    rm -rf "shaderc/third_party/${sub#*:}" && cp -r "${sub%%:*}" "shaderc/third_party/${sub#*:}"
+  done
+  cmake -S spirvcross -B "$cache/spirvcross" -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$prefix" -DCMAKE_BUILD_TYPE=Release -DSPIRV_CROSS_SHARED=OFF -DSPIRV_CROSS_STATIC=ON -DSPIRV_CROSS_CLI=OFF -DSPIRV_CROSS_ENABLE_TESTS=OFF -DSPIRV_CROSS_ENABLE_GLSL=ON -DSPIRV_CROSS_ENABLE_HLSL=ON -DSPIRV_CROSS_ENABLE_MSL=OFF -DSPIRV_CROSS_ENABLE_CPP=OFF -DSPIRV_CROSS_ENABLE_REFLECT=OFF -DSPIRV_CROSS_ENABLE_C_API=ON -DSPIRV_CROSS_ENABLE_UTIL=ON
+  cmake --build "$cache/spirvcross" -j "$jobs"
+  cmake --install "$cache/spirvcross"
+  cat > "$cache/prefix/lib/pkgconfig/spirv-cross-c-shared.pc" <<PC
+prefix=$prefix
+Name: spirv-cross-c-shared
+Description: SPIRV-Cross C API, static archives
+Version: 0.64.0
+Cflags: -I$prefix/include/spirv_cross
+Libs: -L$prefix/lib -lspirv-cross-c -lspirv-cross-hlsl -lspirv-cross-glsl -lspirv-cross-core -l:libstdc++.a
+PC
+  cmake -S shaderc -B "$cache/shaderc" -G Ninja -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON -DSHADERC_SKIP_COPYRIGHT_CHECK=ON -DSHADERC_ENABLE_WERROR_COMPILE=OFF -DSPIRV_SKIP_TESTS=ON -DSPIRV_SKIP_EXECUTABLES=ON -DENABLE_GLSLANG_BINARIES=OFF -DSKIP_GLSLANG_INSTALL=ON -DSKIP_SPIRV_TOOLS_INSTALL=ON -DSKIP_GOOGLETEST_INSTALL=ON -DCMAKE_CXX_FLAGS="-O2 -include cstdint"
+  cmake --build "$cache/shaderc" -j "$jobs" --target shaderc_combined
+  mkdir -p "$cache/prefix/include/shaderc"
+  cp "$cache/shaderc/libshaderc/libshaderc_combined.a" "$cache/prefix/lib/"
+  cp shaderc/libshaderc/include/shaderc/*.h "$cache/prefix/include/shaderc/"
+  cat > "$cache/prefix/lib/pkgconfig/shaderc.pc" <<PC
+prefix=$prefix
+Name: shaderc
+Description: shaderc combined static archive
+Version: 2024.4
+Cflags: -I$prefix/include
+Libs: -L$prefix/lib -lshaderc_combined -l:libstdc++.a
+PC
+  meson setup --reconfigure "$cache/libplacebo" libplacebo --prefix="$prefix" --libdir=lib --default-library=static --buildtype=release -Dvulkan=disabled -Dopengl=disabled -Dd3d11=enabled -Dglslang=disabled -Dshaderc=enabled -Dlcms=disabled -Dlibdovi=disabled -Dunwind=disabled -Ddemos=false -Dtests=false -Dxxhash=disabled
+  ninja -C "$cache/libplacebo" -j "$jobs" install
+fi
 cd "$cache/src/ffmpeg"
 patch_file="$root/packages/playback/native/windows/ffmpeg-binutils-shifts.patch"
 if patch --dry-run -p1 < "$patch_file" >/dev/null 2>&1; then
@@ -117,7 +168,7 @@ export PKG_CONFIG="$(cygpath -m "$cache/pkg-config-static.bat")"
 # mpv 0.36 relies on `union m_option_value val = {0}` zeroing the whole union; GCC 15+ only zeroes the first member.
 export CFLAGS="$CFLAGS -fzero-init-padding-bits=unions -I$(cygpath -m "$root/packages/media_kit_libs_windows_video/windows/angle_headers")"
 rm -rf "$cache/mpv"
-meson setup "$cache/mpv" . --prefix="$prefix" --libdir=lib --buildtype=release --default-library=shared -Dlibmpv=true -Dcplayer=false -Dgpl=false -Dlua=disabled -Dlibplacebo=disabled -Dwasapi=enabled -Dd3d11=disabled -Dgl=enabled -Dgl-win32=enabled -Dplain-gl=enabled -Degl-angle=enabled -Degl-angle-win32=enabled -Degl-angle-lib=disabled -Dd3d-hwaccel=enabled -Dd3d9-hwaccel=enabled -Dtests=false
+meson setup "$cache/mpv" . --prefix="$prefix" --libdir=lib --buildtype=release --default-library=shared -Dlibmpv=true -Dcplayer=false -Dgpl=false -Dlua=disabled -Dlibplacebo=enabled -Dshaderc=enabled -Dspirv-cross=enabled -Dvulkan=disabled -Dwasapi=enabled -Dd3d11=enabled -Dgl=enabled -Dgl-win32=enabled -Dplain-gl=enabled -Degl-angle=enabled -Degl-angle-win32=enabled -Degl-angle-lib=disabled -Dd3d-hwaccel=enabled -Dd3d9-hwaccel=enabled -Dtests=false
 ninja -C "$cache/mpv" -j "$jobs"
 dest="$root/packages/media_kit_libs_windows_video/windows/libmpv"
 mkdir -p "$dest/include"

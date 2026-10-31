@@ -19,6 +19,7 @@ class MediaInfo {
     this.audioChannelLayout,
     this.audioSampleRate,
     this.subtitleFormat,
+    this.dolbyVisionProfile,
   });
 
   /// Container format name, e.g. `matroska`.
@@ -48,6 +49,20 @@ class MediaInfo {
   /// Codec name of the selected subtitle track.
   final String? subtitleFormat;
 
+  /// Dolby Vision profile of the video track, when mpv reports one.
+  final int? dolbyVisionProfile;
+
+  /// Display-matching hint: `dv`, `hdr10`, `hlg` or `sdr`; null while the transfer is unknown.
+  String? get dynamicRange {
+    if (dolbyVisionProfile != null) return 'dv';
+    return switch (colorTransfer) {
+      null => null,
+      'pq' => 'hdr10',
+      'hlg' => 'hlg',
+      _ => 'sdr',
+    };
+  }
+
   static const MediaInfo empty = MediaInfo();
 
   @override
@@ -62,5 +77,5 @@ class MediaInfo {
       'MediaInfo($container,$fileSizeBytes,$duration,$bitrate,$videoCodec,'
       '$width,$height,$frameRate,$bitDepth,$colorMatrix,$colorPrimaries,'
       '$colorTransfer,$audioCodec,$audioChannels,$audioChannelLayout,'
-      '$audioSampleRate,$subtitleFormat)';
+      '$audioSampleRate,$subtitleFormat,$dolbyVisionProfile)';
 }

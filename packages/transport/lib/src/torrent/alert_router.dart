@@ -77,10 +77,14 @@ class AlertRouter {
     }
   }
 
+  // True while the current stall is "no peers yet"; peers arriving end it.
+  bool _noPeersStall = false;
+
   void updatePeers(int count, {DateTime? now}) {
     peers = count;
     if (!_hasMetadata || count > 0) {
       _zeroPeersSince = null;
+      if (count > 0 && _noPeersStall) _recover();
       return;
     }
     final clock = now ?? DateTime.now();
@@ -89,7 +93,8 @@ class AlertRouter {
       failure = const TransportFailure.torrentNoPeers(
         cause: 'no connected peers after metadata',
       );
-      state = SourceState.failed;
+      state = SourceState.stalled;
+      _noPeersStall = true;
     }
   }
 
@@ -110,6 +115,7 @@ class AlertRouter {
   // asks for something else. Failures never end here.
   void _recover() {
     if (state == SourceState.failed) return;
+    _noPeersStall = false;
     if (state == SourceState.stalled) failure = null;
     state = SourceState.ready;
   }

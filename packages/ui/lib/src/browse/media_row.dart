@@ -1,5 +1,9 @@
 import '../l10n_gen/app_strings.dart';
 
+import '../components/directional_icon.dart';
+import '../components/app_toast.dart';
+import 'dart:async' show unawaited;
+import 'media_context_menu.dart' show MediaContextAction;
 import 'package:contracts/contracts.dart';
 
 import 'dart:math' as math;
@@ -10,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../components/app_icon_button.dart';
+import '../components/artwork.dart';
 import '../components/app_text_button.dart';
 import '../components/tinted_surface.dart';
 import '../focus/focus_memory.dart';
@@ -20,7 +25,7 @@ import '../platform/adaptive_behavior.dart';
 import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
 import 'continue_card.dart';
-import 'media_context_menu.dart';
+import 'media_actions.dart';
 import 'poster_card.dart';
 
 /// Card size, gap and gutter of a title row, from DESIGN_SPEC §4.3 and §4.5.
@@ -35,7 +40,7 @@ class RowMetrics {
   });
 
   factory RowMetrics.of(BuildContext context, {required bool continueRow}) {
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
     final sizes = AdaptiveBehavior.sizesOf(context);
     final artHeight = continueRow
         ? sizes.continueCardHeight
@@ -45,7 +50,7 @@ class RowMetrics {
       artHeight: artHeight,
       height: artHeight + PosterCard.captionBlockHeight(context),
       gap: RivuletSpacing.itemGap(formFactor),
-      gutter: RivuletSpacing.gutter(formFactor),
+      gutter: RivuletSpacing.gutterOf(context),
     );
   }
 
@@ -85,6 +90,9 @@ class MediaRow extends StatefulWidget {
     this.onItemTap,
     this.onSeeAll,
     this.rowIndex = 0,
+    this.isContinue = false,
+    this.onRemove,
+    this.onUndoRemove,
     super.key,
   });
 
@@ -102,6 +110,14 @@ class MediaRow extends StatefulWidget {
   /// `row-<rowIndex>-arrow-left/right`.
   final int rowIndex;
 
+  /// Continue Watching styling (also true for a row titled 'Continue watching').
+  final bool isContinue;
+
+  /// Continue Watching removal: true when the progress was cleared. The caller
+  /// updates the row's items; the toast offers Undo only with [onUndoRemove].
+  final Future<bool> Function(MediaItem item)? onRemove;
+  final Future<bool> Function(MediaItem item)? onUndoRemove;
+
   @override
   State<MediaRow> createState() => _MediaRowState();
 }
@@ -110,6 +126,11 @@ class _MediaRowState extends State<MediaRow>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scroll = ScrollController();
   bool _hovered = false;
+  double _lastOffset = 0;
+  RowMetrics? _metrics;
+
+  /// Posters ahead of the scroll direction that are fetched before they show.
+  static const int _prefetchCount = 4;
 
   /// A scrolled-away row keeps its cards, so Up/Down can land on the item it
   /// last had focused (DESIGN_SPEC §6.4 rule 2).
@@ -118,6 +139,40 @@ class _MediaRowState extends State<MediaRow>
 
   String get title => widget.title;
   List<MediaItem> get items => widget.items;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_prefetch);
+  }
+
+  /// Desktop and phone only: loads the next [_prefetchCount] posters in the
+  /// direction the row is scrolling; TV skips it to save memory.
+  void _prefetch() {
+    final metrics = _metrics;
+    if (metrics == null || !_scroll.hasClients) return;
+    final offset = _scroll.offset;
+    final forward = offset >= _lastOffset;
+    _lastOffset = offset;
+    if (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv) return;
+    final first = ((offset - metrics.gutter) / metrics.pitch).floor();
+    final last =
+        ((offset + _scroll.position.viewportDimension - metrics.gutter) /
+                metrics.pitch)
+            .floor();
+    final resolve = ArtworkResolverScope.of(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    for (var i = 1; i <= _prefetchCount; i++) {
+      final index = forward ? last + i : first - i;
+      if (index < 0 || index >= items.length) continue;
+      final url = items[index].artwork;
+      if (url == null) continue;
+      precacheImage(
+        ArtworkView.sized(resolve(url.toString()), metrics.width, dpr),
+        context,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -129,7 +184,7 @@ class _MediaRowState extends State<MediaRow>
   /// rule 1); TV has its own fixed-focus handling (ch02 p04).
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent ||
-        AdaptiveBehavior.of(context).formFactor == FormFactor.tv) {
+        AdaptiveBehavior.formFactorOf(context) == FormFactor.tv) {
       return KeyEventResult.ignored;
     }
     final direction = switch (event.logicalKey) {
@@ -214,7 +269,7 @@ class _MediaRowState extends State<MediaRow>
   /// TV fixed-focus (DESIGN_SPEC §6.4 rule 8): the focused card goes to the
   /// row's first slot, `fast`/easeOut; the end of the row clamps.
   VoidCallback? _fixedFocus(String id, double pitch) {
-    if (!(AdaptiveBehavior.of(context).formFactor == FormFactor.tv)) {
+    if (!(AdaptiveBehavior.formFactorOf(context) == FormFactor.tv)) {
       return null;
     }
     return () {
@@ -249,20 +304,67 @@ class _MediaRowState extends State<MediaRow>
       width: metrics.width,
       height: metrics.height,
       revealAncestors:
-          !(AdaptiveBehavior.of(context).formFactor == FormFactor.tv),
+          !(AdaptiveBehavior.formFactorOf(context) == FormFactor.tv),
       onFixedFocus: _fixedFocus(item.id, metrics.pitch),
       onFocused: () => widget.onFocused(item),
       onTap: () => widget.onItemTap?.call(item),
       onSecondaryTap: widget.onItemTap == null
           ? null
-          : (point) => showMediaDetailsMenu(
-              context: context,
+          : (point) => showMediaActionsMenu(
+              context,
+              item,
+              onDetails: widget.onItemTap,
+              progress: widget.progress[item.id],
               anchor: point,
-              onDetails: () => widget.onItemTap!(item),
+              extra: <MediaContextAction>[
+                if (continueRow && widget.onRemove != null)
+                  MediaContextAction(
+                    label: AppStrings.of(context).shelf_removeContinue,
+                    icon: PhosphorIconsRegular.x,
+                    onSelected: () => unawaited(_remove(item)),
+                  ),
+              ],
             ),
       child: continueRow
           ? ContinueCard(item: item, progress: widget.progress[item.id])
           : PosterCard(item: item, progress: widget.progress[item.id]),
+    );
+  }
+
+  Future<void> _remove(MediaItem item) async {
+    final strings = AppStrings.of(context);
+    var ok = false;
+    try {
+      ok = await widget.onRemove!(item);
+    } on Object {
+      ok = false;
+    }
+    if (!mounted) return;
+    if (!ok) {
+      showAppToast(
+        context,
+        PhosphorIconsRegular.warning,
+        strings.toast_saveFailed,
+      );
+      return;
+    }
+    final undo = widget.onUndoRemove;
+    showAppToast(
+      context,
+      PhosphorIconsRegular.x,
+      strings.toast_removedContinue,
+      actionLabel: undo == null ? null : strings.toast_undo,
+      onAction: undo == null
+          ? null
+          : () async {
+              if (!await undo(item) && mounted) {
+                showAppToast(
+                  context,
+                  PhosphorIconsRegular.warning,
+                  strings.toast_saveFailed,
+                );
+              }
+            },
     );
   }
 
@@ -278,7 +380,7 @@ class _MediaRowState extends State<MediaRow>
       width: metrics.width,
       height: metrics.artHeight,
       revealAncestors:
-          !(AdaptiveBehavior.of(context).formFactor == FormFactor.tv),
+          !(AdaptiveBehavior.formFactorOf(context) == FormFactor.tv),
       onFixedFocus: _fixedFocus('see-all', metrics.pitch),
       onTap: widget.onSeeAll,
       child: TintedSurface(
@@ -286,7 +388,7 @@ class _MediaRowState extends State<MediaRow>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(
+              DirectionalIcon(
                 PhosphorIconsRegular.caretRight,
                 size: 26,
                 color: tokens.colors.textPrimary,
@@ -310,9 +412,10 @@ class _MediaRowState extends State<MediaRow>
     final onSeeAll = widget.onSeeAll;
     onBuild?.call();
     final tokens = RivuletTokens.of(context);
-    final continueRow = title == 'Continue watching';
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
+    final continueRow = widget.isContinue || title == 'Continue watching';
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
     final metrics = RowMetrics.of(context, continueRow: continueRow);
+    _metrics = metrics;
     final header = rowHeaderHeight(context);
     final phone = formFactor == FormFactor.phone;
     final endCard = onSeeAll != null && !phone;
@@ -321,13 +424,13 @@ class _MediaRowState extends State<MediaRow>
       onKeyEvent: _onKey,
       onFocusChange: (focused) {
         if (!focused ||
-            !(AdaptiveBehavior.of(context).formFactor == FormFactor.tv)) {
+            !(AdaptiveBehavior.formFactorOf(context) == FormFactor.tv)) {
           return;
         }
         FocusableCard.revealSection(context);
       },
       child: SizedBox(
-        height: header + RivuletSpacing.s12 + metrics.height,
+        height: header + RivuletSpacing.headerGap(formFactor) + metrics.height,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -355,7 +458,7 @@ class _MediaRowState extends State<MediaRow>
                 ),
               ),
             ),
-            const SizedBox(height: RivuletSpacing.s12),
+            SizedBox(height: RivuletSpacing.headerGap(formFactor)),
             Expanded(
               child: MouseRegion(
                 onEnter: (_) => setState(() => _hovered = true),

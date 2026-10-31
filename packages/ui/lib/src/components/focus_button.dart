@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../focus/focusable_action.dart';
 import '../l10n/app_text.dart';
+import '../platform/adaptive_behavior.dart';
+import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
 
 /// Layout shape for a [FocusButton]. Each variant keeps a fixed box size
@@ -13,11 +15,9 @@ import 'tinted_surface.dart';
 enum FocusButtonVariant { pill, circle, icon, row }
 
 /// A glass-styled activatable control in one of four Rivulet shapes:
-///  - [FocusButtonVariant.pill] — `HeroButtonRowView.swift:186-187`'s
-///    250x66 label pill (radius = height / 2, `:208`).
-///  - [FocusButtonVariant.circle] — the 66x66 icon-only circle
-///    (`HeroButtonRowView.swift:354,387-388`).
-///  - [FocusButtonVariant.icon] — a bare 44x44 minimum-hit-area icon button.
+///  - [FocusButtonVariant.pill] — a tier-L label capsule, at least 4 x L wide.
+///  - [FocusButtonVariant.circle] — the tier-L icon-only circle.
+///  - [FocusButtonVariant.icon] — a bare tier-M icon button.
 ///  - [FocusButtonVariant.row] — a full-width glass row (icon + label),
 ///    used by settings/list-style actions.
 ///
@@ -35,7 +35,6 @@ class FocusButton extends StatelessWidget {
     this.autofocus = false,
     this.enabled = true,
     this.semanticLabel,
-    this.compact = false,
     super.key,
   }) : assert(
          icon != null || label != null,
@@ -50,58 +49,55 @@ class FocusButton extends StatelessWidget {
   final bool autofocus;
   final bool enabled;
   final String? semanticLabel;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
-    final geometry = tokens.geometry;
     final colors = tokens.colors;
+    final ff = AdaptiveBehavior.formFactorOf(context);
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 14;
-    final compactScale = (MediaQuery.sizeOf(context).width / 1280).clamp(
-      1.0,
-      1.08,
-    );
+    final l = RivuletControlSize.l.height(ff);
+    final m = RivuletControlSize.m.height(ff);
 
     final Widget shaped;
     final BorderRadius focusRadius;
     switch (variant) {
       case FocusButtonVariant.pill:
-        focusRadius = BorderRadius.circular(
-          compact ? 24 : geometry.heroButtonRadius,
-        );
+        focusRadius = BorderRadius.circular(RivuletRadius.full);
         shaped = _glass(
           focusRadius,
           Container(
-            width: compact ? 176 * compactScale : geometry.heroPillWidth,
-            constraints: BoxConstraints(
-              minHeight: compact ? 44 * compactScale : geometry.heroPillHeight,
+            constraints: BoxConstraints(minHeight: l, minWidth: 4 * l),
+            padding: EdgeInsets.symmetric(
+              horizontal: RivuletControlSize.l.horizontalPadding(ff),
+              vertical: largeText ? RivuletSpacing.s8 : 0,
             ),
-            padding: largeText
-                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-                : EdgeInsets.zero,
-            child: Center(child: _content(colors, withLabel: true)),
+            child: Center(child: _content(colors, ff, RivuletControlSize.l)),
           ),
         );
       case FocusButtonVariant.circle:
-        focusRadius = BorderRadius.circular(geometry.heroCircleDiameter / 2);
+        focusRadius = BorderRadius.circular(RivuletRadius.full);
         shaped = _glass(
           focusRadius,
           SizedBox(
-            width: geometry.heroCircleDiameter,
-            height: geometry.heroCircleDiameter,
-            child: Center(child: _content(colors, withLabel: false)),
+            width: l,
+            height: l,
+            child: Center(
+              child: _content(colors, ff, RivuletControlSize.l, label: false),
+            ),
           ),
         );
       case FocusButtonVariant.icon:
-        focusRadius = BorderRadius.circular(22);
+        focusRadius = BorderRadius.circular(RivuletRadius.full);
         shaped = SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(child: _content(colors, withLabel: false)),
+          width: m,
+          height: m,
+          child: Center(
+            child: _content(colors, ff, RivuletControlSize.m, label: false),
+          ),
         );
       case FocusButtonVariant.row:
-        focusRadius = BorderRadius.circular(12);
+        focusRadius = BorderRadius.circular(RivuletRadius.medium);
         shaped = _glass(
           focusRadius,
           Container(
@@ -109,10 +105,15 @@ class FocusButton extends StatelessWidget {
             width: double.infinity,
             child: Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: largeText ? 12 : 0,
+                horizontal: RivuletSpacing.s16,
+                vertical: largeText ? RivuletSpacing.s12 : 0,
               ),
-              child: _content(colors, withLabel: true, expand: true),
+              child: _content(
+                colors,
+                ff,
+                RivuletControlSize.m,
+                expand: true,
+              ),
             ),
           ),
         );
@@ -133,18 +134,21 @@ class FocusButton extends StatelessWidget {
       TintedSurface.overMedia(radius: radius.topLeft.x, child: child);
 
   Widget _content(
-    RivuletColors colors, {
-    required bool withLabel,
+    RivuletColors colors,
+    FormFactor ff,
+    RivuletControlSize tier, {
+    bool label = true,
     bool expand = false,
   }) {
+    final withLabel = label;
     final iconWidget = icon == null
         ? null
-        : Icon(icon, color: colors.textPrimary, size: compact ? 18 : 22);
-    if (!withLabel || label == null) {
+        : Icon(icon, color: colors.textPrimary, size: tier.glyph(ff));
+    if (!withLabel || this.label == null) {
       return iconWidget ?? const SizedBox.shrink();
     }
     final text = AppText(
-      label!,
+      this.label!,
       style: TextStyle(color: colors.textPrimary, fontWeight: FontWeight.w600),
     );
     if (iconWidget == null) {
@@ -156,7 +160,7 @@ class FocusButton extends StatelessWidget {
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       children: [
         iconWidget,
-        const SizedBox(width: 10),
+        SizedBox(width: tier.iconGap(ff)),
         Flexible(child: text),
       ],
     );

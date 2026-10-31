@@ -31,7 +31,9 @@ int32_t transport_lt_fs_punch_hole(const char* path, int32_t path_len, int64_t o
   zero.FileOffset.QuadPart = offset;
   zero.BeyondFinalZero.QuadPart = offset + length;
   if (rc == 0 && !DeviceIoControl(h, FSCTL_SET_ZERO_DATA, &zero, sizeof zero, NULL, 0, &ret, NULL)) rc = -4;
+  DWORD error = GetLastError();
   CloseHandle(h);
+  if (rc != 0) SetLastError(error);
   return rc;
 }
 
@@ -115,7 +117,9 @@ int32_t transport_lt_fs_punch_hole(const char* path, int32_t path_len, int64_t o
   int64_t end = (offset + length) / block * block;
   if (end > start && fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, start, end - start) != 0) rc = -3;
 #endif
+  int error = errno;
   close(fd);
+  if (rc != 0) errno = error;
   return rc;
 }
 

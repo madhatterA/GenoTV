@@ -1,0 +1,458 @@
+--- a/meson.build
++++ b/meson.build
+@@ -1382,0 +1383,4 @@
++if features['cocoa'] and features['vulkan']
++    sources += files('video/out/vulkan/context_ios.m', 'video/out/hwdec/hwdec_videotoolbox_vk.m')
++    dependencies += dependency('appleframeworks', modules: ['Metal', 'QuartzCore', 'CoreVideo'])
++endif
+--- a/video/out/gpu/context.c
++++ b/video/out/gpu/context.c
+@@ -52,0 +53 @@
++extern const struct ra_ctx_fns ra_ctx_vulkan_ios;
+@@ -99,0 +101,3 @@
++#if HAVE_COCOA
++    &ra_ctx_vulkan_ios,
++#endif
+--- a/video/out/gpu/hwdec.c
++++ b/video/out/gpu/hwdec.c
+@@ -29,0 +30 @@
++extern const struct ra_hwdec_driver ra_hwdec_videotoolbox_vk;
+@@ -43,0 +45,3 @@
++#if HAVE_VULKAN && HAVE_COCOA
++    &ra_hwdec_videotoolbox_vk,
++#endif
+--- a/video/out/vulkan/context.c
++++ b/video/out/vulkan/context.c
+@@ -163,0 +164 @@
++    const char *metal_exts[] = {"VK_EXT_metal_objects"};
+@@ -215,0 +217,4 @@
++#if HAVE_COCOA
++        .extensions = metal_exts,
++        .num_extensions = 1,
++#endif
+--- a/video/out/vulkan/context_ios.m
++++ b/video/out/vulkan/context_ios.m
+@@ -0,0 +1,217 @@
++#include <QuartzCore/CAMetalLayer.h>
++#include <pthread.h>
++#define VK_USE_PLATFORM_METAL_EXT 1
++#include "common.h"
++#include "context.h"
++#include "utils.h"
++#include "options/options.h"
++
++struct ios_priv {
++    struct mpvk_ctx vk;
++    CAMetalLayer *layer;
++    struct ra_ctx *ctx;
++    uint64_t frames;
++    int status;
++    pthread_mutex_t render_lock;
++    bool active;
++    bool registered;
++    struct ios_priv *next;
++};
++static pthread_mutex_t ios_lock = PTHREAD_MUTEX_INITIALIZER;
++static pthread_cond_t ios_changed = PTHREAD_COND_INITIALIZER;
++static struct ios_priv *ios_surfaces;
++static int ios_live;
++static struct ios_priv *get_surface(void *layer)
++{
++    for (struct ios_priv *p=ios_surfaces; p; p=p->next)
++        if (p->layer == layer) return p;
++    return NULL;
++}
++static struct ios_priv *create_surface(void *layer)
++{
++    struct ios_priv *p = calloc(1, sizeof(*p));
++    if (!p) return NULL;
++    p->layer = [(CAMetalLayer *)layer retain];
++    pthread_mutex_init(&p->render_lock, NULL);
++    p->active = true;
++    p->registered = true;
++    p->next = ios_surfaces;
++    ios_surfaces = p;
++    return p;
++}
++static void free_surface(struct ios_priv *p)
++{
++    [p->layer release];
++    pthread_mutex_destroy(&p->render_lock);
++    free(p);
++}
++__attribute__((visibility("default")))
++uint64_t mpv_ios_surface_frame_count(void *layer)
++{
++    pthread_mutex_lock(&ios_lock);
++    struct ios_priv *p=get_surface(layer);
++    uint64_t frames=p ? __atomic_load_n(&p->frames,__ATOMIC_RELAXED) : 0;
++    pthread_mutex_unlock(&ios_lock);
++    return frames;
++}
++__attribute__((visibility("default")))
++int mpv_ios_surface_status(void *layer)
++{
++    pthread_mutex_lock(&ios_lock);
++    struct ios_priv *p=get_surface(layer);
++    int status=p ? __atomic_load_n(&p->status,__ATOMIC_RELAXED) : 0;
++    pthread_mutex_unlock(&ios_lock);
++    return status;
++}
++__attribute__((visibility("default")))
++int mpv_ios_surface_live_count(void)
++{
++    return __atomic_load_n(&ios_live,__ATOMIC_RELAXED);
++}
++bool mpv_ios_render_begin(struct ra_ctx *ctx)
++{
++    if (strcmp(ctx->fns->name,"iosvk")) return true;
++    struct ios_priv *p=ctx->priv;
++    pthread_mutex_lock(&p->render_lock);
++    if (p->active) return true;
++    pthread_mutex_unlock(&p->render_lock);
++    return false;
++}
++void mpv_ios_render_end(struct ra_ctx *ctx)
++{
++    if (!strcmp(ctx->fns->name,"iosvk"))
++        pthread_mutex_unlock(&((struct ios_priv *)ctx->priv)->render_lock);
++}
++__attribute__((visibility("default")))
++int mpv_ios_surface_set_active(void *layer,int active)
++{
++    pthread_mutex_lock(&ios_lock);
++    struct ios_priv *p=get_surface(layer);
++    if (!p) p=create_surface(layer);
++    if (p) {
++        pthread_mutex_lock(&p->render_lock);
++        p->active=active != 0;
++        if (!active && p->vk.gpu) pl_gpu_finish(p->vk.gpu);
++        pthread_mutex_unlock(&p->render_lock);
++        pthread_cond_broadcast(&ios_changed);
++    }
++    pthread_mutex_unlock(&ios_lock);
++    return p != NULL;
++}
++__attribute__((visibility("default")))
++void mpv_ios_surface_unregister(void *layer)
++{
++    pthread_mutex_lock(&ios_lock);
++    for (struct ios_priv **q=&ios_surfaces; *q; q=&(*q)->next) {
++        struct ios_priv *p=*q;
++        if (p->layer != layer) continue;
++        pthread_mutex_lock(&p->render_lock);
++        p->active=false;
++        p->registered=false;
++        if (p->vk.gpu) pl_gpu_finish(p->vk.gpu);
++        pthread_mutex_unlock(&p->render_lock);
++        *q=p->next;
++        pthread_cond_broadcast(&ios_changed);
++        if (!p->ctx) free_surface(p);
++        break;
++    }
++    pthread_mutex_unlock(&ios_lock);
++}
++static void ios_swap(struct ra_ctx *ctx)
++{
++    struct ios_priv *p=ctx->priv;
++    __atomic_add_fetch(&p->frames,1,__ATOMIC_RELAXED);
++}
++static void ios_uninit(struct ra_ctx *ctx)
++{
++    struct ios_priv *p=ctx->priv;
++    if (!p) return;
++    pthread_mutex_lock(&ios_lock);
++    pthread_mutex_lock(&p->render_lock);
++    ra_vk_ctx_uninit(ctx);
++    mpvk_uninit(&p->vk);
++    memset(&p->vk,0,sizeof(p->vk));
++    if (p->ctx) __atomic_sub_fetch(&ios_live,1,__ATOMIC_RELAXED);
++    p->ctx=NULL;
++    if (__atomic_load_n(&p->status,__ATOMIC_RELAXED) == 1)
++        __atomic_store_n(&p->status,0,__ATOMIC_RELAXED);
++    ctx->priv=NULL;
++    pthread_mutex_unlock(&p->render_lock);
++    if (!p->registered) free_surface(p);
++    pthread_mutex_unlock(&ios_lock);
++}
++static bool ios_resize_locked(struct ra_ctx *ctx)
++{
++    struct ios_priv *p=ctx->priv;
++    CGSize size=p->layer.drawableSize;
++    if (size.width<=0 || size.height<=0) return true;
++    return ra_vk_ctx_resize(ctx,(int)size.width,(int)size.height);
++}
++static bool ios_reconfig(struct ra_ctx *ctx)
++{
++    struct ios_priv *p=ctx->priv;
++    pthread_mutex_lock(&p->render_lock);
++    bool ok=!p->active || ios_resize_locked(ctx);
++    if (!ok) __atomic_store_n(&p->status,-1,__ATOMIC_RELAXED);
++    pthread_mutex_unlock(&p->render_lock);
++    return ok;
++}
++void mpv_ios_render_failed(struct ra_ctx *ctx)
++{
++    if (!strcmp(ctx->fns->name,"iosvk"))
++        __atomic_store_n(&((struct ios_priv *)ctx->priv)->status,-1,__ATOMIC_RELAXED);
++}
++static bool ios_init(struct ra_ctx *ctx)
++{
++    CAMetalLayer *layer=(CAMetalLayer *)(uintptr_t)ctx->vo->opts->WinID;
++    pthread_mutex_lock(&ios_lock);
++    struct ios_priv *p=get_surface(layer);
++    if (!p) { pthread_mutex_unlock(&ios_lock); return false; }
++    p->ctx=ctx;
++    ctx->priv=p;
++    __atomic_add_fetch(&ios_live,1,__ATOMIC_RELAXED);
++    __atomic_store_n(&p->status,0,__ATOMIC_RELAXED);
++    while (!p->active && p->registered) pthread_cond_wait(&ios_changed,&ios_lock);
++    if (!p->registered) { pthread_mutex_unlock(&ios_lock); ios_uninit(ctx); return false; }
++    pthread_mutex_lock(&p->render_lock);
++    pthread_mutex_unlock(&ios_lock);
++    if (!mpvk_init(&p->vk,ctx,VK_EXT_METAL_SURFACE_EXTENSION_NAME)) goto fail;
++    VkMetalSurfaceCreateInfoEXT info={
++        .sType=VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,.pLayer=p->layer,
++    };
++    if (vkCreateMetalSurfaceEXT(p->vk.vkinst->instance,&info,NULL,&p->vk.surface)!=VK_SUCCESS) goto fail;
++    if (!ra_vk_ctx_init(ctx,&p->vk,(struct ra_vk_ctx_params){.swap_buffers=ios_swap},VK_PRESENT_MODE_FIFO_KHR)) goto fail;
++    pl_swapchain_colorspace_hint(p->vk.swapchain,&(struct pl_color_space){
++        .primaries=PL_COLOR_PRIM_DISPLAY_P3,.transfer=PL_COLOR_TRC_LINEAR,
++    });
++    if (!ios_resize_locked(ctx)) goto fail;
++    __atomic_store_n(&p->status,1,__ATOMIC_RELAXED);
++    pthread_mutex_unlock(&p->render_lock);
++    MP_INFO(ctx,"iosvk native CAMetalLayer initialized\n");
++    return true;
++fail:
++    __atomic_store_n(&p->status,-1,__ATOMIC_RELAXED);
++    pthread_mutex_unlock(&p->render_lock);
++    ios_uninit(ctx);
++    return false;
++}
++static int ios_control(struct ra_ctx *ctx,int *events,int request,void *arg)
++{
++    if (request==VOCTRL_CHECK_EVENTS) {
++        struct ios_priv *p=ctx->priv;
++        pthread_mutex_lock(&p->render_lock);
++        CGSize size=p->layer.drawableSize;
++        bool resize=p->active && size.width>0 && size.height>0 &&
++            (ctx->vo->dwidth!=(int)size.width || ctx->vo->dheight!=(int)size.height);
++        bool ok=!resize || ios_resize_locked(ctx);
++        pthread_mutex_unlock(&p->render_lock);
++        if (!ok) { mpv_ios_render_failed(ctx); return VO_ERROR; }
++        if (resize) *events|=VO_EVENT_RESIZE;
++        return VO_TRUE;
++    }
++    return VO_NOTIMPL;
++}
++const struct ra_ctx_fns ra_ctx_vulkan_ios={
++    .type="vulkan",.name="iosvk",.init=ios_init,.uninit=ios_uninit,
++    .reconfig=ios_reconfig,.control=ios_control,
++};
+--- a/video/out/hwdec/hwdec_videotoolbox_vk.m
++++ b/video/out/hwdec/hwdec_videotoolbox_vk.m
+@@ -0,0 +1,156 @@
++#include <CoreVideo/CoreVideo.h>
++#include <Metal/Metal.h>
++#include <libavutil/hwcontext.h>
++#define VK_USE_PLATFORM_METAL_EXT 1
++#include "video/out/vulkan/context.h"
++#include "video/out/placebo/ra_pl.h"
++#include "video/out/gpu/hwdec.h"
++
++struct owner { struct mp_hwdec_ctx hwctx; struct mpvk_ctx *vk; };
++struct mapper_priv {
++    CVMetalTextureCacheRef cache;
++    CVMetalTextureRef cvtex[4];
++    CVPixelBufferRef buffer;
++    VkImage image[4];
++    pl_tex texture[4];
++    struct ra_tex ratex[4];
++    struct ra_imgfmt_desc desc;
++    bool logged;
++};
++static int init(struct ra_hwdec *hw)
++{
++    struct owner *o = hw->priv;
++    o->vk = ra_vk_ctx_get(hw->ra_ctx);
++    if (!o->vk || !ra_pl_get(hw->ra_ctx->ra)) return -1;
++    o->hwctx = (struct mp_hwdec_ctx){ .driver_name=hw->driver->name,
++        .hw_imgfmt=IMGFMT_VIDEOTOOLBOX };
++    int ret = av_hwdevice_ctx_create(&o->hwctx.av_device_ref,
++        AV_HWDEVICE_TYPE_VIDEOTOOLBOX, NULL, NULL, 0);
++    if (ret < 0) { MP_ERR(hw, "VideoToolbox device: %s\n", av_err2str(ret)); return -1; }
++    hwdec_devices_add(hw->devs, &o->hwctx);
++    return 0;
++}
++static void uninit(struct ra_hwdec *hw)
++{
++    struct owner *o = hw->priv;
++    hwdec_devices_remove(hw->devs, &o->hwctx);
++    av_buffer_unref(&o->hwctx.av_device_ref);
++}
++static void mapper_unmap(struct ra_hwdec_mapper *m)
++{
++    struct mapper_priv *p = m->priv;
++    struct owner *o = m->owner->priv;
++    if (p->buffer) pl_gpu_finish(o->vk->gpu);
++    for (int i=0; i<4; i++) {
++        pl_tex_destroy(o->vk->gpu, &p->texture[i]);
++        if (p->image[i]) vkDestroyImage(o->vk->vulkan->device, p->image[i], NULL);
++        p->image[i] = VK_NULL_HANDLE;
++        if (p->cvtex[i]) CFRelease(p->cvtex[i]);
++        p->cvtex[i] = NULL;
++        m->tex[i] = NULL;
++    }
++    if (p->buffer) CVPixelBufferRelease(p->buffer);
++    p->buffer = NULL;
++}
++static void mapper_uninit(struct ra_hwdec_mapper *m)
++{
++    struct mapper_priv *p = m->priv;
++    mapper_unmap(m);
++    if (p->cache) CFRelease(p->cache);
++    p->cache = NULL;
++}
++static int mapper_init(struct ra_hwdec_mapper *m)
++{
++    struct mapper_priv *p = m->priv;
++    struct owner *o = m->owner->priv;
++    m->dst_params = m->src_params;
++    m->dst_params.imgfmt = m->src_params.hw_subfmt;
++    m->dst_params.hw_subfmt = 0;
++    if (!ra_get_imgfmt_desc(m->ra, m->dst_params.imgfmt, &p->desc) ||
++        p->desc.num_planes != 2) {
++        MP_ERR(m, "Metal mapper requires NV12/P010: imgfmt=%d hw_subfmt=%d planes=%d\n",
++            m->dst_params.imgfmt,m->src_params.hw_subfmt,p->desc.num_planes);
++        return -1;
++    }
++    VkExportMetalDeviceInfoEXT di = {
++        .sType=VK_STRUCTURE_TYPE_EXPORT_METAL_DEVICE_INFO_EXT,
++    };
++    VkExportMetalObjectsInfoEXT info = {
++        .sType=VK_STRUCTURE_TYPE_EXPORT_METAL_OBJECTS_INFO_EXT, .pNext=&di,
++    };
++    PFN_vkExportMetalObjectsEXT export_fn = (PFN_vkExportMetalObjectsEXT)
++        vkGetDeviceProcAddr(o->vk->vulkan->device, "vkExportMetalObjectsEXT");
++    if (!export_fn) { MP_ERR(m, "Metal objects extension unavailable\n"); return -1; }
++    export_fn(o->vk->vulkan->device, &info);
++    CVReturn err = CVMetalTextureCacheCreate(NULL, NULL, di.mtlDevice, NULL, &p->cache);
++    if (err) { MP_ERR(m, "CVMetalTextureCacheCreate: %d\n", err); return -1; }
++    return 0;
++}
++static int mapper_map(struct ra_hwdec_mapper *m)
++{
++    struct mapper_priv *p = m->priv;
++    struct owner *o = m->owner->priv;
++    p->buffer = (CVPixelBufferRef)m->src->planes[3];
++    if (!p->buffer || !CVPixelBufferGetIOSurface(p->buffer)) {
++        p->buffer = NULL;
++        MP_ERR(m, "VideoToolbox image lacks IOSurface; zero-copy unavailable\n");
++        return -1;
++    }
++    CVPixelBufferRetain(p->buffer);
++    OSType fmt = CVPixelBufferGetPixelFormatType(p->buffer);
++    bool tenbit = fmt == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange ||
++                  fmt == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange;
++    if (!tenbit && fmt != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange &&
++        fmt != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) goto fail;
++    for (int i=0; i<2; i++) {
++        size_t w = CVPixelBufferGetWidthOfPlane(p->buffer, i);
++        size_t h = CVPixelBufferGetHeightOfPlane(p->buffer, i);
++        MTLPixelFormat mf = tenbit ? (i ? MTLPixelFormatRG16Unorm : MTLPixelFormatR16Unorm)
++                                  : (i ? MTLPixelFormatRG8Unorm : MTLPixelFormatR8Unorm);
++        VkFormat vf = tenbit ? (i ? VK_FORMAT_R16G16_UNORM : VK_FORMAT_R16_UNORM)
++                            : (i ? VK_FORMAT_R8G8_UNORM : VK_FORMAT_R8_UNORM);
++        CVReturn err = CVMetalTextureCacheCreateTextureFromImage(NULL, p->cache,
++            p->buffer, NULL, mf, w, h, i, &p->cvtex[i]);
++        if (err) { MP_ERR(m, "CVMetalTexture import plane %d: %d\n", i, err); goto fail; }
++        VkImportMetalTextureInfoEXT mi = {
++            .sType=VK_STRUCTURE_TYPE_IMPORT_METAL_TEXTURE_INFO_EXT,
++            .plane=VK_IMAGE_ASPECT_COLOR_BIT,
++            .mtlTexture=CVMetalTextureGetTexture(p->cvtex[i]),
++        };
++        VkImageCreateInfo ci = {
++            .sType=VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, .pNext=&mi,
++            .imageType=VK_IMAGE_TYPE_2D, .format=vf, .extent={w,h,1},
++            .mipLevels=1, .arrayLayers=1, .samples=VK_SAMPLE_COUNT_1_BIT,
++            .tiling=VK_IMAGE_TILING_OPTIMAL, .usage=VK_IMAGE_USAGE_SAMPLED_BIT,
++            .sharingMode=VK_SHARING_MODE_EXCLUSIVE,
++            .initialLayout=VK_IMAGE_LAYOUT_UNDEFINED,
++        };
++        VkResult result = vkCreateImage(o->vk->vulkan->device, &ci, NULL, &p->image[i]);
++        if (result != VK_SUCCESS) { MP_ERR(m, "Metal VkImage import: %d\n", result); goto fail; }
++        p->texture[i] = pl_vulkan_wrap(o->vk->gpu, &(struct pl_vulkan_wrap_params){
++            .image=p->image[i], .width=w, .height=h, .format=vf,
++            .usage=VK_IMAGE_USAGE_SAMPLED_BIT,
++        });
++        if (!p->texture[i]) goto fail;
++        pl_vulkan_release_ex(o->vk->gpu, &(struct pl_vulkan_release_params){
++            .tex=p->texture[i], .layout=VK_IMAGE_LAYOUT_GENERAL,
++            .qf=VK_QUEUE_FAMILY_IGNORED,
++        });
++        if (!mppl_wrap_tex(m->ra, p->texture[i], &p->ratex[i])) goto fail;
++        m->tex[i] = &p->ratex[i];
++    }
++    if (!p->logged) {
++        MP_INFO(m, "VideoToolbox zero-copy IOSurface -> CVMetalTexture -> Vulkan: planes=2 pixelFormat=%u\n", fmt);
++        p->logged=true;
++    }
++    return 0;
++fail:
++    mapper_unmap(m);
++    return -1;
++}
++const struct ra_hwdec_driver ra_hwdec_videotoolbox_vk = {
++    .name="videotoolbox-vulkan", .priv_size=sizeof(struct owner),
++    .imgfmts={IMGFMT_VIDEOTOOLBOX,0}, .init=init, .uninit=uninit,
++    .mapper=&(const struct ra_hwdec_mapper_driver){.priv_size=sizeof(struct mapper_priv),
++        .init=mapper_init, .uninit=mapper_uninit, .map=mapper_map, .unmap=mapper_unmap},
++};
+--- a/video/out/vo_gpu_next.c
++++ b/video/out/vo_gpu_next.c
+@@ -889 +889,4 @@
+-static void draw_frame(struct vo *vo, struct vo_frame *frame)
++#if HAVE_VULKAN && HAVE_COCOA
++extern void mpv_ios_render_failed(struct ra_ctx *ctx);
++#endif
++static void draw_frame_impl(struct vo *vo, struct vo_frame *frame)
+@@ -1063 +1066,4 @@
+-    if (!valid) // clear with purple to indicate error
++    if (!valid) { // clear with purple to indicate error
++#if HAVE_VULKAN && HAVE_COCOA
++        mpv_ios_render_failed(p->ra_ctx);
++#endif
+@@ -1066 +1072,5 @@
+-    if (!pl_swapchain_submit_frame(p->sw))
++    }
++    if (!pl_swapchain_submit_frame(p->sw)) {
++#if HAVE_VULKAN && HAVE_COCOA
++        mpv_ios_render_failed(p->ra_ctx);
++#endif
+@@ -1067,0 +1078 @@
++    }
+@@ -1069,0 +1081,15 @@
++#if HAVE_VULKAN && HAVE_COCOA
++extern bool mpv_ios_render_begin(struct ra_ctx *ctx);
++extern void mpv_ios_render_end(struct ra_ctx *ctx);
++#endif
++static void draw_frame(struct vo *vo, struct vo_frame *frame)
++{
++    struct priv *p = vo->priv;
++#if HAVE_VULKAN && HAVE_COCOA
++    if (!mpv_ios_render_begin(p->ra_ctx)) return;
++#endif
++    draw_frame_impl(vo, frame);
++#if HAVE_VULKAN && HAVE_COCOA
++    mpv_ios_render_end(p->ra_ctx);
++#endif
++}
+@@ -1073,0 +1100,3 @@
++#if HAVE_VULKAN && HAVE_COCOA
++    if (!mpv_ios_render_begin(p->ra_ctx)) return;
++#endif
+@@ -1074,0 +1104,3 @@
++#if HAVE_VULKAN && HAVE_COCOA
++    mpv_ios_render_end(p->ra_ctx);
++#endif

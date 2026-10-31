@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+
 import '../pt_runtime.dart';
 import 'package:http/http.dart' as http;
 import '../stream_scraper.dart';
@@ -51,7 +53,12 @@ class PurstreamScraper extends StreamScraper {
         ).timeout(const Duration(seconds: 8));
 
         if (searchRes.statusCode != 200) return;
-        final searchData = jsonDecode(searchRes.body);
+        final searchBody = searchRes.body;
+        Future<Object?> decodeSearchBody(String payload) =>
+            Isolate.run(() => jsonDecode(payload));
+        final searchData = searchBody.length > 50 * 1024
+            ? await decodeSearchBody(searchBody)
+            : jsonDecode(searchBody);
         if (searchData is! Map) return;
 
         final items = searchData['data']?['items']?['movies']?['items'];
@@ -92,7 +99,12 @@ class PurstreamScraper extends StreamScraper {
         ).timeout(const Duration(seconds: 8));
 
         if (streamRes.statusCode != 200) return;
-        final sJson = jsonDecode(streamRes.body);
+        final streamBody = streamRes.body;
+        Future<Object?> decodeStreamBody(String payload) =>
+            Isolate.run(() => jsonDecode(payload));
+        final sJson = streamBody.length > 50 * 1024
+            ? await decodeStreamBody(streamBody)
+            : jsonDecode(streamBody);
         if (sJson is! Map || sJson['type'] != 'success') return;
 
         final sources = sJson['data']?['items']?['sources'];

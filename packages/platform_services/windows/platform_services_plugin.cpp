@@ -28,6 +28,7 @@
 #include <algorithm>
 
 #include "windows_audio.h"
+#include "windows_crash.h"
 
 namespace platform_services {
 
@@ -454,6 +455,7 @@ flutter::EncodableMap PlatformServicesPlugin::ClearMediaSession() {
 }
 
 PlatformServicesPlugin::~PlatformServicesPlugin() {
+  crash::Uninstall();
   if (registrar_ != nullptr && display_proc_id_ != 0)
     registrar_->UnregisterTopLevelWindowProcDelegate(display_proc_id_);
   media_.reset();
@@ -868,7 +870,25 @@ void PlatformServicesPlugin::RestorePendingDisplayMode() {
 void PlatformServicesPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  if (method_call.method_name().compare("capabilities.version") == 0) {
+  if (method_call.method_name() == "crash.install") {
+    const auto* args = method_call.arguments() ? std::get_if<flutter::EncodableMap>(method_call.arguments()) : nullptr;
+    const std::string* path = nullptr;
+    if (args) {
+      auto it = args->find(flutter::EncodableValue("path"));
+      if (it != args->end()) path = std::get_if<std::string>(&it->second);
+    }
+    const DWORD code = path ? crash::Install(*path) : ERROR_INVALID_PARAMETER;
+    if (code == ERROR_SUCCESS) result->Success();
+    else result->Error("crash.install", "Native crash capture failed", flutter::EncodableValue(static_cast<int>(code)));
+  } else if (method_call.method_name() == "crash.uninstall") {
+    crash::Uninstall(); result->Success();
+  } else if (method_call.method_name() == "crash.proof.abort") {
+#ifndef NDEBUG
+    crash::Abort(SIGABRT);
+#else
+    result->Error("crash.proof.disabled", "Debug build required");
+#endif
+  } else if (method_call.method_name().compare("capabilities.version") == 0) {
     flutter::EncodableMap value;
     value[flutter::EncodableValue("os")] = flutter::EncodableValue(WindowsVersion());
     value[flutter::EncodableValue("plugin")] = flutter::EncodableValue("0.0.1");

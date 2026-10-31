@@ -1,5 +1,7 @@
 import 'app_switch.dart';
 
+import 'directional_icon.dart';
+
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -85,7 +87,9 @@ class AppRow extends StatelessWidget {
                 ],
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: isFarsi(context)
+                        ? CrossAxisAlignment.stretch
+                        : CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       AppText(label, style: styles.label),
@@ -122,10 +126,10 @@ class AppRow extends StatelessWidget {
           if (value != null || caret)
             Padding(
               padding: const EdgeInsets.only(left: RivuletSpacing.s8),
-              child: Icon(
+              child: DirectionalIcon(
                 PhosphorIconsRegular.caretRight,
                 size: sizes.iconGlyph,
-                color: colors.textTertiary,
+                color: colors.decorative,
               ),
             ),
           if (selected)

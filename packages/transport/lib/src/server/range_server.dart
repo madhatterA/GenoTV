@@ -12,7 +12,7 @@ import 'demand.dart';
 
 const int rangeChunkSize = 256 * 1024;
 const int rangeServeWindow = 4 * 1024 * 1024;
-const Duration rangeWaitTimeout = Duration(seconds: 30);
+const Duration rangeWaitTimeout = Duration(minutes: 10);
 
 class RangeServer {
   RangeServer._(this._server, this._logger);
@@ -61,11 +61,25 @@ class RangeServer {
   Future<void> _handle(HttpRequest request) {
     final work = _serve(request);
     _inFlight.add(work);
-    work.whenComplete(() => _inFlight.remove(work));
+    unawaited(
+      work.then(
+        (_) => _inFlight.remove(work),
+        onError: (Object error, StackTrace stack) {
+          _inFlight.remove(work);
+          _logger?.error(
+            'Transport request failed',
+            error: error,
+            stack: stack,
+          );
+        },
+      ),
+    );
     return work;
   }
 
   Future<void> _serve(HttpRequest request) async {
+    // The source/cancellation error below remains responsible for reporting.
+    unawaited(request.response.done.then((_) {}, onError: (Object _) {}));
     final token = _token(request.uri.pathSegments);
     final registration = token == null ? null : _streams[token];
     if (registration == null) {
@@ -135,23 +149,10 @@ class RangeServer {
         await source
             .waitFor(ByteRange(start, min(start + rangeChunkSize - 1, end)))
             .timeout(rangeWaitTimeout);
-        var pulled = 0;
-        await response.addStream(
-          source
-              .read(window)
-              .timeout(rangeWaitTimeout)
-              .transform(
-                StreamTransformer<List<int>, List<int>>.fromHandlers(
-                  handleData: (chunk, sink) {
-                    pulled += chunk.length;
-                    sink.add(chunk);
-                  },
-                  handleError: (e, s, sink) {
-                    sourceFailed = true;
-                    sink.addError(e, s);
-                  },
-                ),
-              ),
+        final pulled = await _copyWindow(
+          response,
+          source.read(window).timeout(rangeWaitTimeout),
+          () => sourceFailed = true,
         );
         // A closed client socket cancels the source stream and addStream
         // returns normally, so a short read means the client is gone.
@@ -201,6 +202,60 @@ class RangeServer {
   // Drops the connection. Once the body has started, detachSocket throws and
   // close() fails on the short body (which also destroys the socket); that
   // failure is the abort itself, the cause is logged by the caller.
+  Future<int> _copyWindow(
+    HttpResponse response,
+    Stream<List<int>> source,
+    void Function() onSourceError,
+  ) async {
+    final chunks = StreamController<List<int>>();
+    late StreamSubscription<List<int>> reader;
+    Future<void>? cancellation;
+    (Object, StackTrace)? sourceFailure, cleanupFailure, responseFailure;
+    Future<void> cancelRead() => cancellation ??= () async {
+      try {
+        await reader.cancel();
+      } catch (error, stack) {
+        if (error is! SparseSourceDisposed) onSourceError();
+        cleanupFailure = (error, stack);
+      }
+    }();
+
+    var pulled = 0;
+    reader = source.listen(
+      (chunk) {
+        pulled += chunk.length;
+        chunks.add(chunk);
+      },
+      onError: (Object error, StackTrace stack) {
+        onSourceError();
+        sourceFailure ??= (error, stack);
+        chunks.addError(error, stack);
+      },
+      onDone: chunks.close,
+      cancelOnError: false,
+    );
+    chunks
+      ..onPause = reader.pause
+      ..onResume = reader.resume
+      ..onCancel = cancelRead;
+    try {
+      await response.addStream(chunks.stream);
+    } catch (error, stack) {
+      responseFailure = (error, stack);
+    } finally {
+      await cancelRead();
+      unawaited(chunks.close());
+    }
+    // A normal disposal during cleanup must not replace a genuine read error.
+    final failure =
+        sourceFailure ??
+        (cleanupFailure?.$1 is SparseSourceDisposed
+            ? responseFailure ?? cleanupFailure
+            : cleanupFailure ?? responseFailure);
+    if (failure != null) Error.throwWithStackTrace(failure.$1, failure.$2);
+    return pulled;
+  }
+
   Future<void> _abort(HttpResponse response) async {
     try {
       unawaited(

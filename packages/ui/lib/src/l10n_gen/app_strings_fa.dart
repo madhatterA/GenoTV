@@ -109,6 +109,9 @@ class AppStringsFa extends AppStrings {
   String get common_liked => 'پسندیده‌ها';
 
   @override
+  String get common_continueWatching => 'ادامه تماشا';
+
+  @override
   String get common_home => 'خانه';
 
   @override
@@ -224,6 +227,10 @@ class AppStringsFa extends AppStrings {
   String get playlink_import => 'وارد کردن فایل ‎.torrent';
 
   @override
+  String get playlink_noFiles =>
+      'آپل‌تی‌وی امکان باز کردن فایل ندارد. به‌جای آن، پیوند تورنت یا https را در کادر بالا وارد کنید.';
+
+  @override
   String get playlink_insert => 'وارد کردن لینک';
 
   @override
@@ -244,6 +251,12 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get play_insertLink => 'وارد کردن لینک…';
+
+  @override
+  String get play_best => 'پخش بهترین';
+
+  @override
+  String get play_otherSources => 'منابع دیگر';
 
   @override
   String get play_pickProvider => 'انتخاب ارائه‌دهنده';
@@ -354,7 +367,7 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get failure_transportTorrentFileError =>
-      'دسترسی به فایل‌های تورنت ممکن نشد. دسترسی فایل‌ها را بررسی کنید و دوباره تلاش کنید.';
+      'دسترسی به فایل‌های تورنت ممکن نشد. از خالی بودن فضای ذخیره‌سازی دستگاه مطمئن شوید و دوباره تلاش کنید.';
 
   @override
   String get failure_transportTorrentFileNotFound =>
@@ -362,11 +375,15 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get failure_transportEngineUnavailable =>
-      'موتور استریم روی این دستگاه در دسترس نیست. منبع دیگری را انتخاب کنید.';
+      'موتور استریم روی این دستگاه راه‌اندازی نشد. برنامه را دوباره باز کنید؛ اگر ادامه داشت، آن را دوباره نصب کنید.';
+
+  @override
+  String get failure_transportDiskInsufficient =>
+      'فضای خالی دستگاه برای شروع این پخش کافی نیست. فضا آزاد کن یا حد حافظهٔ نهان را در تنظیمات کمتر کن و دوباره امتحان کن.';
 
   @override
   String get failure_transportLocalNotFound =>
-      'فایل محلی پیدا نشد. مسیر فایل را بررسی کنید.';
+      'فایل محلی پیدا نشد. بررسی کنید که جابه‌جا یا حذف نشده باشد.';
 
   @override
   String get failure_transportLocalNotReadable =>
@@ -389,8 +406,12 @@ class AppStringsFa extends AppStrings {
       'رسانه رمزگشایی نشد. منبع دیگری را انتخاب کنید.';
 
   @override
+  String get failure_playbackSurfaceUnavailable =>
+      'خروجی تصویر روی این دستگاه راه‌اندازی نشد. برنامه را دوباره باز کنید و دوباره تلاش کنید.';
+
+  @override
   String get failure_playbackEngineCrashed =>
-      'موتور پخش ناگهان متوقف شد. دوباره تلاش کنید.';
+      'موتور پخش ناگهان متوقف شد. دوباره تلاش کنید؛ اگر ادامه داشت، برنامه را دوباره باز کنید.';
 
   @override
   String get failure_playbackSourceUnreachable =>
@@ -434,6 +455,22 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get failure_appCancelled => 'عملیات پیش از پایان لغو شد.';
+
+  @override
+  String get failure_storageOpenFailed =>
+      'پایگاه‌داده برنامه باز نشد. برنامه را دوباره باز کنید؛ اگر ادامه داشت، فضای ذخیره‌سازی دستگاه را خالی کنید.';
+
+  @override
+  String get failure_storageMigrationFailed =>
+      'پایگاه‌داده برنامه به نسخه جدید به‌روز نشد. برنامه را دوباره باز کنید؛ اگر ادامه داشت، آن را دوباره نصب کنید.';
+
+  @override
+  String get failure_storageWriteFailed =>
+      'تغییرات شما ذخیره نشد. از خالی بودن فضای ذخیره‌سازی دستگاه مطمئن شوید و دوباره تلاش کنید.';
+
+  @override
+  String get failure_storageCorrupt =>
+      'پایگاه‌داده برنامه آسیب دیده است. برنامه را دوباره باز کنید؛ اگر ادامه داشت، آن را دوباره نصب کنید.';
 
   @override
   String badge_progress(String percent) {
@@ -553,10 +590,13 @@ class AppStringsFa extends AppStrings {
   String get state_errorTitle => 'ادامه ممکن نیست';
 
   @override
-  String get state_hideCode => 'پنهان کردن کد خطا';
+  String get state_hideCode => 'پنهان کردن جزئیات';
 
   @override
-  String get state_showCode => 'نمایش کد خطا';
+  String get state_showCode => 'جزئیات';
+
+  @override
+  String get state_copyDetails => 'کپی';
 
   @override
   String get state_offline => 'اینترنت قطع است';
@@ -749,6 +789,9 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get settings_video_scalingQuality_label => 'کیفیت مقیاس‌دهی';
+
+  @override
+  String get settings_video_deinterlace_label => 'حذف درهم‌تنیدگی تصویر';
 
   @override
   String get settings_video_toneMapping_label => 'نگاشت تُن HDR به SDR';
@@ -989,6 +1032,10 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get settings_performance_decoderThreads_label => 'رشته‌های رمزگشا';
+
+  @override
+  String get settings_performance_maxDecoderResolution_label =>
+      'حداکثر وضوح رمزگشایی';
 
   @override
   String get settings_advanced_diagnostics_label => 'عیب‌یابی پخش';
@@ -1366,7 +1413,7 @@ class AppStringsFa extends AppStrings {
   String get settings_display_title => 'نمایش';
 
   @override
-  String get settings_streaming_title => 'استریم و شبکه';
+  String get settings_streaming_title => 'شبکه';
 
   @override
   String get settings_downloads_title => 'دانلود و تورنت';
@@ -1390,7 +1437,7 @@ class AppStringsFa extends AppStrings {
   String get settings_unlimited => 'نامحدود';
 
   @override
-  String get settings_providers => 'ارائه‌دهندگان';
+  String get settings_providers => 'منابع';
 
   @override
   String get settings_advancedSettings => 'تنظیمات پیشرفته';
@@ -1458,6 +1505,12 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get player_download => 'دانلود';
+
+  @override
+  String get player_errorTitle => 'این را نمی‌توان پخش کرد';
+
+  @override
+  String get player_tryAnotherSource => 'منبع دیگر';
 
   @override
   String get player_nextEpisode => 'قسمت بعد';
@@ -1529,6 +1582,9 @@ class AppStringsFa extends AppStrings {
   String get providers_username => 'نام کاربری یا ایمیل';
 
   @override
+  String get providers_apiKey => 'کلید API';
+
+  @override
   String get providers_password => 'گذرواژه';
 
   @override
@@ -1566,6 +1622,35 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get player_backToSubtitles => 'بازگشت به زیرنویس';
+
+  @override
+  String get player_subtitleDownloadFailed => 'زیرنویس دانلود نشد.';
+
+  @override
+  String get player_subtitleAuthFailed =>
+      'سرویس زیرنویس کلید یا ورود شما را نپذیرفت. دوباره در تنظیمات ← ارائه‌دهنده‌ها وارد شوید.';
+
+  @override
+  String get player_subtitleQuotaReached =>
+      'سقف دانلود روزانهٔ زیرنویس پر شده است. فردا دوباره امتحان کنید.';
+
+  @override
+  String get player_subtitleServiceDown =>
+      'سرویس زیرنویس پاسخ نمی‌دهد. کمی بعد دوباره امتحان کنید.';
+
+  @override
+  String get home_limitedMode => 'حالت محدود — اینترنت بین‌الملل در دسترس نیست';
+
+  @override
+  String get player_subtitleSearchFailed => 'جستجوی زیرنویس ناموفق بود.';
+
+  @override
+  String get player_noSubtitlesFound => 'برای این عنوان زیرنویسی پیدا نشد.';
+
+  @override
+  String player_subtitleSignIn(String services) {
+    return 'برای جستجو در $services از تنظیمات ← ارائه‌دهندگان وارد شوید.';
+  }
 
   @override
   String get player_noSubtitleSources => 'هنوز منبع زیرنویسی نیست';
@@ -1642,6 +1727,14 @@ class AppStringsFa extends AppStrings {
   }
 
   @override
+  String get settings_cacheUsed => 'حافظهٔ نهان مصرف‌شده';
+
+  @override
+  String settings_cacheUsedValue(String used, String cap) {
+    return '$used از $cap';
+  }
+
+  @override
   String get settings_nothingToClear => 'چیزی برای پاک کردن نیست';
 
   @override
@@ -1661,10 +1754,10 @@ class AppStringsFa extends AppStrings {
   String get state_offlineWithPeriod => 'اینترنت قطع است.';
 
   @override
-  String get player_connecting => 'در حال اتصال…';
+  String get player_connecting => 'اتصال…';
 
   @override
-  String get player_fetchingMetadata => 'در حال دریافت اطلاعات…';
+  String get player_fetchingMetadata => 'دریافت اطلاعات';
 
   @override
   String get player_preparing => 'در حال آماده‌سازی تصویر…';
@@ -1717,7 +1810,7 @@ class AppStringsFa extends AppStrings {
   String get player_sourceReady => 'آماده';
 
   @override
-  String get player_sourceStalled => 'متوقف‌شده';
+  String get player_sourceStalled => 'متوقف';
 
   @override
   String get player_sourceFailed => 'ناموفق';
@@ -1828,6 +1921,10 @@ class AppStringsFa extends AppStrings {
   String get diagnostics_copy => 'کپی عیب‌یابی';
 
   @override
+  String get diagnostics_previousCrash =>
+      'برنامه دفعهٔ قبل به‌طور غیرمنتظره بسته شد — گزارش را با «کپی عیب‌یابی» به اشتراک بگذارید.';
+
+  @override
   String get diagnostics_copied => 'عیب‌یابی کپی شد';
 
   @override
@@ -1874,6 +1971,20 @@ class AppStringsFa extends AppStrings {
   String get player_stats_Network => 'شبکه';
 
   @override
+  String get player_stats_Downloading => 'در حال دانلود';
+
+  @override
+  String get player_stats_Finding_peers => 'جستجوی همتا';
+
+  @override
+  String get player_stats_Complete => 'کامل';
+
+  @override
+  String player_stats_Failed(String message) {
+    return 'ناموفق: $message';
+  }
+
+  @override
   String get player_stats_Speed => 'سرعت';
 
   @override
@@ -1904,7 +2015,7 @@ class AppStringsFa extends AppStrings {
   String get player_stats_Buffer => 'بافر';
 
   @override
-  String get player_stats_Buffered_ahead => 'بافر پیش‌رو';
+  String get player_stats_Buffered_ahead => 'بافر جلوتر';
 
   @override
   String get player_stats_Cache_in_memory => 'حافظهٔ نهان در RAM';
@@ -2203,6 +2314,11 @@ class AppStringsFa extends AppStrings {
   }
 
   @override
+  String settings_choiceResolution(String value) {
+    return '${value}p';
+  }
+
+  @override
   String player_playbackRate(String value) {
     return '$value×';
   }
@@ -2223,4 +2339,558 @@ class AppStringsFa extends AppStrings {
 
   @override
   String get player_subtitleNotAdded => 'زیرنویس افزوده نشد.';
+
+  @override
+  String get settings_titleApi => 'رابط عنوان‌ها';
+
+  @override
+  String get settings_titleApi_hint =>
+      'عنوان‌ها، پوسترها و جزئیات از اینجا می‌آیند. برنامه به ترتیب از بالا به پایین امتحان می‌کند.';
+
+  @override
+  String get domain_label => 'دامنه';
+
+  @override
+  String get domain_change => 'تغییر';
+
+  @override
+  String get domain_useDefault => 'پیش‌فرض';
+
+  @override
+  String get domain_save => 'ذخیره';
+
+  @override
+  String get domain_hint => 'مثلاً https://example.com:8888/path';
+
+  @override
+  String get domain_invalid =>
+      'یک نشانی http یا https با نام میزبان وارد کنید.';
+
+  @override
+  String get titleApi_proxy => 'پروکسی پشتیبان';
+
+  @override
+  String get titleApi_reset => 'بازنشانی دامنه‌ها و ترتیب';
+
+  @override
+  String get toast_liked => 'به پسندیده‌ها اضافه شد';
+
+  @override
+  String get toast_unliked => 'از پسندیده‌ها حذف شد';
+
+  @override
+  String get toast_removedContinue => 'از ادامهٔ تماشا حذف شد';
+
+  @override
+  String get back_pressAgainToExit => 'برای خروج دوباره بازگشت را بزنید';
+
+  @override
+  String get toast_undo => 'واگرد';
+
+  @override
+  String get toast_saveFailed => 'ذخیره نشد. دوباره تلاش کنید.';
+
+  @override
+  String menu_resumeAt(String time) {
+    return 'ادامه از $time';
+  }
+
+  @override
+  String get menu_moreOptions => 'گزینه‌های بیشتر';
+
+  @override
+  String get hint_holdOk => 'برای گزینه‌ها، OK را نگه دارید';
+
+  @override
+  String get hint_tvMenu => 'برای منو ◀ را بزنید';
+
+  @override
+  String get hint_phoneHold => 'برای گزینه‌ها روی پوستر فشار طولانی بدهید';
+
+  @override
+  String get detail_more => 'بیشتر';
+
+  @override
+  String get shortcuts_title => 'میان‌برهای صفحه‌کلید';
+
+  @override
+  String get shortcuts_app => 'برنامه';
+
+  @override
+  String get shortcuts_player => 'پخش‌کننده';
+
+  @override
+  String get shortcuts_refresh => 'تازه‌سازی این صفحه';
+
+  @override
+  String get shortcuts_back => 'بازگشت';
+
+  @override
+  String get shortcuts_menu => 'باز کردن منو';
+
+  @override
+  String get shortcuts_help => 'نمایش این فهرست';
+
+  @override
+  String get shortcuts_playPause => 'پخش یا توقف';
+
+  @override
+  String get shortcuts_seek => '۱۰ ثانیه عقب یا جلو';
+
+  @override
+  String get shortcuts_volume => 'بلند یا کم کردن صدا';
+
+  @override
+  String get shortcuts_mute => 'قطع یا وصل صدا';
+
+  @override
+  String get shortcuts_fullscreen => 'تمام‌صفحه';
+
+  @override
+  String get shortcuts_subtitles => 'روشن یا خاموش کردن زیرنویس';
+
+  @override
+  String get shortcuts_stats => 'آمار پخش';
+
+  @override
+  String get shortcuts_jump => 'پرش به عقب یا جلو';
+
+  @override
+  String get menuBar_view => 'نما';
+
+  @override
+  String get menuBar_help => 'راهنما';
+
+  @override
+  String player_badge_seconds(int n) {
+    return '$n ث';
+  }
+
+  @override
+  String player_badge_volume(int percent) {
+    return 'صدا $percent٪';
+  }
+
+  @override
+  String get player_badge_muted => 'بی‌صدا';
+
+  @override
+  String get player_fullscreen => 'تمام‌صفحه';
+
+  @override
+  String get player_exitFullscreen => 'خروج از تمام‌صفحه';
+
+  @override
+  String get player_fitScreen => 'جا شدن در صفحه';
+
+  @override
+  String get hint_tvSeek =>
+      '◀ ▶ پرش ۱۰ ثانیه · نگه‌داشتن برای جابه‌جایی · OK برای تأیید';
+
+  @override
+  String get settings_desc_playback_resume =>
+      'تعیین می‌کند ویدیو از جایی که ماندید ادامه پیدا کند یا نه.';
+
+  @override
+  String get settings_desc_playback_autoPlayNext =>
+      'وقتی یک قسمت تمام شود، قسمت بعد خودکار پخش می‌شود.';
+
+  @override
+  String get settings_desc_playback_rememberPosition =>
+      'جایی را که تماشا کرده‌اید ذخیره می‌کند تا بعداً ادامه دهید.';
+
+  @override
+  String get settings_desc_playback_speed => 'سرعت پیش‌فرض پخش ویدیوها.';
+
+  @override
+  String get settings_desc_playback_syncToDisplay =>
+      'زمان‌بندی ویدیو را با صفحه‌نمایش هماهنگ می‌کند تا حرکت روان‌تر شود.';
+
+  @override
+  String get settings_desc_playback_avSyncCorrection =>
+      'تصویر و صدا را وقتی از هم جدا می‌شوند دوباره هم‌زمان می‌کند.';
+
+  @override
+  String get settings_desc_playback_cachePreset =>
+      'مقدار ویدیویی که از قبل بارگیری می‌شود؛ مقدار بیشتر برای اینترنت کند بهتر است.';
+
+  @override
+  String get settings_desc_playback_demuxerCacheSize =>
+      'حافظه‌ای که برای ویدیوی بارگیری‌شده و هنوز پخش‌نشده کنار گذاشته می‌شود.';
+
+  @override
+  String get settings_desc_playback_readAhead =>
+      'چند ثانیه از ویدیو از قبل بارگیری شود.';
+
+  @override
+  String get settings_desc_playback_networkTimeout =>
+      'چقدر منتظر سرور کند بمانیم تا منصرف شویم.';
+
+  @override
+  String get settings_desc_video_hwdec =>
+      'از تراشه ویدیوی دستگاه استفاده می‌کند؛ باتری کمتر مصرف می‌شود و پخش روان‌تر است.';
+
+  @override
+  String get settings_desc_video_hdr =>
+      'تعیین می‌کند ویدیوهای HDR پرنور و پرکنتراست چگونه نمایش داده شوند.';
+
+  @override
+  String get settings_desc_video_matchFrameRate =>
+      'نرخ فریم صفحه را با ویدیو یکی می‌کند تا حرکت روان‌تر باشد.';
+
+  @override
+  String get settings_desc_video_matchResolution =>
+      'اگر ممکن باشد، وضوح صفحه را با وضوح ویدیو یکی می‌کند.';
+
+  @override
+  String get settings_desc_video_aspectRatio =>
+      'تعیین می‌کند تصویر برای پر کردن صفحه کشیده شود یا بریده شود.';
+
+  @override
+  String get settings_desc_video_decoder =>
+      'تعیین می‌کند کدام رمزگشا فایل ویدیو را به تصویر تبدیل کند.';
+
+  @override
+  String get settings_desc_video_deinterlace =>
+      'خطوط دندانه‌ای ویدیوهای اینترلیس را از بین می‌برد.';
+
+  @override
+  String get settings_desc_video_scalingQuality =>
+      'کیفیت بالاتر تصویر بزرگ‌شده را شفاف‌تر می‌کند اما انرژی بیشتری مصرف می‌کند.';
+
+  @override
+  String get settings_desc_video_toneMapping =>
+      'رنگ‌های HDR را طوری تبدیل می‌کند که روی صفحه معمولی درست دیده شوند.';
+
+  @override
+  String get settings_desc_video_pixelFormat =>
+      'قالب رنگی که در مسیر پردازش ویدیو استفاده می‌شود.';
+
+  @override
+  String get settings_desc_video_bitDepth =>
+      'تعداد طیف‌های رنگی که خروجی می‌تواند نشان دهد.';
+
+  @override
+  String get settings_desc_video_chroma =>
+      'نحوه تغییر اندازه جزئیات رنگ؛ اگر لبه‌های رنگی ندیدید روی خودکار بگذارید.';
+
+  @override
+  String get settings_desc_video_dithering =>
+      'نویز بسیار ریزی اضافه می‌کند تا نوارهای رنگی در سطوح صاف دیده نشوند.';
+
+  @override
+  String get settings_desc_video_interpolation =>
+      'فریم‌ها را ترکیب می‌کند تا حرکت نرم‌تر دیده شود.';
+
+  @override
+  String get settings_desc_video_debanding =>
+      'نوارهای رنگی دیده‌شده در آسمان و صحنه‌های تاریک را نرم می‌کند.';
+
+  @override
+  String get settings_desc_video_gpuRendering =>
+      'گزینه‌های پیشرفته برای نحوه رسم ویدیو توسط تراشه گرافیکی.';
+
+  @override
+  String get settings_desc_video_displayModeWhitelist =>
+      'مشخص می‌کند برنامه فقط به کدام حالت‌های صفحه اجازه تغییر دارد.';
+
+  @override
+  String get settings_desc_audio_outputDevice =>
+      'صدا کجا پخش شود: بلندگو، هدفون یا دستگاه دیگر.';
+
+  @override
+  String get settings_desc_audio_speakerLayout =>
+      'تعداد بلندگوهای شما، از استریو تا سراند.';
+
+  @override
+  String get settings_desc_audio_normalizeVolume =>
+      'صحنه‌های بلند و آرام را متعادل می‌کند تا کمتر به صدا دست بزنید.';
+
+  @override
+  String get settings_desc_audio_outputMode =>
+      'اجازه می‌دهد برنامه صدا را خودکار تنظیم کند یا قالب ثابتی نگه دارد.';
+
+  @override
+  String get settings_desc_audio_passthrough =>
+      'صدای سراند اصلی را بدون تغییر به گیرنده شما می‌فرستد.';
+
+  @override
+  String get settings_desc_audio_passthroughDevice =>
+      'دستگاهی که صدای عبوری را دریافت می‌کند.';
+
+  @override
+  String get settings_desc_audio_receiver_dolbyDigital =>
+      'اگر گیرنده شما Dolby Digital پخش می‌کند روشن کنید.';
+
+  @override
+  String get settings_desc_audio_receiver_ddPlus =>
+      'اگر گیرنده شما Dolby Digital Plus پخش می‌کند روشن کنید.';
+
+  @override
+  String get settings_desc_audio_receiver_dts =>
+      'اگر گیرنده شما DTS پخش می‌کند روشن کنید.';
+
+  @override
+  String get settings_desc_audio_receiver_trueHd =>
+      'اگر گیرنده شما Dolby TrueHD پخش می‌کند روشن کنید.';
+
+  @override
+  String get settings_desc_audio_receiver_dtsHd =>
+      'اگر گیرنده شما DTS-HD پخش می‌کند روشن کنید.';
+
+  @override
+  String get settings_desc_audio_receiver_atmos =>
+      'اگر گیرنده شما Dolby Atmos پخش می‌کند روشن کنید.';
+
+  @override
+  String get settings_desc_audio_receiver_dtsX =>
+      'اگر گیرنده شما DTS:X پخش می‌کند روشن کنید.';
+
+  @override
+  String get settings_desc_audio_multichannelLpcm =>
+      'صدای سراند را به‌صورت فشرده‌نشده از طریق کابل تصویر به گیرنده می‌فرستد.';
+
+  @override
+  String get settings_desc_audio_ac3Transcode =>
+      'قالب‌های سراند دیگر را برای گیرنده‌های قدیمی‌تر به Dolby Digital تبدیل می‌کند.';
+
+  @override
+  String get settings_desc_audio_stereoUpmix =>
+      'صدای دوکاناله را روی همه بلندگوهای شما پخش می‌کند.';
+
+  @override
+  String get settings_desc_audio_downmixDialogue =>
+      'وقتی صدای سراند به بلندگوهای کمتر می‌رسد، صدای دیالوگ را بلندتر می‌کند.';
+
+  @override
+  String get settings_desc_audio_resamplingQuality =>
+      'کیفیت بالاتر صدای تمیزتری می‌دهد اما پردازش بیشتری می‌خواهد.';
+
+  @override
+  String get settings_desc_audio_sampleRate =>
+      'نرخ نمونه‌برداری صدایی که به خروجی فرستاده می‌شود.';
+
+  @override
+  String get settings_desc_audio_exclusiveMode =>
+      'کنترل کامل دستگاه صدا را برای بهترین کیفیت به این برنامه می‌دهد.';
+
+  @override
+  String get settings_desc_audio_deviceKeepAlive =>
+      'دستگاه صدا را بیدار نگه می‌دارد تا پخش بدون صدای ناگهانی یا تأخیر شروع شود.';
+
+  @override
+  String get settings_desc_subtitles_autoEnable =>
+      'اگر زیرنویس پیدا شود، خودکار روشن می‌شود.';
+
+  @override
+  String get settings_desc_subtitles_hearingImpaired =>
+      'زیرنویس‌هایی را که صداها را هم توضیح می‌دهند ترجیح بده یا نده.';
+
+  @override
+  String get settings_desc_subtitles_font => 'نوع قلم زیرنویس.';
+
+  @override
+  String get settings_desc_subtitles_position =>
+      'زیرنویس روی صفحه چقدر بالا یا پایین قرار بگیرد.';
+
+  @override
+  String get settings_desc_subtitles_encoding =>
+      'رمزگذاری متن برای خواندن زیرنویس؛ اگر حروف خراب دیده می‌شوند آن را عوض کنید.';
+
+  @override
+  String get settings_desc_subtitles_border => 'خط دور حروف زیرنویس.';
+
+  @override
+  String get settings_desc_subtitles_shadow => 'سایه ملایم پشت حروف زیرنویس.';
+
+  @override
+  String get settings_desc_subtitles_background =>
+      'جعبه تیره پشت زیرنویس برای خواناتر شدن.';
+
+  @override
+  String get settings_desc_subtitles_delay =>
+      'زیرنویس را جلو یا عقب می‌برد تا با گفتار هماهنگ شود.';
+
+  @override
+  String get settings_desc_subtitles_forcedBehaviour =>
+      'با زیرنویس‌های اجباری، که فقط گفتار خارجی را ترجمه می‌کنند، چه کنیم.';
+
+  @override
+  String get settings_desc_subtitles_assStyling =>
+      'از سبک خود فایل زیرنویس استفاده شود یا سبک برنامه.';
+
+  @override
+  String get settings_desc_display_monitor => 'ویدیو روی کدام صفحه پخش شود.';
+
+  @override
+  String get settings_desc_display_fullscreenMode =>
+      'پخش‌کننده در رایانه چگونه تمام صفحه را پر کند.';
+
+  @override
+  String get settings_desc_display_refreshRate =>
+      'نرخ تازه‌سازی صفحه هنگام پخش.';
+
+  @override
+  String get settings_desc_display_hdrOutputMode =>
+      'برای ویدیوهای HDR صفحه به حالت HDR برود یا نه.';
+
+  @override
+  String get settings_desc_display_calibration =>
+      'روشنایی و رنگ را با صفحه شما تنظیم می‌کند.';
+
+  @override
+  String get settings_desc_streaming_quality =>
+      'وقتی چند کیفیت وجود دارد، کدام ترجیح داده شود.';
+
+  @override
+  String get settings_desc_streaming_protocol =>
+      'روش شبکه‌ای که برای گرفتن استریم استفاده می‌شود.';
+
+  @override
+  String get settings_desc_streaming_cacheSizeLimit =>
+      'بیشترین فضایی که استریم‌ها قبل از پاک شدن داده‌های قدیمی از دیسک می‌گیرند.';
+
+  @override
+  String get settings_desc_streaming_bufferSize =>
+      'چه مقدار ویدیو هنگام استریم در حافظه نگه داشته شود.';
+
+  @override
+  String get settings_desc_streaming_prebuffer =>
+      'چه مقدار ویدیو پیش از شروع پخش بارگیری شود.';
+
+  @override
+  String get settings_desc_streaming_maxHttpConnections =>
+      'برنامه برای دریافت استریم هم‌زمان چند اتصال باز کند.';
+
+  @override
+  String get settings_desc_streaming_connectionTimeout =>
+      'چقدر منتظر اتصال بمانیم تا دوباره تلاش کنیم.';
+
+  @override
+  String get settings_desc_streaming_retryCount =>
+      'دانلود ناموفق چند بار دوباره تلاش شود.';
+
+  @override
+  String get settings_desc_streaming_proxy =>
+      'اگر شبکه شما نیاز دارد، استریم از طریق یک پراکسی عبور کند.';
+
+  @override
+  String get settings_desc_streaming_userAgent =>
+      'نامی که برنامه هنگام درخواست ویدیو به سرورها می‌دهد.';
+
+  @override
+  String get settings_desc_streaming_headers =>
+      'اطلاعات اضافه‌ای که با هر درخواست ویدیو فرستاده می‌شود، برای تنظیمات پیشرفته.';
+
+  @override
+  String get settings_desc_streaming_tls =>
+      'گزینه‌های امنیتی برای اتصال‌های رمزگذاری‌شده.';
+
+  @override
+  String get settings_desc_downloads_bandwidthLimit =>
+      'بیشترین سرعتی که دانلودها می‌توانند بگیرند تا شبکه آزاد بماند.';
+
+  @override
+  String get settings_desc_downloads_torrentDownLimit =>
+      'بیشترین سرعت دانلود تورنت‌ها.';
+
+  @override
+  String get settings_desc_downloads_torrentUpLimit =>
+      'بیشترین سرعت آپلود تورنت‌ها.';
+
+  @override
+  String get settings_desc_downloads_connectionLimit =>
+      'بیشترین تعداد اتصالی که تورنت‌ها در مجموع باز می‌کنند.';
+
+  @override
+  String get settings_desc_downloads_peerLimit =>
+      'بیشترین تعداد کاربر دیگری که هر تورنت به آن‌ها وصل می‌شود.';
+
+  @override
+  String get settings_desc_downloads_seeding =>
+      'بعد از تمام شدن تورنت، اشتراک‌گذاری ادامه پیدا کند یا نه.';
+
+  @override
+  String get settings_desc_downloads_tracker =>
+      'آدرس‌های ردیاب اضافه که به تورنت‌ها برای پیدا کردن کاربران کمک می‌کنند.';
+
+  @override
+  String get settings_desc_downloads_dht =>
+      'به تورنت‌ها اجازه می‌دهد بدون ردیاب کاربران دیگر را پیدا کنند.';
+
+  @override
+  String get settings_desc_downloads_pex =>
+      'کاربران تورنت آدرس کاربران آشنای خود را با هم رد و بدل می‌کنند.';
+
+  @override
+  String get settings_desc_languages_preferOriginalAudio =>
+      'اگر موجود باشد، زبان اصلی عنوان را پخش می‌کند.';
+
+  @override
+  String get settings_desc_languages_preferForcedSubtitles =>
+      'زیرنویس اجباری را که فقط گفتار خارجی را ترجمه می‌کند انتخاب می‌کند.';
+
+  @override
+  String get settings_desc_languages_preferBestAudio =>
+      'ترک با بهترین کیفیت صدا را در زبان شما انتخاب می‌کند.';
+
+  @override
+  String get settings_desc_languages_trackPriority =>
+      'قاعده‌هایی که تعیین می‌کنند کدام ترک صدا و زیرنویس اول انتخاب شود.';
+
+  @override
+  String get settings_desc_performance_mode =>
+      'کیفیت تصویر را با سرعت و باتری متعادل می‌کند.';
+
+  @override
+  String get settings_desc_performance_gpuQuality =>
+      'اگر روی دستگاه قدیمی ویدیو می‌پرد، این را کمتر کنید.';
+
+  @override
+  String get settings_desc_performance_backgroundPreload =>
+      'ویدیوی بعدی را در پس‌زمینه آماده می‌کند تا سریع‌تر باز شود.';
+
+  @override
+  String get settings_desc_performance_maxDecoderResolution =>
+      'بزرگ‌ترین اندازه تصویری که برنامه سعی می‌کند پخش کند.';
+
+  @override
+  String get settings_desc_performance_decoderThreads =>
+      'چند هسته پردازنده ویدیو را رمزگشایی کنند؛ خودکار بهترین است.';
+
+  @override
+  String get settings_desc_advanced_diagnostics =>
+      'جزئیات فنی پخش را برای پشتیبانی نشان می‌دهد.';
+
+  @override
+  String get settings_desc_advanced_customMpvOptions =>
+      'گزینه‌های اضافه پخش‌کننده برای حرفه‌ای‌ها؛ مقدار نادرست می‌تواند پخش را خراب کند.';
+
+  @override
+  String get settings_desc_playback_preferredAudioLanguage =>
+      'وقتی ویدیو چند زبان دارد، صدای کدام زبان اول انتخاب شود.';
+
+  @override
+  String get settings_desc_playback_preferredSubtitleLanguage =>
+      'وقتی ویدیو چند زیرنویس دارد، کدام زبان اول انتخاب شود.';
+
+  @override
+  String get settings_desc_playback_defaultSubtitleSize =>
+      'اندازه نمایش زیرنویس.';
+
+  @override
+  String get settings_desc_app_language => 'زبان منوها و دکمه‌های برنامه.';
+
+  @override
+  String get home_emptyBody =>
+      'هنوز چیزی برای نمایش نیست. منابع را در تنظیمات بررسی کنید یا دوباره تلاش کنید.';
+
+  @override
+  String get home_openSettings => 'باز کردن تنظیمات';
+
+  @override
+  String get settings_searchHint => 'جستجو در تنظیمات';
+
+  @override
+  String get settings_searchNone => 'تنظیمی پیدا نشد.';
 }

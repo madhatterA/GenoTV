@@ -25,8 +25,8 @@ The local MIT media_kit_libs_android_video 1.3.8 plugin supplies built
 `libmpv.so` and `libmediakitandroidhelper.so` in each of the three ABI jniLibs
 directories. Gradle never downloads stock engine jars and fails if any ABI
 lacks either library. Non-arm64 build caches have the ABI appended to avoid
-cross-architecture build reuse. Release libraries use `llvm-strip --strip-debug`,
-preserving dynamic symbols. App and playback
+cross-architecture build reuse. Release libraries use `llvm-strip --strip-debug --strip-unneeded`,
+preserving dynamic symbols and matching Android APK stripping so artifact hashes remain comparable. App and playback
 dependency overrides select the local plugin; Dart/Java APIs are unchanged.
 `BUILD.txt` records source revisions and artifact hashes. The engine retains
 upstream's LGPL build configuration (GPL disabled); preserve source/patches

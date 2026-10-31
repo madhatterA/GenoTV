@@ -2,6 +2,8 @@ import 'package:contracts/contracts.dart';
 import 'package:flutter/material.dart';
 
 
+import '../platform/form_factor.dart';
+import '../theme/rivulet_tokens.dart';
 import 'player_primary_transport.dart';
 
 /// Phone's centered -10/play/+10 cluster with "large glyphs"
@@ -23,7 +25,11 @@ class PlayerPhonePrimaryTransport extends StatelessWidget {
   Widget build(BuildContext context) => PlayerPrimaryTransport(
     controller: controller,
     state: state,
-    diameter: 58,
+    // Tier M skip buttons, tier XL play/pause (Part 07 p02).
+    diameter: RivuletControlSize.m.height(FormFactor.phone),
+    playDiameter: RivuletControlSize.xl.height(FormFactor.phone),
+    glyph: RivuletControlSize.m.glyph(FormFactor.phone),
+    playGlyph: RivuletControlSize.xl.glyph(FormFactor.phone),
     gap: 40,
     autofocus: true,
   );

@@ -23,8 +23,8 @@ final class Aria2DownloadStatus extends Struct {
   external int bitfieldLength;
 }
 
-typedef Aria2CreateNative = Pointer<Void> Function();
-typedef Aria2Create = Pointer<Void> Function();
+typedef Aria2CreateNative = Pointer<Void> Function(Int32);
+typedef Aria2Create = Pointer<Void> Function(int);
 typedef Aria2DestroyNative = Void Function(Pointer<Void>);
 typedef Aria2Destroy = void Function(Pointer<Void>);
 typedef Aria2LastErrorNative = Int32 Function(

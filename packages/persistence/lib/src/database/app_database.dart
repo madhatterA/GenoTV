@@ -100,7 +100,7 @@ Future<AppDatabase> openDatabase({required AppPaths paths}) async {
 Future<void> recoverByRenaming({required AppPaths paths}) async {
   final dir = await paths.support;
   final file = File('${dir.path}/app.db');
-  if (!file.existsSync()) return;
+  if (!await file.exists()) return;
   final backupPath =
       '${file.path}.corrupt-${DateTime.now().toUtc().millisecondsSinceEpoch}';
   await file.rename(backupPath);

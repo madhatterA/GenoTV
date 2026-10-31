@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../components/directional_icon.dart';
 import '../l10n_gen/app_strings.dart';
 import '../l10n/app_text.dart';
 import '../components/app_dialog.dart';
@@ -37,13 +38,46 @@ class _RowShell extends StatelessWidget {
   final VoidCallback? onActivate;
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) {
+    final summary = _Summary.of(context);
+    final tokens = RivuletTokens.of(context);
+    final caption = tokens.typeStyles.caption.copyWith(
+      color: tokens.colors.textSecondary,
+    );
+    return _shell(
+      context,
+      summary == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppText(
+                  summary,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: caption,
+                ),
+                if (description != null)
+                  AppText(
+                    description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: caption,
+                  ),
+              ],
+            ),
+    );
+  }
+
+  Widget _shell(BuildContext context, Widget? both) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     mainAxisSize: MainAxisSize.min,
     children: [
       AppRow(
         label: title,
-        description: description,
+        description: both == null ? description : null,
+        descriptionWidget: both,
         trailing: trailing,
         onActivate: onActivate,
       ),
@@ -59,6 +93,20 @@ class _RowShell extends StatelessWidget {
   );
 }
 
+/// The plain sentence a [SettingRow] says about its setting, read by the
+/// row's shell so the six row kinds need no extra parameter.
+class _Summary extends InheritedWidget {
+  const _Summary(this.text, {required super.child});
+
+  final String text;
+
+  static String? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_Summary>()?.text;
+
+  @override
+  bool updateShouldNotify(_Summary old) => text != old.text;
+}
+
 /// The small "Live" / "Restart" pill beside a row title.
 class _Tag extends StatelessWidget {
   const _Tag(this.label);
@@ -67,7 +115,7 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TintedSurface(
-    radius: RivuletRadius.small,
+    radius: RivuletRadius.xs,
     padding: const EdgeInsets.symmetric(
       horizontal: RivuletSpacing.s8,
       vertical: RivuletSpacing.s4,
@@ -153,7 +201,7 @@ class SettingChoiceRow extends StatelessWidget {
             ),
           ),
         ),
-        Icon(
+        DirectionalIcon(
           PhosphorIconsRegular.caretRight,
           size: AdaptiveBehavior.sizesOf(context).iconGlyph,
           color: RivuletTokens.of(context).colors.textSecondary,
@@ -532,7 +580,10 @@ class SettingRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => _control(context);
+  Widget build(BuildContext context) => _Summary(
+    settingDescription(def, AppStrings.of(context)),
+    child: Builder(builder: _control),
+  );
 
   Widget _control(BuildContext context) {
     final title = settingLabel(def, AppStrings.of(context));
@@ -628,4 +679,24 @@ class SettingRow extends StatelessWidget {
         return SettingPageRow(title: title, onOpen: onOpenPage);
     }
   }
+}
+
+/// A read-only row whose value is loaded when the row appears.
+class SettingValueRow extends StatelessWidget {
+  const SettingValueRow({required this.title, required this.load, super.key});
+
+  final String title;
+  final Future<String> Function() load;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String>(
+    future: load(),
+    builder: (context, snapshot) => _RowShell(
+      title: title,
+      trailing: AppText(
+        snapshot.data ?? '',
+        style: RivuletTokens.of(context).typeStyles.caption,
+      ),
+    ),
+  );
 }

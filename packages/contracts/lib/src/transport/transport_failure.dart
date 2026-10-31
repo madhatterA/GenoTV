@@ -83,6 +83,15 @@ final class TransportFailure extends AppFailure {
         message: 'aria2/libtorrent is missing or failed to start',
       );
 
+  /// The cache volume has less free space than a stream needs; nothing was
+  /// written (`planning/part-01-fixes/phase-03-disk-policy.md`).
+  const TransportFailure.diskInsufficient({required super.cause, super.stack})
+    : super(
+        code: _diskInsufficient,
+        message: 'Not enough free disk space for the media cache',
+      );
+
+  static const String _diskInsufficient = 'transport.disk.insufficient_space';
   static const String _httpNoRangeSupport = 'transport.http.no_range_support';
   static const String _httpValidatorChanged =
       'transport.http.validator_changed';

@@ -30,6 +30,7 @@ class WriteQueue<K, V> {
 
   final Map<K, V> _pending = {};
   final Map<K, Timer> _timers = {};
+  final Set<Future<void>> _inFlight = {};
   final StreamController<K> _changes = StreamController<K>.broadcast();
 
   /// The latest queued (not yet flushed) value for [key], or null if
@@ -63,10 +64,17 @@ class WriteQueue<K, V> {
     _timers[key] = Timer(window, () => unawaited(_flush(key)));
   }
 
-  Future<void> _flush(K key) async {
-    if (!_pending.containsKey(key)) return;
+  Future<void> _flush(K key) {
+    if (!_pending.containsKey(key)) return Future<void>.value();
     final value = _pending.remove(key) as V;
     _timers.remove(key)?.cancel();
+    late final Future<void> work;
+    work = _write(key, value).whenComplete(() => _inFlight.remove(work));
+    _inFlight.add(work);
+    return work;
+  }
+
+  Future<void> _write(K key, V value) async {
     try {
       await flushOne(key, value);
     } catch (e, stack) {
@@ -80,8 +88,9 @@ class WriteQueue<K, V> {
   /// `dispose()` or from an app lifecycle detached/paused signal (Part 07
   /// wires the latter — the flush API only needs to exist here).
   Future<void> flushAll() async {
-    for (final key in _pending.keys.toList()) {
-      await _flush(key);
+    while (_pending.isNotEmpty || _inFlight.isNotEmpty) {
+      final pending = [for (final key in _pending.keys.toList()) _flush(key)];
+      await Future.wait([...pending, ..._inFlight]);
     }
   }
 

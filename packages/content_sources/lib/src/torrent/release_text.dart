@@ -1,5 +1,5 @@
 // Ported from PlayTorrioV3 lib/models/stream/stream_model.dart, commit 39b736f.
-// GPL-3.0; see root README.md (Credits) and LICENSE.
+// GPL-3.0; see root NOTICE.md.
 final _fileSizeRegex = RegExp(
   r'(\d+(?:[\.,]\d+)?)\s*(TB|TiB|GB|GiB|MB|MiB|KB|KiB)|(TB|TiB|GB|GiB|MB|MiB|KB|KiB)\s*(\d+(?:[\.,]\d+)?)',
   caseSensitive: false,

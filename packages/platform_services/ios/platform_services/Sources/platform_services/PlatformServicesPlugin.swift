@@ -1,5 +1,13 @@
+@_silgen_name("vp_crash_install") private func crashInstall(_ path: UnsafePointer<CChar>) -> Int32
+@_silgen_name("vp_crash_uninstall") private func crashUninstall()
+@_silgen_name("vp_crash_abort") private func crashAbort()
+
 import Flutter
 import AVFoundation
+#if os(tvOS)
+import AVKit
+#endif
+import CoreMedia
 import VideoToolbox
 import UIKit
 import MediaPlayer
@@ -46,6 +54,14 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
       center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
         self?.handleInterruption(note)
       },
+      // tvOS suspends the app on Home: tell Dart so playback pauses first and resumes on return.
+      // iOS keeps playing audio in the background by design, so it gets no event.
+      center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+        if PlatformServicesPlugin.isTv { self?.eventSink?(["event": "appBackgrounded"]) }
+      },
+      center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
+        if PlatformServicesPlugin.isTv { self?.eventSink?(["event": "appForegrounded"]) }
+      },
       center.addObserver(forName: UIScreen.didConnectNotification, object: nil, queue: .main) { [weak self] _ in self?.screensChanged() },
       center.addObserver(forName: UIScreen.didDisconnectNotification, object: nil, queue: .main) { [weak self] note in self?.screensChanged(disconnected: note.object as? UIScreen) },
       center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -58,6 +74,7 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
   }
 
   deinit {
+    crashUninstall()
     _ = clearMediaSession()
     notificationTokens.forEach(NotificationCenter.default.removeObserver)
   }
@@ -72,32 +89,60 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
     events.setStreamHandler(instance)
   }
 
+  private var originalBrightness: CGFloat?
+
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "crash.install":
+      guard let args = call.arguments as? [String: Any], let path = args["path"] as? String else {
+        result(FlutterError(code: "crash.path", message: "Absolute crash path required", details: nil)); return
+      }
+      let code = path.withCString { crashInstall($0) }
+      if code == 0 { result(nil) }
+      else { result(FlutterError(code: "crash.install", message: "Native crash capture failed", details: code)) }
+    case "crash.uninstall":
+      crashUninstall(); result(nil)
+    case "crash.proof.abort":
+      #if DEBUG
+      crashAbort()
+      #else
+      result(FlutterError(code: "crash.proof.disabled", message: "Debug build required", details: nil))
+      #endif
     case "capabilities.version":
-      result(["os": "iOS " + UIDevice.current.systemVersion, "plugin": "0.0.1"])
+      result(["os": PlatformServicesPlugin.osName + " " + UIDevice.current.systemVersion, "plugin": "0.0.1"])
     case "capabilities.probe":
       var headroom = 1.0
+      #if !os(tvOS)
       if #available(iOS 16.0, *) { headroom = UIScreen.main.potentialEDRHeadroom }
-      let formats: [String] = headroom > 1.0 ? ["edr"] : []
+      #endif
+      var formats: [String] = headroom > 1.0 ? ["edr"] : []
+      #if os(tvOS)
+      let hdrModes = AVPlayer.availableHDRModes
+      if hdrModes.contains(.hdr10) { formats.append("hdr10") }
+      if hdrModes.contains(.hlg) { formats.append("hlg") }
+      if hdrModes.contains(.dolbyVision) { formats.append("dolbyVision") }
+      #endif
       let decoders = hardwareDecoders()
       let session = AVAudioSession.sharedInstance()
-      var diagnostics: [String: String] = ["os": "ios", "edrHeadroom": String(headroom), "hardwareDecode": "VideoToolbox codec support probe"]
+      var diagnostics: [String: String] = ["os": PlatformServicesPlugin.osName.lowercased(), "isTv": PlatformServicesPlugin.isTv ? "true" : "false", "edrHeadroom": String(headroom), "hardwareDecode": "VideoToolbox codec support probe"]
       // Kodi iOS has no EDR/refresh handling (ios_reference 4.3-4.7): report what UIScreen says.
       var currentHeadroom = 1.0
+      #if !os(tvOS)
       if #available(iOS 16.0, *) { currentHeadroom = UIScreen.main.currentEDRHeadroom }
+      #endif
       diagnostics["display.potentialEdrHeadroom"] = String(headroom)
       diagnostics["display.currentEdrHeadroom"] = String(currentHeadroom)
       diagnostics["display.isHdr"] = String(headroom > 1.0)
       diagnostics["display.maxFramesPerSecond"] = String(UIScreen.main.maximumFramesPerSecond)
-      diagnostics["display.modeCount"] = String(UIScreen.main.availableModes.count)
+      let modeCount = PlatformServicesPlugin.modeCount()
+      diagnostics["display.modeCount"] = String(modeCount)
       diagnostics["audioProbe.method"] = "AVAudioSession.currentRoute + maximumOutputNumberOfChannels"
       diagnostics["audioRoute"] = PlatformServicesPlugin.routeDescription()
       diagnostics["audioMaxOutputChannels"] = String(session.maximumOutputNumberOfChannels)
       diagnostics["audioOutputChannels"] = String(session.outputNumberOfChannels)
       diagnostics["audioSessionSampleRate"] = String(session.sampleRate)
-      diagnostics["audioPassthrough"] = "unsupported: iOS has no bitstream sink (Kodi iOS: not handled)"
-      let report: [String: Any] = ["hardwareDecode": !decoders.isEmpty, "decoders": decoders, "hdrOutput": headroom > 1.0, "hdrFormats": formats, "displayModeSwitching": !UIScreen.main.availableModes.isEmpty, "audioPassthrough": false, "passthroughFormats": [], "diagnostics": diagnostics]
+      diagnostics["audioPassthrough"] = "unsupported: \(PlatformServicesPlugin.osName) exposes no bitstream sink to apps (no passthrough API in AVAudioSession headers); multichannel PCM instead"
+      let report: [String: Any] = ["hardwareDecode": !decoders.isEmpty, "decoders": decoders, "hdrOutput": headroom > 1.0 || !formats.isEmpty, "hdrFormats": formats, "displayModeSwitching": modeCount > 0, "audioPassthrough": false, "passthroughFormats": [], "diagnostics": diagnostics]
       result(report)
     case "display.modes":
       result(displayModes())
@@ -136,6 +181,13 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
           AVAudioSessionInterruptionOptionKey: (values["shouldResume"] as? Bool ?? false) ? AVAudioSession.InterruptionOptions.shouldResume.rawValue : 0,
         ])
       result(["posted": true])
+    #if os(tvOS)
+    case "proof.display.criteria":
+      let manager = rootController?.view.window?.avDisplayManager
+      let criteria = manager?.preferredDisplayCriteria
+      result(["set": criteria != nil, "description": criteria.map { "\($0)" } ?? NSNull(),
+              "matchingEnabled": manager?.isDisplayCriteriaMatchingEnabled ?? NSNull()])
+    #endif
     case "proof.display.disconnect":
       // Exercise the real notification observer, with the real connected screens.
       NotificationCenter.default.post(name: UIScreen.didDisconnectNotification, object: UIScreen.main)
@@ -147,7 +199,7 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
       let devices: [[String: Any]] = session.currentRoute.outputs.map { output in
         ["id": output.uid, "name": output.portName, "kind": output.portType.rawValue, "isCurrent": true, "channels": output.channels?.count ?? 0, "sampleRate": session.sampleRate, "supportedSampleRates": [44100, 48000]]
       }
-      result(["supported": true, "os": "ios", "maxOutputChannels": session.maximumOutputNumberOfChannels, "devices": devices])
+      result(["supported": true, "os": PlatformServicesPlugin.osName.lowercased(), "maxOutputChannels": session.maximumOutputNumberOfChannels, "devices": devices])
     case "audio.negotiate":
       result(["passthrough": false, "fallbackReason": "platform does not support bitstream output", "deviceId": "unknown"])
     case "media.probe":
@@ -156,6 +208,28 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
       result(updateMediaSession(call.arguments))
     case "lifecycle.mediaSession.clear":
       result(clearMediaSession())
+    case "storage.mirror.read":
+      result(["entries": UserDefaults.standard.dictionary(forKey: "genotv.mirror") ?? [:]])
+    case "storage.mirror.write":
+      let entries = (call.arguments as? [String: Any])?["entries"] as? [String: String] ?? [:]
+      UserDefaults.standard.set(entries, forKey: "genotv.mirror")
+      result(["supported": true, "bytes": entries.reduce(0) { $0 + $1.key.utf8.count + $1.value.utf8.count }])
+#if os(iOS)
+    case "display.brightness.get":
+      result(["supported": true, "level": Double(UIScreen.main.brightness)])
+    case "display.brightness.set":
+      let level = (call.arguments as? [String: Any])?["level"] as? Double ?? 0.5
+      if originalBrightness == nil { originalBrightness = UIScreen.main.brightness }
+      UIScreen.main.brightness = CGFloat(min(max(level, 0), 1))
+      result(["supported": true])
+    case "display.brightness.restore":
+      if let original = originalBrightness { UIScreen.main.brightness = original }
+      originalBrightness = nil
+      result(["supported": true])
+#else
+    case "display.brightness.get", "display.brightness.set", "display.brightness.restore":
+      result(["supported": false, "reason": "platform.unsupported: \(call.method)"])
+#endif
     case "lifecycle.keepAwake":
       UIApplication.shared.isIdleTimerDisabled = true
       result(["supported": true])
@@ -172,8 +246,15 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
     do {
       let session = AVAudioSession.sharedInstance()
       try session.setCategory(.playback, mode: .moviePlayback)
+      #if os(tvOS)
+      // Without this tvOS keeps the route stereo; with it 5.1/7.1 PCM reaches the receiver.
+      try session.setSupportsMultichannelContent(true)
+      #endif
       // Active session so maximumOutputNumberOfChannels describes the live route.
       try session.setActive(true)
+      #if os(tvOS)
+      try session.setPreferredOutputNumberOfChannels(session.maximumOutputNumberOfChannels)
+      #endif
     } catch {
       return FlutterError(code: "platform.probe.failed", message: "Unable to configure AVAudioSession", details: nil)
     }
@@ -267,6 +348,95 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
     return rootController?.view.window?.screen ?? UIScreen.main
   }
 
+  /// "tvOS" or "iOS": the one place the OS name comes from (Platform.isIOS is true on tvOS).
+  static var osName: String {
+    #if os(tvOS)
+    return "tvOS"
+    #else
+    return "iOS"
+    #endif
+  }
+
+  static var isTv: Bool { osName == "tvOS" }
+
+  static func modeCount() -> Int {
+    #if os(tvOS)
+    return tvCadences.count
+    #else
+    return UIScreen.main.availableModes.count
+    #endif
+  }
+
+  #if os(tvOS)
+  /// tvOS has no mode list: AVDisplayManager takes criteria (refresh rate + dynamic range) and the
+  /// system picks the mode. We expose the common cadences at the current size so the shared matcher works.
+  static let tvCadences: [Double] = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60]
+
+  private func displayModes() -> [String: Any] {
+    let size = UIScreen.main.nativeBounds.size
+    let modes = Self.tvCadences.map { hz -> [String: Any] in
+      ["width": Int(size.width), "height": Int(size.height), "refreshHz": hz, "isCurrent": hz == 60]
+    }
+    return ["supported": true, "modes": modes]
+  }
+
+  private func applyDisplayMode(_ arguments: Any?) -> [String: Any] {
+    if rootController == nil { rootController = resolveController?() }
+    guard let manager = rootController?.view.window?.avDisplayManager else {
+      return ["supported": false, "reason": "no window display manager"]
+    }
+    let values = arguments as? [String: Any] ?? [:]
+    let hz = (values["refreshHz"] as? NSNumber)?.doubleValue ?? 0
+    if hz <= 0 || (hz == 60 && values["dynamicRange"] == nil) {
+      manager.preferredDisplayCriteria = nil
+      NSLog("platform_services: display.criteria reset")
+      return ["supported": true, "switched": false]
+    }
+    var forced = false
+    #if DEBUG
+    forced = values["proofForce"] as? Bool ?? false  // the simulator has Match Content off
+    #if targetEnvironment(simulator)
+    forced = true
+    #endif
+    #endif
+    guard manager.isDisplayCriteriaMatchingEnabled || forced else {
+      return ["supported": false, "reason": "Match Content is off: turn it on in Settings > Video and Audio > Match Content"]
+    }
+    let range = values["dynamicRange"] as? String ?? "sdr"
+    let width = (values["width"] as? NSNumber)?.int32Value ?? 1920
+    let height = (values["height"] as? NSNumber)?.int32Value ?? 1080
+    var extensions: [CFString: Any] = [:]
+    var codec = kCMVideoCodecType_HEVC
+    switch range {
+    case "hdr10", "dv":
+      extensions[kCMFormatDescriptionExtension_ColorPrimaries] = kCMFormatDescriptionColorPrimaries_ITU_R_2020
+      extensions[kCMFormatDescriptionExtension_TransferFunction] = kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ
+      extensions[kCMFormatDescriptionExtension_YCbCrMatrix] = kCMFormatDescriptionYCbCrMatrix_ITU_R_2020
+      if range == "dv" { codec = kCMVideoCodecType_DolbyVisionHEVC }
+    case "hlg":
+      extensions[kCMFormatDescriptionExtension_ColorPrimaries] = kCMFormatDescriptionColorPrimaries_ITU_R_2020
+      extensions[kCMFormatDescriptionExtension_TransferFunction] = kCMFormatDescriptionTransferFunction_ITU_R_2100_HLG
+      extensions[kCMFormatDescriptionExtension_YCbCrMatrix] = kCMFormatDescriptionYCbCrMatrix_ITU_R_2020
+    default:
+      extensions[kCMFormatDescriptionExtension_ColorPrimaries] = kCMFormatDescriptionColorPrimaries_ITU_R_709_2
+      extensions[kCMFormatDescriptionExtension_TransferFunction] = kCMFormatDescriptionTransferFunction_ITU_R_709_2
+      extensions[kCMFormatDescriptionExtension_YCbCrMatrix] = kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2
+    }
+    var description: CMVideoFormatDescription?
+    let status = CMVideoFormatDescriptionCreate(
+      allocator: kCFAllocatorDefault, codecType: codec, width: width, height: height,
+      extensions: extensions as CFDictionary, formatDescriptionOut: &description)
+    guard status == noErr, let description else {
+      return ["supported": false, "reason": "CMVideoFormatDescriptionCreate failed \(status)"]
+    }
+    guard #available(tvOS 17.0, *) else {
+      return ["supported": false, "reason": "display criteria need tvOS 17 or newer"]
+    }
+    manager.preferredDisplayCriteria = AVDisplayCriteria(refreshRate: Float(hz), formatDescription: description)
+    NSLog("platform_services: display.criteria set refresh=%.3f range=%@ size=%dx%d", hz, range, width, height)
+    return ["supported": true, "switched": true]
+  }
+  #else
   private func displayModes() -> [String: Any] {
     let screen = modeScreen()
     let modes = screen.availableModes.map { mode -> [String: Any] in
@@ -297,6 +467,7 @@ public class PlatformServicesPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
     }
     return ["supported": true, "switched": true]
   }
+  #endif
 
   private func displayScreens() -> [String: Any] {
     if rootController == nil { rootController = resolveController?() }

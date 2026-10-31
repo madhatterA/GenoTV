@@ -314,17 +314,17 @@ class MediaProxy {
   ///   When provided, segment durations are calculated precisely.
   ///   When null, duration is estimated from file size and [estimatedBitrateMbps].
   /// Returns a proxy URL pointing to the generated m3u8 playlist.
-  String wrapLocalFileAsHls(
+  Future<String> wrapLocalFileAsHls(
     String fileProxyUrl,
     String filePath, {
     double segmentSeconds = 20.0,
     double? totalDuration,
     double estimatedBitrateMbps = 5.0,
-  }) {
+  }) async {
     final file = File(filePath);
-    if (!file.existsSync()) return wrapInHlsPlaylist(fileProxyUrl);
+    if (!await file.exists()) return wrapInHlsPlaylist(fileProxyUrl);
 
-    final fileSize = file.lengthSync();
+    final fileSize = await file.length();
 
     // Only byte-range split MPEG-TS files. MP4 files cannot be split at
     // arbitrary offsets — they need fMP4 with initialization segments.
@@ -340,7 +340,7 @@ class MediaProxy {
     // Try to get keyframes with PTS values for accurate segment durations.
     // PTS-based durations prevent subtitle desync caused by VBR content
     // where byte proportions don't match time proportions.
-    final keyframesWithPts = TsKeyframeScanner.findKeyframeOffsetsWithPts(file);
+    final keyframesWithPts = await TsKeyframeScanner.findKeyframeOffsetsWithPts(file);
     final bool usePtsDurations =
         keyframesWithPts != null && keyframesWithPts.length > 1;
 
@@ -348,7 +348,7 @@ class MediaProxy {
     // for the cast device to decode them independently.
     final keyframeOffsets = usePtsDurations
         ? keyframesWithPts.map((kf) => kf.offset).toList()
-        : TsKeyframeScanner.findKeyframeOffsets(file);
+        : await TsKeyframeScanner.findKeyframeOffsets(file);
 
     // If only 1 keyframe (or scan failed), fall back to single segment
     if (keyframeOffsets.length <= 1) {
@@ -528,10 +528,10 @@ class MediaProxy {
   /// a converted variant is generated (VTT→SRT or SRT→VTT).
   ///
   /// Returns a list of (url, format) pairs for inclusion in DIDL-Lite.
-  List<({String url, String format})> registerSubtitleVariants(
+  Future<List<({String url, String format})>> registerSubtitleVariants(
     String urlOrPath, {
     Map<String, String> headers = const {},
-  }) {
+  }) async {
     // Register the original subtitle
     final originalUrl = registerSubtitle(urlOrPath, headers: headers);
 
@@ -543,8 +543,8 @@ class MediaProxy {
     }
 
     try {
-      if (File(originalPath).existsSync()) {
-        content = decodeSubtitleBytes(File(originalPath).readAsBytesSync());
+      if (await File(originalPath).exists()) {
+        content = decodeSubtitleBytes(await File(originalPath).readAsBytes());
       }
     } catch (_) {}
 

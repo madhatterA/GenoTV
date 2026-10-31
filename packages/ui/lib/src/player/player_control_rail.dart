@@ -2,11 +2,14 @@ import '../l10n_gen/app_strings.dart';
 
 import 'package:contracts/contracts.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../focus/focusable_action.dart';
+import '../accessibility/ui_accessibility.dart';
 import '../platform/adaptive_behavior.dart';
 import '../theme/rivulet_tokens.dart';
 import 'player_metadata.dart';
+import 'player_view_model.dart';
 import 'progress_rail.dart';
 import 'transport_control_button.dart';
 
@@ -85,12 +88,12 @@ class RailFocusMemory {
 }
 
 const Map<RailAction, IconData> _railIcons = <RailAction, IconData>{
-  RailAction.subtitles: Icons.subtitles_outlined,
-  RailAction.audio: Icons.graphic_eq,
-  RailAction.info: Icons.info_outline,
-  RailAction.insights: Icons.auto_awesome_outlined,
-  RailAction.upNext: Icons.video_collection_outlined,
-  RailAction.filter: Icons.front_hand_outlined,
+  RailAction.subtitles: PhosphorIconsRegular.subtitles,
+  RailAction.audio: PhosphorIconsRegular.waveform,
+  RailAction.info: PhosphorIconsRegular.info,
+  RailAction.insights: PhosphorIconsRegular.sparkle,
+  RailAction.upNext: PhosphorIconsRegular.stack,
+  RailAction.filter: PhosphorIconsRegular.hand,
 };
 
 Map<RailAction, String> _railLabels(AppStrings strings) => {
@@ -331,12 +334,12 @@ class PlayerControlRailState extends State<PlayerControlRail> {
       children: <Widget>[
         if (widget.leadingButton case final leading?) ...<Widget>[
           leading,
-          SizedBox(width: widget.compact ? 12 : geometry.railButtonGap),
+          SizedBox(width: widget.compact ? RivuletSpacing.s12 : geometry.railButtonGap),
         ],
         ?widget.actions,
         for (var i = 0; i < visible.length; i++) ...<Widget>[
           if (i > 0)
-            SizedBox(width: widget.compact ? 12 : geometry.railButtonGap),
+            SizedBox(width: widget.compact ? RivuletSpacing.s12 : geometry.railButtonGap),
           _buildButton(visible[i], tokens),
         ],
       ],
@@ -347,7 +350,7 @@ class PlayerControlRailState extends State<PlayerControlRail> {
         ? (widget.keepTitleWhenAmbient ? 1.0 : 0.0)
         : 1.0;
 
-    final radius = widget.compact ? 24.0 : 32.0;
+    final radius = RivuletRadius.large;
     final content = widget.compact
         ? _CompactLayout(
             metadata: metadata,
@@ -364,8 +367,8 @@ class PlayerControlRailState extends State<PlayerControlRail> {
     return Container(
       key: const ValueKey<String>('player-control-rail'),
       padding: EdgeInsets.symmetric(
-        horizontal: widget.compact ? 14 : geometry.railPadH,
-        vertical: widget.compact ? 8 : geometry.railPadV,
+        horizontal: widget.compact ? RivuletSpacing.s16 : geometry.railPadH,
+        vertical: widget.compact ? RivuletSpacing.s8 : geometry.railPadV,
       ),
       constraints: widget.compact
           ? null
@@ -373,9 +376,13 @@ class PlayerControlRailState extends State<PlayerControlRail> {
       decoration: !widget.showPlate
           ? null
           : BoxDecoration(
-              color: colors.railPlateFill.withValues(
-                alpha: colors.railPlateFill.a * plateOpacity,
-              ),
+              color: UiAccessibility.opaqueOf(context)
+                  ? (plateOpacity == 0
+                        ? const Color(0x00000000)
+                        : colors.glassFillSolid)
+                  : colors.railPlateFill.withValues(
+                      alpha: colors.railPlateFill.a * plateOpacity,
+                    ),
               border: Border.all(
                 color: colors.railBorder.withValues(
                   alpha: colors.railBorder.a * plateOpacity,
@@ -414,14 +421,14 @@ class PlayerControlRailState extends State<PlayerControlRail> {
     return TransportControlButton(
       key: ValueKey<String>('rail-action-${action.name}'),
       icon: action == RailAction.filter && widget.filterEnabled
-          ? Icons.front_hand
+          ? PhosphorIconsFill.hand
           : _railIcons[action]!,
       semanticLabel: action == RailAction.filter && widget.filterEnabled
           ? AppStrings.of(context)
                 .player_filterOn(_railLabels(AppStrings.of(context))[action]!)
           : _railLabels(AppStrings.of(context))[action]!,
       diameter: diameter,
-      iconSize: widget.compact ? diameter * 0.4 : 25,
+      iconSize: widget.compact ? diameter * 0.4 : 32,
       focusNode: node,
       onPress: _callbackFor(action),
       onLongPress: action == RailAction.subtitles
@@ -457,7 +464,7 @@ class _NoncompactLayout extends StatelessWidget {
           buttons,
         ],
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: RivuletSpacing.s20),
       progress,
     ],
   );
@@ -483,11 +490,11 @@ class _CompactLayout extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
           Expanded(child: metadata),
-          const SizedBox(width: 8),
+          const SizedBox(width: RivuletSpacing.s8),
           buttons,
         ],
       ),
-      const SizedBox(height: 12),
+      const SizedBox(height: RivuletSpacing.s12),
       progress,
     ],
   );
@@ -534,6 +541,7 @@ class PlayerProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = LivePlaybackState.of(context, this.state);
     final progress = ProgressRail(
       position: previewPosition ?? state.position,
       duration: state.duration,
@@ -552,10 +560,12 @@ class PlayerProgressRow extends StatelessWidget {
       onScrubUpdate: onScrubUpdate,
       onScrubEnd: onScrubEnd ?? controller.seek,
       playerChrome: true,
+      hoverPreview:
+          AdaptiveBehavior.formFactorOf(context) == FormFactor.desktop,
       elapsedUnderPlayhead: elapsedUnderPlayhead,
       labelSize: fontSize ?? (compact ? 12 : 20),
     );
-    if (!(AdaptiveBehavior.of(context).formFactor == FormFactor.tv)) {
+    if (!(AdaptiveBehavior.formFactorOf(context) == FormFactor.tv)) {
       return progress;
     }
     return FocusRing(

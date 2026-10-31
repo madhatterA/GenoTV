@@ -7,8 +7,8 @@ import 'lt_ffi_session.dart';
 /// Dart-facing owner for a real libtorrent session and its torrent handles.
 /// Native alerts are polled on the Dart timer owned by [LtFfiSession].
 final class TorrentSession {
-  TorrentSession({DynamicLibrary? library, String? savePath})
-    : _native = LtFfiSession(library: library),
+  TorrentSession({DynamicLibrary? library, String? savePath, Uint8List? state})
+    : _native = LtFfiSession(library: library, state: state),
       defaultSavePath = savePath;
 
   final LtFfiSession _native;

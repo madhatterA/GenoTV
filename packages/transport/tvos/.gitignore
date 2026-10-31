@@ -1,0 +1,6 @@
+# copied from ios/ by app/tvos/Podfile
+/Classes
+/transport
+/lt_shim.cpp
+/lt_shim.h
+/fs_shim.c

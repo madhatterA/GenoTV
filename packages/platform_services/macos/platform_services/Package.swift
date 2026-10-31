@@ -15,9 +15,11 @@ let package = Package(
         .package(name: "FlutterFramework", path: "../FlutterFramework")
     ],
     targets: [
+        .target(name: "CrashCapture", path: "Sources/CrashCapture"),
         .target(
             name: "platform_services",
             dependencies: [
+                "CrashCapture",
                 .product(name: "FlutterFramework", package: "FlutterFramework")
             ],
             resources: [

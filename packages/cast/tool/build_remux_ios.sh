@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd -P)"
-work="${TMPDIR:-/tmp}/cast-remux-ios-$(id -u)"
-mkdir -p "$work" "$root/ios/libs"
+# CAST_REMUX_PLATFORM=tvos builds the same remuxer for tvOS (device + simulator, minimum tvOS 15.0).
+platform="${CAST_REMUX_PLATFORM:-ios}"
+if [[ "$platform" == tvos ]]; then sdks=(appletvos appletvsimulator) os=tvos; else sdks=(iphoneos iphonesimulator) os=ios; fi
+work="${TMPDIR:-/tmp}/cast-remux-$platform-$(id -u)"
+mkdir -p "$work" "$root/$platform/libs"
 frameworks=()
-for sdk in iphoneos iphonesimulator; do
-  prefix="$root/native/ffmpeg/ios-arm64-$sdk"
+for sdk in "${sdks[@]}"; do
+  prefix="$root/native/ffmpeg/$os-arm64-$sdk"
   if [[ ! -f "$prefix/lib/libavformat.a" ]] ||
      ! cmp -s "$root/tool/build_ffmpeg.sh" "$prefix/share/ffmpeg/build_ffmpeg.sh"; then
-    CAST_IOS_SDK="$sdk" bash "$root/tool/build_ffmpeg.sh" ios arm64
+    CAST_IOS_SDK="$sdk" bash "$root/tool/build_ffmpeg.sh" "$os" arm64
   fi
   framework="$work/$sdk/cast_remux.framework"
   mkdir -p "$framework"
-  triple=arm64-apple-ios15.0
-  [[ "$sdk" != iphonesimulator ]] || triple="$triple-simulator"
+  triple=arm64-apple-${os}15.0
+  [[ "$sdk" != *simulator ]] || triple="$triple-simulator"
   xcrun --sdk "$sdk" clang -std=c11 -Wall -Wextra -Werror -O2 -dynamiclib \
     -target "$triple" -isysroot "$(xcrun --sdk "$sdk" --show-sdk-path)" \
     -fvisibility=hidden -I"$prefix/include" "$root/native/remux/remux.c" \
@@ -36,6 +39,6 @@ for sdk in iphoneos iphonesimulator; do
 PLIST
   frameworks+=(-framework "$framework")
 done
-rm -rf "$root/ios/libs/cast_remux.xcframework"
+rm -rf "$root/$platform/libs/cast_remux.xcframework"
 xcrun xcodebuild -create-xcframework "${frameworks[@]}" \
-  -output "$root/ios/libs/cast_remux.xcframework"
+  -output "$root/$platform/libs/cast_remux.xcframework"

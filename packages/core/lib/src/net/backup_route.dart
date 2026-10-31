@@ -3,7 +3,13 @@ import 'dart:io';
 
 /// The personal backup proxy (planning/features/BACKUP_PROXY.md). One place.
 /// Port 2053 is deliberate (Cloudflare HTTPS port; 443 is taken).
-final Uri backupProxy = Uri.parse('https://genotv.cubernets.com:2053');
+final Uri builtInBackupProxy = Uri.parse('https://genotv.cubernets.com:2053');
+
+Uri? _proxyOverride;
+
+/// The proxy in use: the user's Title API "proxy" domain, else the built-in.
+Uri get backupProxy => _proxyOverride ?? builtInBackupProxy;
+set backupProxyOverride(Uri? value) => _proxyOverride = value;
 
 /// Metadata APIs whose keys live on the proxy: always routed there.
 const Set<String> proxyOnlyHosts = {

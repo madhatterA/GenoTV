@@ -45,8 +45,14 @@ class AppPaths {
 
   /// App-private support files: settings, and (durable, so placed here
   /// rather than under [cache]) torrent resume state and logs.
-  Future<Directory> get support =>
-      _resolveRoot(path_provider.getApplicationSupportDirectory, 'support');
+  ///
+  /// tvOS only lets an app write to Library/Caches and tmp (a write to
+  /// Application Support is refused on a real Apple TV), so there the
+  /// "durable" root is a `support` folder inside the cache root. tvOS may
+  /// purge it under storage pressure; accepted limit of the platform.
+  Future<Directory> get support => Platform.operatingSystem == 'tvos'
+      ? _subdirectory(_cacheRoot, 'support')
+      : _resolveRoot(path_provider.getApplicationSupportDirectory, 'support');
 
   /// General-purpose cache. May be cleared by the OS at any time.
   Future<Directory> get cache => _subdirectory(_cacheRoot, 'cache');

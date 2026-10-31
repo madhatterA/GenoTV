@@ -272,7 +272,7 @@ class DlnaSession extends CastSession {
         media.defaultSubtitle ??
         (media.subtitles.isNotEmpty ? media.subtitles.first : _currentSubtitle);
     if (subtitleSource != null) {
-      subtitleVariants = _proxy.registerSubtitleVariants(
+      subtitleVariants = await _proxy.registerSubtitleVariants(
         subtitleSource.url,
         headers: media.httpHeaders,
       );
@@ -296,7 +296,7 @@ class DlnaSession extends CastSession {
     final fileSize =
         media.isLocalFile &&
             !(transformed is CastTransformResult && transformed.task != null)
-        ? File(media.url).lengthSync()
+        ? await File(media.url).length()
         : null;
 
     if (generation != _loadGeneration) return;

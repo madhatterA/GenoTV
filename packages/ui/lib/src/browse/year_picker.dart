@@ -282,7 +282,7 @@ class _Wheel extends StatelessWidget {
             Expanded(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(RivuletRadius.small),
+                  borderRadius: BorderRadius.circular(RivuletRadius.medium),
                   border: Border.all(
                     color: Focus.of(context).hasFocus
                         ? c.accent
@@ -296,7 +296,7 @@ class _Wheel extends StatelessWidget {
                   selectionOverlay: DecoratedBox(
                     decoration: BoxDecoration(
                       color: c.tintFillHover,
-                      borderRadius: BorderRadius.circular(RivuletRadius.small),
+                      borderRadius: BorderRadius.circular(RivuletRadius.medium),
                     ),
                   ),
                   onSelectedItemChanged: (i) => onChanged(first - i),

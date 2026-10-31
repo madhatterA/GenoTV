@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
   s.license          = { :type => 'MIT' }
 
   s.source           = { :path => '.' }
-  s.source_files = 'platform_services/Sources/platform_services/**/*'
+  s.source_files = 'platform_services/Sources/**/*.{swift,c,h}'
 
   s.resource_bundles = {'platform_services_privacy' => ['platform_services/Sources/platform_services/PrivacyInfo.xcprivacy']}
 

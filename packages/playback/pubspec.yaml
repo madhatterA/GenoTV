@@ -35,6 +35,8 @@ flutter:
         pluginClass: PlaybackPlugin
       ios:
         pluginClass: PlaybackPlugin
+      tvos:
+        pluginClass: PlaybackPlugin
       macos:
         pluginClass: PlaybackPlugin
       windows:

@@ -29,6 +29,9 @@ android {
     namespace = "com.genotv.platform_services"
 
     compileSdk = 36
+    externalNativeBuild {
+        cmake { path = file("src/main/cpp/CMakeLists.txt") }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../platform/adaptive_behavior.dart';
+import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
 
 /// Whether the focus ring shows for [mode]: keyboard and remote only
@@ -13,10 +14,32 @@ bool focusRingVisibleFor(InputMode mode) =>
 /// widget, corner radius = widget radius + 3. Painted by the focused widget
 /// itself as a foreground, so there is no overlay and no per-frame callback.
 class FocusRingPainter extends CustomPainter {
-  const FocusRingPainter({required this.radius, required this.color});
+  const FocusRingPainter({
+    required this.radius,
+    required this.color,
+    this.tv = false,
+  });
 
   static const double thickness = 2;
   static const double offset = 3;
+
+  /// TV (Part 07 p04): a 3 px ring with a 2 px 40% black halo outside it, so
+  /// the ring reads on bright posters.
+  static const double tvThickness = 3;
+  static const double haloThickness = 2;
+
+  final bool tv;
+
+  /// Ring for the current form factor.
+  static FocusRingPainter of(
+    BuildContext context, {
+    required BorderRadius radius,
+    required Color color,
+  }) => FocusRingPainter(
+    radius: radius,
+    color: color,
+    tv: AdaptiveBehavior.formFactorOf(context) == FormFactor.tv,
+  );
 
   final BorderRadius radius;
   final Color color;
@@ -24,18 +47,30 @@ class FocusRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = (Offset.zero & size).inflate(offset);
+    final stroke = tv ? tvThickness : thickness;
+    final ringRadius = radius + BorderRadius.circular(offset);
+    if (tv) {
+      final gap = (stroke + haloThickness) / 2;
+      canvas.drawRRect(
+        (ringRadius + BorderRadius.circular(gap)).toRRect(rect.inflate(gap)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = haloThickness
+          ..color = const Color(0x66000000),
+      );
+    }
     canvas.drawRRect(
-      (radius + BorderRadius.circular(offset)).toRRect(rect),
+      ringRadius.toRRect(rect),
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = thickness
+        ..strokeWidth = stroke
         ..color = color,
     );
   }
 
   @override
   bool shouldRepaint(FocusRingPainter old) =>
-      old.radius != radius || old.color != color;
+      old.radius != radius || old.color != color || old.tv != tv;
 }
 
 /// Draws the [FocusRingPainter] around any control that keeps its own focus
@@ -44,7 +79,7 @@ class FocusRingPainter extends CustomPainter {
 class FocusRing extends StatefulWidget {
   const FocusRing({
     required this.child,
-    this.radius = const BorderRadius.all(Radius.circular(RivuletRadius.small)),
+    this.radius = const BorderRadius.all(Radius.circular(RivuletRadius.medium)),
     super.key,
   });
 
@@ -69,7 +104,8 @@ class _FocusRingState extends State<FocusRing> {
       onFocusChange: (focused) => setState(() => _focused = focused),
       child: CustomPaint(
         foregroundPainter: ring
-            ? FocusRingPainter(
+            ? FocusRingPainter.of(
+                context,
                 radius: widget.radius,
                 color: RivuletTokens.of(context).colors.accent,
               )
@@ -102,7 +138,7 @@ class FocusableAction extends StatefulWidget {
     this.minSize = 44.0,
     this.centered = false,
     this.focusRadius = const BorderRadius.all(
-      Radius.circular(RivuletRadius.small),
+      Radius.circular(RivuletRadius.medium),
     ),
     super.key,
   });
@@ -196,7 +232,11 @@ class _FocusableActionState extends State<FocusableAction>
       scale: _scale,
       child: CustomPaint(
         foregroundPainter: ring
-            ? FocusRingPainter(radius: widget.focusRadius, color: colors.accent)
+            ? FocusRingPainter.of(
+                context,
+                radius: widget.focusRadius,
+                color: colors.accent,
+              )
             : null,
         child: AnimatedContainer(
           duration: effectiveDuration(context, RivuletMotion.fast),

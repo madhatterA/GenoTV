@@ -179,7 +179,7 @@ class _TransportControlButtonState extends State<TransportControlButton> {
     // the player's measured layout or painting outside its original size.
     if (!widget.touchTargetEnabled ||
         !enabled ||
-        AdaptiveBehavior.of(context).formFactor != FormFactor.phone ||
+        AdaptiveBehavior.formFactorOf(context) != FormFactor.phone ||
         widget.diameter >= RivuletSizes.touchHitTarget) {
       return button;
     }

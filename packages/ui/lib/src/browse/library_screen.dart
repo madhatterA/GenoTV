@@ -1,5 +1,6 @@
 import '../l10n_gen/app_strings.dart';
 import '../components/ambient_background.dart';
+import '../components/pull_refresh.dart';
 import '../components/app_icon_button.dart';
 import '../components/app_text_field.dart';
 
@@ -102,7 +103,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }).toList();
     final visible = sortTitles(filtered, _query, widget.metadata);
     // TV: the filter bar is the first focus row (DESIGN_SPEC §8.2).
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
     return AmbientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -133,9 +134,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           children: [
             Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: RivuletSpacing.gutter(
-                  AdaptiveBehavior.of(context).formFactor,
-                ),
+                horizontal: RivuletSpacing.gutterOf(context),
                 vertical: RivuletSpacing.s4,
               ),
               child: AppTextField(
@@ -169,17 +168,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             : 'library-filter-empty',
                       ),
                     )
-                  : MediaGrid(
-                      items: visible,
-                      memory: _memory,
-                      focusedId: _focusedId,
-                      onFocused: (item) => _focusedId = item.id,
-                      onItemTap: widget.onItemTap,
-                      onLoadMore: widget.onLoadMore,
-                      isLoadingMore: widget.isLoadingMore,
-                      scrollController: _scroll,
-                      autofocus: !tv,
-                      pageEntry: !tv,
+                  : PullRefresh(
+                      onRefresh: () async => setState(() {}),
+                      child: MediaGrid(
+                        items: visible,
+                        memory: _memory,
+                        focusedId: _focusedId,
+                        onFocused: (item) => _focusedId = item.id,
+                        onItemTap: widget.onItemTap,
+                        onLoadMore: widget.onLoadMore,
+                        isLoadingMore: widget.isLoadingMore,
+                        scrollController: _scroll,
+                        autofocus: !tv,
+                        pageEntry: !tv,
+                      ),
                     ),
             ),
           ],

@@ -296,6 +296,12 @@ abstract class AppStrings {
   /// **'Liked'**
   String get common_liked;
 
+  /// Title of the Home row of partly watched titles.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue watching'**
+  String get common_continueWatching;
+
   /// Common UI: home; displayed in shared shell, browse, detail, dialogs and buttons.
   ///
   /// In en, this message translates to:
@@ -524,6 +530,12 @@ abstract class AppStrings {
   /// **'Import .torrent'**
   String get playlink_import;
 
+  /// Playlink UI: shown instead of the Import .torrent button where the platform has no file picker (tvOS).
+  ///
+  /// In en, this message translates to:
+  /// **'Apple TV cannot open files. Paste a torrent or https link above instead.'**
+  String get playlink_noFiles;
+
   /// Playlink UI: insert; displayed in playLink screens.
   ///
   /// In en, this message translates to:
@@ -565,6 +577,18 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Insert link…'**
   String get play_insertLink;
+
+  /// Play UI: first row of a stream list that plays the best stream.
+  ///
+  /// In en, this message translates to:
+  /// **'Play best'**
+  String get play_best;
+
+  /// Play UI: chip on the phone stream list that goes back to the provider list.
+  ///
+  /// In en, this message translates to:
+  /// **'Other sources'**
+  String get play_otherSources;
 
   /// Play UI: pickProvider; displayed in play screens.
   ///
@@ -725,163 +749,175 @@ abstract class AppStrings {
   /// Failure UI: transportHttpNoRangeSupport; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'This HTTP source does not support seeking.'**
+  /// **'This HTTP source does not support seeking. Choose another source.'**
   String get failure_transportHttpNoRangeSupport;
 
   /// Failure UI: transportHttpValidatorChanged; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The HTTP file changed while it was loading.'**
+  /// **'The HTTP file changed while it was loading. Try again.'**
   String get failure_transportHttpValidatorChanged;
 
   /// Failure UI: transportHttpUnreachable; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The HTTP source could not be reached.'**
+  /// **'The HTTP source could not be reached. Check your connection and try again.'**
   String get failure_transportHttpUnreachable;
 
   /// Failure UI: transportRangeUnsatisfiable; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The requested media range is unavailable.'**
+  /// **'The requested part of the media is unavailable. Choose another source.'**
   String get failure_transportRangeUnsatisfiable;
 
   /// Failure UI: transportTorrentNoMetadata; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'Torrent metadata did not arrive in time.'**
+  /// **'Torrent details did not arrive in time. Try again.'**
   String get failure_transportTorrentNoMetadata;
 
   /// Failure UI: transportTorrentNoPeers; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'This torrent has no available peers.'**
+  /// **'This torrent has no available peers. Choose another torrent.'**
   String get failure_transportTorrentNoPeers;
 
   /// Failure UI: transportTorrentStalled; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The torrent stopped delivering the requested media.'**
+  /// **'The torrent stopped delivering the media. Try again or choose another source.'**
   String get failure_transportTorrentStalled;
 
   /// Failure UI: transportTorrentFileError; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The torrent could not access its media files.'**
+  /// **'The torrent could not access its files. Check that the device has free storage space and try again.'**
   String get failure_transportTorrentFileError;
 
   /// Failure UI: transportTorrentFileNotFound; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The requested file is not in the torrent.'**
+  /// **'The requested file is not in the torrent. Choose another file.'**
   String get failure_transportTorrentFileNotFound;
 
   /// Failure UI: transportEngineUnavailable; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The streaming engine is unavailable on this device.'**
+  /// **'The streaming engine failed to start on this device. Restart the app; if it keeps happening, reinstall it.'**
   String get failure_transportEngineUnavailable;
+
+  /// Failure UI: transportDiskInsufficient; displayed in error states.
+  ///
+  /// In en, this message translates to:
+  /// **'There is not enough free storage space to start this stream. Free up space or lower the cache size limit in Settings, then try again.'**
+  String get failure_transportDiskInsufficient;
 
   /// Failure UI: transportLocalNotFound; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The local file could not be found.'**
+  /// **'The local file could not be found. Check that it has not been moved or deleted.'**
   String get failure_transportLocalNotFound;
 
   /// Failure UI: transportLocalNotReadable; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The local file could not be read.'**
+  /// **'The local file could not be read. Check the file permissions.'**
   String get failure_transportLocalNotReadable;
 
   /// Failure UI: transportLocalEmpty; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The local file is empty.'**
+  /// **'The local file is empty. Choose another file.'**
   String get failure_transportLocalEmpty;
 
   /// Failure UI: transportLocalUnsupportedUri; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'This local source URI is not supported.'**
+  /// **'This local source address is not supported. Choose another file.'**
   String get failure_transportLocalUnsupportedUri;
 
   /// Failure UI: playbackOpenFailed; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The media could not be opened.'**
+  /// **'The media could not be opened. Try again or choose another source.'**
   String get failure_playbackOpenFailed;
 
   /// Failure UI: playbackDecodeFailed; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The media could not be decoded.'**
+  /// **'The media could not be decoded. Choose another source.'**
   String get failure_playbackDecodeFailed;
+
+  /// Failure UI: playbackSurfaceUnavailable; displayed in error states.
+  ///
+  /// In en, this message translates to:
+  /// **'The video output could not start on this device. Restart the app and try again.'**
+  String get failure_playbackSurfaceUnavailable;
 
   /// Failure UI: playbackEngineCrashed; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The playback engine stopped unexpectedly.'**
+  /// **'The playback engine stopped unexpectedly. Try again; if it keeps happening, restart the app.'**
   String get failure_playbackEngineCrashed;
 
   /// Failure UI: playbackSourceUnreachable; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The playback source became unreachable.'**
+  /// **'The connection to the playback source was lost. Check your connection and try again.'**
   String get failure_playbackSourceUnreachable;
 
   /// Failure UI: playbackUnsupportedCodec; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'This media uses an unsupported codec.'**
+  /// **'This media uses a codec that is not supported. Choose another source.'**
   String get failure_playbackUnsupportedCodec;
 
   /// Failure UI: playbackTrackSelectionFailed; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The requested playback track could not be selected.'**
+  /// **'The requested track could not be selected. Choose another track.'**
   String get failure_playbackTrackSelectionFailed;
 
   /// Failure UI: playbackSubtitleLoadFailed; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The external subtitle could not be loaded.'**
+  /// **'The external subtitle could not be loaded. Check the subtitle file and try again.'**
   String get failure_playbackSubtitleLoadFailed;
 
   /// Failure UI: platformUnsupported; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'This operation is not supported on this platform.'**
+  /// **'This operation is not supported on this device.'**
   String get failure_platformUnsupported;
 
   /// Failure UI: platformPermissionDenied; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The platform denied the required permission.'**
+  /// **'The required permission was not granted. Check the permissions in the device settings.'**
   String get failure_platformPermissionDenied;
 
   /// Failure UI: platformDisplaySwitchFailed; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The display mode could not be changed.'**
+  /// **'The display mode could not be changed. Choose another mode.'**
   String get failure_platformDisplaySwitchFailed;
 
   /// Failure UI: platformAudioDeviceLost; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The selected audio device is no longer available.'**
+  /// **'The selected audio device is no longer available. Choose another device.'**
   String get failure_platformAudioDeviceLost;
 
   /// Failure UI: platformProbeFailed; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'Platform capabilities could not be determined.'**
+  /// **'The device capabilities could not be determined. Try again.'**
   String get failure_platformProbeFailed;
 
   /// Failure UI: appUnexpected; displayed in error states.
   ///
   /// In en, this message translates to:
-  /// **'The application encountered an unexpected failure.'**
+  /// **'The app hit an unexpected error. Try again.'**
   String get failure_appUnexpected;
 
   /// Failure UI: appCancelled; displayed in error states.
@@ -889,6 +925,30 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'The operation was cancelled before completion.'**
   String get failure_appCancelled;
+
+  /// Failure UI: storageOpenFailed; displayed in error states.
+  ///
+  /// In en, this message translates to:
+  /// **'The app database could not be opened. Restart the app; if it keeps happening, free up storage space.'**
+  String get failure_storageOpenFailed;
+
+  /// Failure UI: storageMigrationFailed; displayed in error states.
+  ///
+  /// In en, this message translates to:
+  /// **'The app database could not be updated to the new version. Restart the app; if it keeps happening, reinstall it.'**
+  String get failure_storageMigrationFailed;
+
+  /// Failure UI: storageWriteFailed; displayed in error states.
+  ///
+  /// In en, this message translates to:
+  /// **'Your changes could not be saved. Check that the device has free storage space and try again.'**
+  String get failure_storageWriteFailed;
+
+  /// Failure UI: storageCorrupt; displayed in error states.
+  ///
+  /// In en, this message translates to:
+  /// **'The app database is damaged. Restart the app; if it keeps happening, reinstall it.'**
+  String get failure_storageCorrupt;
 
   /// Badge UI: progress; displayed in media progress badges.
   ///
@@ -1019,14 +1079,20 @@ abstract class AppStrings {
   /// state UI: hideCode, shown in the corresponding shell, screen or state.
   ///
   /// In en, this message translates to:
-  /// **'Hide error code'**
+  /// **'Hide details'**
   String get state_hideCode;
 
   /// state UI: showCode, shown in the corresponding shell, screen or state.
   ///
   /// In en, this message translates to:
-  /// **'Show error code'**
+  /// **'Details'**
   String get state_showCode;
+
+  /// Error details: copies the error code and message.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get state_copyDetails;
 
   /// state UI: offline, shown in the corresponding shell, screen or state.
   ///
@@ -1333,6 +1399,12 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Scaling quality'**
   String get settings_video_scalingQuality_label;
+
+  /// No description provided for @settings_video_deinterlace_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Deinterlacing'**
+  String get settings_video_deinterlace_label;
 
   /// No description provided for @settings_video_toneMapping_label.
   ///
@@ -1783,6 +1855,12 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Decoder threads'**
   String get settings_performance_decoderThreads_label;
+
+  /// No description provided for @settings_performance_maxDecoderResolution_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Max decoder resolution'**
+  String get settings_performance_maxDecoderResolution_label;
 
   /// No description provided for @settings_advanced_diagnostics_label.
   ///
@@ -2519,7 +2597,7 @@ abstract class AppStrings {
   /// No description provided for @settings_streaming_title.
   ///
   /// In en, this message translates to:
-  /// **'Streaming & Network'**
+  /// **'Network'**
   String get settings_streaming_title;
 
   /// No description provided for @settings_downloads_title.
@@ -2567,7 +2645,7 @@ abstract class AppStrings {
   /// No description provided for @settings_providers.
   ///
   /// In en, this message translates to:
-  /// **'Providers'**
+  /// **'Sources'**
   String get settings_providers;
 
   /// No description provided for @settings_advancedSettings.
@@ -2701,6 +2779,18 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Download'**
   String get player_download;
+
+  /// Player UI: short heading of the playback error card.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t play this'**
+  String get player_errorTitle;
+
+  /// Player UI: error card button that opens the source list for the same title.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another source'**
+  String get player_tryAnotherSource;
 
   /// No description provided for @player_nextEpisode.
   ///
@@ -2840,6 +2930,12 @@ abstract class AppStrings {
   /// **'Username or email'**
   String get providers_username;
 
+  /// No description provided for @providers_apiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get providers_apiKey;
+
   /// No description provided for @providers_password.
   ///
   /// In en, this message translates to:
@@ -2917,6 +3013,54 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Back to subtitles'**
   String get player_backToSubtitles;
+
+  /// No description provided for @player_subtitleDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The subtitle could not be downloaded.'**
+  String get player_subtitleDownloadFailed;
+
+  /// No description provided for @player_subtitleAuthFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The subtitle service rejected your key or login. Sign in again in Settings → Providers.'**
+  String get player_subtitleAuthFailed;
+
+  /// No description provided for @player_subtitleQuotaReached.
+  ///
+  /// In en, this message translates to:
+  /// **'The daily subtitle download limit is reached. Try again tomorrow.'**
+  String get player_subtitleQuotaReached;
+
+  /// No description provided for @player_subtitleServiceDown.
+  ///
+  /// In en, this message translates to:
+  /// **'The subtitle service is not responding. Try again later.'**
+  String get player_subtitleServiceDown;
+
+  /// No description provided for @home_limitedMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Limited mode — international internet unavailable'**
+  String get home_limitedMode;
+
+  /// No description provided for @player_subtitleSearchFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle search failed.'**
+  String get player_subtitleSearchFailed;
+
+  /// No description provided for @player_noSubtitlesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No subtitles found for this title.'**
+  String get player_noSubtitlesFound;
+
+  /// No description provided for @player_subtitleSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to {services} in Settings → Providers to search them.'**
+  String player_subtitleSignIn(String services);
 
   /// No description provided for @player_noSubtitleSources.
   ///
@@ -3049,6 +3193,18 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'{value} seconds'**
   String settings_seconds(String value);
+
+  /// No description provided for @settings_cacheUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache used'**
+  String get settings_cacheUsed;
+
+  /// No description provided for @settings_cacheUsedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {cap}'**
+  String settings_cacheUsedValue(String used, String cap);
 
   /// No description provided for @settings_nothingToClear.
   ///
@@ -3398,6 +3554,12 @@ abstract class AppStrings {
   /// **'Copy diagnostics'**
   String get diagnostics_copy;
 
+  /// No description provided for @diagnostics_previousCrash.
+  ///
+  /// In en, this message translates to:
+  /// **'The app closed unexpectedly last time — share the log using Copy diagnostics.'**
+  String get diagnostics_previousCrash;
+
   /// No description provided for @diagnostics_copied.
   ///
   /// In en, this message translates to:
@@ -3462,6 +3624,30 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Network'**
   String get player_stats_Network;
+
+  /// No description provided for @player_stats_Downloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading'**
+  String get player_stats_Downloading;
+
+  /// No description provided for @player_stats_Finding_peers.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding peers'**
+  String get player_stats_Finding_peers;
+
+  /// No description provided for @player_stats_Complete.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete'**
+  String get player_stats_Complete;
+
+  /// No description provided for @player_stats_Failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed: {message}'**
+  String player_stats_Failed(String message);
 
   /// No description provided for @player_stats_Speed.
   ///
@@ -4027,6 +4213,12 @@ abstract class AppStrings {
   /// **'{value} GB'**
   String settings_choiceGB(String value);
 
+  /// No description provided for @settings_choiceResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}p'**
+  String settings_choiceResolution(String value);
+
   /// No description provided for @player_playbackRate.
   ///
   /// In en, this message translates to:
@@ -4062,6 +4254,906 @@ abstract class AppStrings {
   /// In en, this message translates to:
   /// **'Subtitle was not added.'**
   String get player_subtitleNotAdded;
+
+  /// No description provided for @settings_titleApi.
+  ///
+  /// In en, this message translates to:
+  /// **'Title API'**
+  String get settings_titleApi;
+
+  /// No description provided for @settings_titleApi_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Where titles, posters and details come from. The app tries these from top to bottom.'**
+  String get settings_titleApi_hint;
+
+  /// No description provided for @domain_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Domain'**
+  String get domain_label;
+
+  /// No description provided for @domain_change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get domain_change;
+
+  /// No description provided for @domain_useDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Use default'**
+  String get domain_useDefault;
+
+  /// No description provided for @domain_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get domain_save;
+
+  /// No description provided for @domain_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. https://example.com:8888/path'**
+  String get domain_hint;
+
+  /// No description provided for @domain_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an http or https address with a host.'**
+  String get domain_invalid;
+
+  /// No description provided for @titleApi_proxy.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup proxy'**
+  String get titleApi_proxy;
+
+  /// No description provided for @titleApi_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset domains and order'**
+  String get titleApi_reset;
+
+  /// Toast after liking a title.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to Liked'**
+  String get toast_liked;
+
+  /// Toast after unliking a title.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from Liked'**
+  String get toast_unliked;
+
+  /// Toast after removing a card from Continue Watching.
+  ///
+  /// In en, this message translates to:
+  /// **'Removed from Continue Watching'**
+  String get toast_removedContinue;
+
+  /// Toast on Android after Back on Home; a second Back within 2 s exits.
+  ///
+  /// In en, this message translates to:
+  /// **'Press back again to exit'**
+  String get back_pressAgainToExit;
+
+  /// Toast action that reverses the last change.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get toast_undo;
+
+  /// Toast shown when a change could not be saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Try again.'**
+  String get toast_saveFailed;
+
+  /// Menu action: resume playback; {time} is the saved position like 1:07.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume at {time}'**
+  String menu_resumeAt(String time);
+
+  /// Label of the hover button that opens a poster's menu.
+  ///
+  /// In en, this message translates to:
+  /// **'More options'**
+  String get menu_moreOptions;
+
+  /// One-time TV hint shown on first card focus.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold OK for options'**
+  String get hint_holdOk;
+
+  /// One-time TV hint shown on the first Home visit.
+  ///
+  /// In en, this message translates to:
+  /// **'Press ◀ for the menu'**
+  String get hint_tvMenu;
+
+  /// One-time phone hint shown on the first Home visit.
+  ///
+  /// In en, this message translates to:
+  /// **'Press and hold a poster for options'**
+  String get hint_phoneHold;
+
+  /// TV button after a cut summary that opens the full text.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get detail_more;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard shortcuts'**
+  String get shortcuts_title;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get shortcuts_app;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Player'**
+  String get shortcuts_player;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh this page'**
+  String get shortcuts_refresh;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Go back'**
+  String get shortcuts_back;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the menu'**
+  String get shortcuts_menu;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Show this list'**
+  String get shortcuts_help;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Play or pause'**
+  String get shortcuts_playPause;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip 10 seconds back or forward'**
+  String get shortcuts_seek;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume up or down'**
+  String get shortcuts_volume;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute or unmute'**
+  String get shortcuts_mute;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Full screen'**
+  String get shortcuts_fullscreen;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles on or off'**
+  String get shortcuts_subtitles;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback stats'**
+  String get shortcuts_stats;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump back or forward'**
+  String get shortcuts_jump;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get menuBar_view;
+
+  /// Part 07 p11 desktop shortcuts and menu bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Help'**
+  String get menuBar_help;
+
+  /// Part 07 p12 player badges, fullscreen and TV hint.
+  ///
+  /// In en, this message translates to:
+  /// **'{n} s'**
+  String player_badge_seconds(int n);
+
+  /// Part 07 p12 player badges, fullscreen and TV hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume {percent}%'**
+  String player_badge_volume(int percent);
+
+  /// Part 07 p12 player badges, fullscreen and TV hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted'**
+  String get player_badge_muted;
+
+  /// Part 07 p12 player badges, fullscreen and TV hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Full screen'**
+  String get player_fullscreen;
+
+  /// Part 07 p12 player badges, fullscreen and TV hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit full screen'**
+  String get player_exitFullscreen;
+
+  /// Part 07 p14 phone fill/fit button.
+  ///
+  /// In en, this message translates to:
+  /// **'Fit to screen'**
+  String get player_fitScreen;
+
+  /// Part 07 p12 player badges, fullscreen and TV hint.
+  ///
+  /// In en, this message translates to:
+  /// **'◀ ▶ skip 10 s · hold to scrub · OK to confirm'**
+  String get hint_tvSeek;
+
+  /// No description provided for @settings_desc_playback_resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose whether a video continues where you stopped.'**
+  String get settings_desc_playback_resume;
+
+  /// No description provided for @settings_desc_playback_autoPlayNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts the next episode on its own when one ends.'**
+  String get settings_desc_playback_autoPlayNext;
+
+  /// No description provided for @settings_desc_playback_rememberPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves how far you watched so you can come back later.'**
+  String get settings_desc_playback_rememberPosition;
+
+  /// No description provided for @settings_desc_playback_speed.
+  ///
+  /// In en, this message translates to:
+  /// **'How fast videos play by default.'**
+  String get settings_desc_playback_speed;
+
+  /// No description provided for @settings_desc_playback_syncToDisplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Matches video timing to the screen for smoother motion.'**
+  String get settings_desc_playback_syncToDisplay;
+
+  /// No description provided for @settings_desc_playback_avSyncCorrection.
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps picture and sound together when they drift apart.'**
+  String get settings_desc_playback_avSyncCorrection;
+
+  /// No description provided for @settings_desc_playback_cachePreset.
+  ///
+  /// In en, this message translates to:
+  /// **'How much video is loaded ahead of time; more helps on slow networks.'**
+  String get settings_desc_playback_cachePreset;
+
+  /// No description provided for @settings_desc_playback_demuxerCacheSize.
+  ///
+  /// In en, this message translates to:
+  /// **'The memory set aside for video that is loaded but not yet played.'**
+  String get settings_desc_playback_demuxerCacheSize;
+
+  /// No description provided for @settings_desc_playback_readAhead.
+  ///
+  /// In en, this message translates to:
+  /// **'How many seconds of video are loaded in advance.'**
+  String get settings_desc_playback_readAhead;
+
+  /// No description provided for @settings_desc_playback_networkTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'How long to wait for a slow server before giving up.'**
+  String get settings_desc_playback_networkTimeout;
+
+  /// No description provided for @settings_desc_video_hwdec.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses the device\'s video chip, which saves battery and runs smoother.'**
+  String get settings_desc_video_hwdec;
+
+  /// No description provided for @settings_desc_video_hdr.
+  ///
+  /// In en, this message translates to:
+  /// **'Chooses how bright, high-contrast HDR videos are shown.'**
+  String get settings_desc_video_hdr;
+
+  /// No description provided for @settings_desc_video_matchFrameRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches the screen to the video\'s frame rate for smoother motion.'**
+  String get settings_desc_video_matchFrameRate;
+
+  /// No description provided for @settings_desc_video_matchResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches the screen to the video\'s resolution when it can.'**
+  String get settings_desc_video_matchResolution;
+
+  /// No description provided for @settings_desc_video_aspectRatio.
+  ///
+  /// In en, this message translates to:
+  /// **'Chooses how the picture is stretched or cropped to fit the screen.'**
+  String get settings_desc_video_aspectRatio;
+
+  /// No description provided for @settings_desc_video_decoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Picks which decoder turns the video file into a picture.'**
+  String get settings_desc_video_decoder;
+
+  /// No description provided for @settings_desc_video_deinterlace.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the comb-like lines that interlaced videos can show.'**
+  String get settings_desc_video_deinterlace;
+
+  /// No description provided for @settings_desc_video_scalingQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Higher quality sharpens upscaled video but uses more power.'**
+  String get settings_desc_video_scalingQuality;
+
+  /// No description provided for @settings_desc_video_toneMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Converts HDR colours so they look right on a normal screen.'**
+  String get settings_desc_video_toneMapping;
+
+  /// No description provided for @settings_desc_video_pixelFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'The colour format used inside the video pipeline.'**
+  String get settings_desc_video_pixelFormat;
+
+  /// No description provided for @settings_desc_video_bitDepth.
+  ///
+  /// In en, this message translates to:
+  /// **'How many shades of colour the output can show.'**
+  String get settings_desc_video_bitDepth;
+
+  /// No description provided for @settings_desc_video_chroma.
+  ///
+  /// In en, this message translates to:
+  /// **'How colour detail is scaled; leave on automatic unless you see colour fringes.'**
+  String get settings_desc_video_chroma;
+
+  /// No description provided for @settings_desc_video_dithering.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds tiny noise to hide visible bands in smooth colours.'**
+  String get settings_desc_video_dithering;
+
+  /// No description provided for @settings_desc_video_interpolation.
+  ///
+  /// In en, this message translates to:
+  /// **'Blends frames to make motion look smoother.'**
+  String get settings_desc_video_interpolation;
+
+  /// No description provided for @settings_desc_video_debanding.
+  ///
+  /// In en, this message translates to:
+  /// **'Smooths visible colour bands in skies and dark scenes.'**
+  String get settings_desc_video_debanding;
+
+  /// No description provided for @settings_desc_video_gpuRendering.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced options for how the graphics chip draws the video.'**
+  String get settings_desc_video_gpuRendering;
+
+  /// No description provided for @settings_desc_video_displayModeWhitelist.
+  ///
+  /// In en, this message translates to:
+  /// **'Limits which screen modes the app may switch to.'**
+  String get settings_desc_video_displayModeWhitelist;
+
+  /// No description provided for @settings_desc_audio_outputDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Where sound plays: speakers, headphones or another device.'**
+  String get settings_desc_audio_outputDevice;
+
+  /// No description provided for @settings_desc_audio_speakerLayout.
+  ///
+  /// In en, this message translates to:
+  /// **'How many speakers your setup has, from stereo to surround.'**
+  String get settings_desc_audio_speakerLayout;
+
+  /// No description provided for @settings_desc_audio_normalizeVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'Evens out loud and quiet scenes so you touch the volume less.'**
+  String get settings_desc_audio_normalizeVolume;
+
+  /// No description provided for @settings_desc_audio_outputMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Lets the app adjust sound automatically or keeps a fixed format.'**
+  String get settings_desc_audio_outputMode;
+
+  /// No description provided for @settings_desc_audio_passthrough.
+  ///
+  /// In en, this message translates to:
+  /// **'Sends the original surround sound to your receiver untouched.'**
+  String get settings_desc_audio_passthrough;
+
+  /// No description provided for @settings_desc_audio_passthroughDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'The device that receives passthrough sound.'**
+  String get settings_desc_audio_passthroughDevice;
+
+  /// No description provided for @settings_desc_audio_receiver_dolbyDigital.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on if your receiver can play Dolby Digital.'**
+  String get settings_desc_audio_receiver_dolbyDigital;
+
+  /// No description provided for @settings_desc_audio_receiver_ddPlus.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on if your receiver can play Dolby Digital Plus.'**
+  String get settings_desc_audio_receiver_ddPlus;
+
+  /// No description provided for @settings_desc_audio_receiver_dts.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on if your receiver can play DTS.'**
+  String get settings_desc_audio_receiver_dts;
+
+  /// No description provided for @settings_desc_audio_receiver_trueHd.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on if your receiver can play Dolby TrueHD.'**
+  String get settings_desc_audio_receiver_trueHd;
+
+  /// No description provided for @settings_desc_audio_receiver_dtsHd.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on if your receiver can play DTS-HD.'**
+  String get settings_desc_audio_receiver_dtsHd;
+
+  /// No description provided for @settings_desc_audio_receiver_atmos.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on if your receiver can play Dolby Atmos.'**
+  String get settings_desc_audio_receiver_atmos;
+
+  /// No description provided for @settings_desc_audio_receiver_dtsX.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on if your receiver can play DTS:X.'**
+  String get settings_desc_audio_receiver_dtsX;
+
+  /// No description provided for @settings_desc_audio_multichannelLpcm.
+  ///
+  /// In en, this message translates to:
+  /// **'Sends surround sound as uncompressed audio over HDMI.'**
+  String get settings_desc_audio_multichannelLpcm;
+
+  /// No description provided for @settings_desc_audio_ac3Transcode.
+  ///
+  /// In en, this message translates to:
+  /// **'Converts other surround formats to Dolby Digital for older receivers.'**
+  String get settings_desc_audio_ac3Transcode;
+
+  /// No description provided for @settings_desc_audio_stereoUpmix.
+  ///
+  /// In en, this message translates to:
+  /// **'Spreads two-channel sound across all your speakers.'**
+  String get settings_desc_audio_stereoUpmix;
+
+  /// No description provided for @settings_desc_audio_downmixDialogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Makes voices louder when surround is mixed down to fewer speakers.'**
+  String get settings_desc_audio_downmixDialogue;
+
+  /// No description provided for @settings_desc_audio_resamplingQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Higher quality gives cleaner sound but uses more processing.'**
+  String get settings_desc_audio_resamplingQuality;
+
+  /// No description provided for @settings_desc_audio_sampleRate.
+  ///
+  /// In en, this message translates to:
+  /// **'The sound rate sent to your output device.'**
+  String get settings_desc_audio_sampleRate;
+
+  /// No description provided for @settings_desc_audio_exclusiveMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Gives this app full control of the sound device for the best quality.'**
+  String get settings_desc_audio_exclusiveMode;
+
+  /// No description provided for @settings_desc_audio_deviceKeepAlive.
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps the sound device awake so playback starts without a pop or delay.'**
+  String get settings_desc_audio_deviceKeepAlive;
+
+  /// No description provided for @settings_desc_subtitles_autoEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Turns subtitles on by itself when they are found.'**
+  String get settings_desc_subtitles_autoEnable;
+
+  /// No description provided for @settings_desc_subtitles_hearingImpaired.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefer or avoid subtitles that also describe sounds.'**
+  String get settings_desc_subtitles_hearingImpaired;
+
+  /// No description provided for @settings_desc_subtitles_font.
+  ///
+  /// In en, this message translates to:
+  /// **'The typeface used for subtitles.'**
+  String get settings_desc_subtitles_font;
+
+  /// No description provided for @settings_desc_subtitles_position.
+  ///
+  /// In en, this message translates to:
+  /// **'How high or low subtitles sit on the screen.'**
+  String get settings_desc_subtitles_position;
+
+  /// No description provided for @settings_desc_subtitles_encoding.
+  ///
+  /// In en, this message translates to:
+  /// **'The text encoding used to read subtitle files; change it if letters look wrong.'**
+  String get settings_desc_subtitles_encoding;
+
+  /// No description provided for @settings_desc_subtitles_border.
+  ///
+  /// In en, this message translates to:
+  /// **'The outline around subtitle letters.'**
+  String get settings_desc_subtitles_border;
+
+  /// No description provided for @settings_desc_subtitles_shadow.
+  ///
+  /// In en, this message translates to:
+  /// **'A soft shadow behind subtitle letters.'**
+  String get settings_desc_subtitles_shadow;
+
+  /// No description provided for @settings_desc_subtitles_background.
+  ///
+  /// In en, this message translates to:
+  /// **'A dark box behind subtitles so they are easier to read.'**
+  String get settings_desc_subtitles_background;
+
+  /// No description provided for @settings_desc_subtitles_delay.
+  ///
+  /// In en, this message translates to:
+  /// **'Moves subtitles earlier or later to match the speech.'**
+  String get settings_desc_subtitles_delay;
+
+  /// No description provided for @settings_desc_subtitles_forcedBehaviour.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do with forced subtitles, which only translate foreign speech.'**
+  String get settings_desc_subtitles_forcedBehaviour;
+
+  /// No description provided for @settings_desc_subtitles_assStyling.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the subtitle file\'s own styling or the app\'s style.'**
+  String get settings_desc_subtitles_assStyling;
+
+  /// No description provided for @settings_desc_display_monitor.
+  ///
+  /// In en, this message translates to:
+  /// **'Which screen the video plays on.'**
+  String get settings_desc_display_monitor;
+
+  /// No description provided for @settings_desc_display_fullscreenMode.
+  ///
+  /// In en, this message translates to:
+  /// **'How the player fills the screen on a computer.'**
+  String get settings_desc_display_fullscreenMode;
+
+  /// No description provided for @settings_desc_display_refreshRate.
+  ///
+  /// In en, this message translates to:
+  /// **'The screen refresh rate used during playback.'**
+  String get settings_desc_display_refreshRate;
+
+  /// No description provided for @settings_desc_display_hdrOutputMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether the screen is switched into HDR mode for HDR videos.'**
+  String get settings_desc_display_hdrOutputMode;
+
+  /// No description provided for @settings_desc_display_calibration.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjusts brightness and colour to suit your screen.'**
+  String get settings_desc_display_calibration;
+
+  /// No description provided for @settings_desc_streaming_quality.
+  ///
+  /// In en, this message translates to:
+  /// **'The video quality to prefer when a title offers several.'**
+  String get settings_desc_streaming_quality;
+
+  /// No description provided for @settings_desc_streaming_protocol.
+  ///
+  /// In en, this message translates to:
+  /// **'The network method used to fetch streams.'**
+  String get settings_desc_streaming_protocol;
+
+  /// No description provided for @settings_desc_streaming_cacheSizeLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The most disk space streams may use before old data is removed.'**
+  String get settings_desc_streaming_cacheSizeLimit;
+
+  /// No description provided for @settings_desc_streaming_bufferSize.
+  ///
+  /// In en, this message translates to:
+  /// **'How much video is held in memory while streaming.'**
+  String get settings_desc_streaming_bufferSize;
+
+  /// No description provided for @settings_desc_streaming_prebuffer.
+  ///
+  /// In en, this message translates to:
+  /// **'How much video loads before playback starts.'**
+  String get settings_desc_streaming_prebuffer;
+
+  /// No description provided for @settings_desc_streaming_maxHttpConnections.
+  ///
+  /// In en, this message translates to:
+  /// **'How many connections the app opens at once to download a stream.'**
+  String get settings_desc_streaming_maxHttpConnections;
+
+  /// No description provided for @settings_desc_streaming_connectionTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'How long to wait for a connection before trying again.'**
+  String get settings_desc_streaming_connectionTimeout;
+
+  /// No description provided for @settings_desc_streaming_retryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'How many times to retry a failed download.'**
+  String get settings_desc_streaming_retryCount;
+
+  /// No description provided for @settings_desc_streaming_proxy.
+  ///
+  /// In en, this message translates to:
+  /// **'Send streams through a proxy server if your network needs one.'**
+  String get settings_desc_streaming_proxy;
+
+  /// No description provided for @settings_desc_streaming_userAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'The name this app gives to servers when it asks for video.'**
+  String get settings_desc_streaming_userAgent;
+
+  /// No description provided for @settings_desc_streaming_headers.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra information sent with every video request, for advanced setups.'**
+  String get settings_desc_streaming_headers;
+
+  /// No description provided for @settings_desc_streaming_tls.
+  ///
+  /// In en, this message translates to:
+  /// **'Security options for encrypted connections.'**
+  String get settings_desc_streaming_tls;
+
+  /// No description provided for @settings_desc_downloads_bandwidthLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The fastest speed downloads may use, so the network stays free.'**
+  String get settings_desc_downloads_bandwidthLimit;
+
+  /// No description provided for @settings_desc_downloads_torrentDownLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The fastest speed torrents may download at.'**
+  String get settings_desc_downloads_torrentDownLimit;
+
+  /// No description provided for @settings_desc_downloads_torrentUpLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The fastest speed torrents may upload at.'**
+  String get settings_desc_downloads_torrentUpLimit;
+
+  /// No description provided for @settings_desc_downloads_connectionLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The most connections torrents may open in total.'**
+  String get settings_desc_downloads_connectionLimit;
+
+  /// No description provided for @settings_desc_downloads_peerLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'The most other users a single torrent may connect to.'**
+  String get settings_desc_downloads_peerLimit;
+
+  /// No description provided for @settings_desc_downloads_seeding.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether to keep sharing a torrent after it has finished.'**
+  String get settings_desc_downloads_seeding;
+
+  /// No description provided for @settings_desc_downloads_tracker.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra tracker addresses that help torrents find other users.'**
+  String get settings_desc_downloads_tracker;
+
+  /// No description provided for @settings_desc_downloads_dht.
+  ///
+  /// In en, this message translates to:
+  /// **'Lets torrents find other users without a tracker.'**
+  String get settings_desc_downloads_dht;
+
+  /// No description provided for @settings_desc_downloads_pex.
+  ///
+  /// In en, this message translates to:
+  /// **'Lets torrent users share the addresses of others they know.'**
+  String get settings_desc_downloads_pex;
+
+  /// No description provided for @settings_desc_languages_preferOriginalAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Plays the original language of a title when it is available.'**
+  String get settings_desc_languages_preferOriginalAudio;
+
+  /// No description provided for @settings_desc_languages_preferForcedSubtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Picks forced subtitles that translate only foreign speech.'**
+  String get settings_desc_languages_preferForcedSubtitles;
+
+  /// No description provided for @settings_desc_languages_preferBestAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Chooses the track with the best sound quality in your language.'**
+  String get settings_desc_languages_preferBestAudio;
+
+  /// No description provided for @settings_desc_languages_trackPriority.
+  ///
+  /// In en, this message translates to:
+  /// **'Rules that decide which audio and subtitle tracks are picked first.'**
+  String get settings_desc_languages_trackPriority;
+
+  /// No description provided for @settings_desc_performance_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Balances picture quality against speed and battery.'**
+  String get settings_desc_performance_mode;
+
+  /// No description provided for @settings_desc_performance_gpuQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower this if video stutters on an older device.'**
+  String get settings_desc_performance_gpuQuality;
+
+  /// No description provided for @settings_desc_performance_backgroundPreload.
+  ///
+  /// In en, this message translates to:
+  /// **'Prepares the next video in the background so it opens faster.'**
+  String get settings_desc_performance_backgroundPreload;
+
+  /// No description provided for @settings_desc_performance_maxDecoderResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'The largest picture size the app will try to play.'**
+  String get settings_desc_performance_maxDecoderResolution;
+
+  /// No description provided for @settings_desc_performance_decoderThreads.
+  ///
+  /// In en, this message translates to:
+  /// **'How many processor cores may decode video; automatic is best.'**
+  String get settings_desc_performance_decoderThreads;
+
+  /// No description provided for @settings_desc_advanced_diagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows technical details about playback, for support.'**
+  String get settings_desc_advanced_diagnostics;
+
+  /// No description provided for @settings_desc_advanced_customMpvOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra player options for experts; wrong values can break playback.'**
+  String get settings_desc_advanced_customMpvOptions;
+
+  /// No description provided for @settings_desc_playback_preferredAudioLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'The audio language picked first when a video has several.'**
+  String get settings_desc_playback_preferredAudioLanguage;
+
+  /// No description provided for @settings_desc_playback_preferredSubtitleLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'The subtitle language picked first when a video has several.'**
+  String get settings_desc_playback_preferredSubtitleLanguage;
+
+  /// No description provided for @settings_desc_playback_defaultSubtitleSize.
+  ///
+  /// In en, this message translates to:
+  /// **'How large subtitles appear.'**
+  String get settings_desc_playback_defaultSubtitleSize;
+
+  /// No description provided for @settings_desc_app_language.
+  ///
+  /// In en, this message translates to:
+  /// **'The language of the app\'s menus and buttons.'**
+  String get settings_desc_app_language;
+
+  /// No description provided for @home_emptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to show yet. Check your sources in Settings or try again.'**
+  String get home_emptyBody;
+
+  /// No description provided for @home_openSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get home_openSettings;
+
+  /// No description provided for @settings_searchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search settings'**
+  String get settings_searchHint;
+
+  /// No description provided for @settings_searchNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No setting matches.'**
+  String get settings_searchNone;
 }
 
 class _AppStringsDelegate extends LocalizationsDelegate<AppStrings> {

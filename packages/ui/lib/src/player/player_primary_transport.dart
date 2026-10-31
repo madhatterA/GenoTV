@@ -3,6 +3,7 @@ import '../l10n_gen/app_strings.dart';
 import 'package:contracts/contracts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'transport_control_button.dart';
 
@@ -25,6 +26,9 @@ class PlayerPrimaryTransport extends StatelessWidget {
     required this.controller,
     required this.state,
     this.diameter = TransportControlButton.defaultDiameter,
+    this.playDiameter,
+    this.glyph,
+    this.playGlyph,
     this.gap = 20,
     this.autofocus = true,
     super.key,
@@ -42,6 +46,13 @@ class PlayerPrimaryTransport extends StatelessWidget {
   /// spec exists in Rivulet — see `player_control_rail.dart`'s own doc
   /// comment for the same gap on the rail itself).
   final double diameter;
+
+  /// Play/pause diameter when it differs from [diameter] (tier XL on phone).
+  final double? playDiameter;
+
+  /// Glyph sizes when they differ from the 0.4 / 0.5 of the diameter.
+  final double? glyph;
+  final double? playGlyph;
   final double gap;
   final bool autofocus;
 
@@ -60,7 +71,9 @@ class PlayerPrimaryTransport extends StatelessWidget {
       ),
       _SkipIntent: CallbackAction<_SkipIntent>(
         onInvoke: (intent) {
-          controller.seek(_clamp(state.position + intent.amount));
+          controller.seek(
+            _clamp(controller.currentState.position + intent.amount),
+          );
           return null;
         },
       ),
@@ -89,32 +102,35 @@ class PlayerPrimaryTransport extends StatelessWidget {
           children: <Widget>[
             TransportControlButton(
               key: const ValueKey<String>('skip-back'),
-              icon: Icons.replay_10,
+              icon: PhosphorIconsRegular.arrowCounterClockwise,
               semanticLabel: AppStrings.of(context).player_replayTen,
               diameter: diameter,
-              iconSize: diameter * 0.4,
-              onPress: () => controller.seek(_clamp(state.position - skipBack)),
+              iconSize: glyph ?? diameter * 0.4,
+              onPress: () => controller.seek(
+                _clamp(controller.currentState.position - skipBack),
+              ),
             ),
             SizedBox(width: gap),
             TransportControlButton(
               key: const ValueKey<String>('play-pause'),
-              icon: state.isPlaying ? Icons.pause : Icons.play_arrow,
+              icon: state.isPlaying ? PhosphorIconsRegular.pause : PhosphorIconsRegular.play,
               semanticLabel: state.isPlaying
                   ? AppStrings.of(context).common_pause
                   : AppStrings.of(context).common_play,
-              diameter: diameter,
-              iconSize: diameter * 0.5,
+              diameter: playDiameter ?? diameter,
+              iconSize: playGlyph ?? (playDiameter ?? diameter) * 0.5,
               onPress: state.isPlaying ? controller.pause : controller.play,
             ),
             SizedBox(width: gap),
             TransportControlButton(
               key: const ValueKey<String>('skip-forward'),
-              icon: Icons.forward_30,
+              icon: PhosphorIconsRegular.arrowClockwise,
               semanticLabel: AppStrings.of(context).player_skipThirty,
               diameter: diameter,
-              iconSize: diameter * 0.4,
-              onPress: () =>
-                  controller.seek(_clamp(state.position + skipForward)),
+              iconSize: glyph ?? diameter * 0.4,
+              onPress: () => controller.seek(
+                _clamp(controller.currentState.position + skipForward),
+              ),
             ),
           ],
         ),

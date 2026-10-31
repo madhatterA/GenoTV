@@ -1,7 +1,10 @@
+import '../components/app_toast.dart';
 import '../l10n_gen/app_strings.dart';
+import '../platform/app_haptics.dart';
 
 import 'package:contracts/contracts.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart' show KeyDownEvent, LogicalKeyboardKey;
 
 import '../focus/focus_memory.dart';
@@ -12,6 +15,7 @@ import '../platform/adaptive_behavior.dart';
 import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
 import 'continue_card.dart';
+import 'media_actions.dart';
 import 'media_context_menu.dart';
 import 'media_row.dart' show RowMetrics, rowHeaderHeight;
 import 'poster_card.dart';
@@ -36,6 +40,7 @@ class MediaShelf extends StatefulWidget {
     this.onItemTap,
     this.onLoadMore,
     this.onRemove,
+    this.onUndoRemove,
     this.autofocus = true,
     this.firstFocusNode,
     this.keyPrefix,
@@ -83,6 +88,10 @@ class MediaShelf extends StatefulWidget {
   /// immediately; a `false`/thrown result restores it at its original
   /// index and refocuses it (phase step 5).
   final Future<bool> Function(MediaItem item)? onRemove;
+
+  /// Re-saves a removed item's progress. The toast offers Undo only when this
+  /// is given, because an Undo that restored just the card would not persist.
+  final Future<bool> Function(MediaItem item)? onUndoRemove;
 
   @override
   State<MediaShelf> createState() => _MediaShelfState();
@@ -135,7 +144,7 @@ class _MediaShelfState extends State<MediaShelf> {
   @override
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
     final metrics = RowMetrics.of(context, continueRow: widget.isContinueRow);
     // An empty title means the caller renders its own heading above the
     // shelf (search's grouped results, which need the heading excluded
@@ -188,6 +197,9 @@ class _MediaShelfState extends State<MediaShelf> {
                       scrollDirection: Axis.horizontal,
                       itemCount: _items.length,
                       itemExtent: metrics.pitch,
+                      scrollCacheExtent: ScrollCacheExtent.pixels(
+                        metrics.pitch,
+                      ),
                       padding: EdgeInsets.symmetric(
                         horizontal: metrics.gutter,
                         vertical: FocusableCard.glowInset,
@@ -239,7 +251,7 @@ class _MediaShelfState extends State<MediaShelf> {
             memory: widget.memory,
             focusNode: _focusNodeFor(item.id),
             revealAncestors:
-                !(AdaptiveBehavior.of(context).formFactor == FormFactor.tv),
+                !(AdaptiveBehavior.formFactorOf(context) == FormFactor.tv),
             focusKey: widget.keyPrefix == null
                 ? null
                 : ValueKey<String>('${widget.keyPrefix}-item-$index'),
@@ -248,7 +260,7 @@ class _MediaShelfState extends State<MediaShelf> {
             width: metrics.width,
             height: metrics.height,
             onFixedFocus:
-                (AdaptiveBehavior.of(context).formFactor == FormFactor.tv)
+                (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv)
                 ? () => _fixFocus(item.id, metrics.pitch)
                 : null,
             onFocused: () => _handleFocus(item),
@@ -329,38 +341,79 @@ class _MediaShelfState extends State<MediaShelf> {
     MediaItem item,
     Offset? anchor,
   ) {
-    final focusNode = _focusNodeFor(item.id);
-    final actions = <MediaContextAction>[
-      if (widget.isContinueRow && widget.onRemove != null)
-        MediaContextAction(
-          label: AppStrings.of(context).shelf_removeContinue,
-          icon: PhosphorIconsRegular.x,
-          onSelected: () => _removeOptimistically(item),
-        ),
-    ];
-    if (actions.isEmpty) return Future<void>.value();
-    return showMediaContextMenu(
-      context: context,
-      actions: actions,
-      returnFocusTo: focusNode,
+    final strings = AppStrings.of(context);
+    AppHaptics.light(context);
+    return showMediaActionsMenu(
+      context,
+      item,
+      onDetails: widget.onItemTap,
+      progress: widget.progress[item.id],
       anchor: anchor,
+      returnFocusTo: _focusNodeFor(item.id),
+      extra: <MediaContextAction>[
+        if (widget.isContinueRow && widget.onRemove != null)
+          MediaContextAction(
+            label: strings.shelf_removeContinue,
+            icon: PhosphorIconsRegular.x,
+            onSelected: () => _removeOptimistically(item),
+          ),
+      ],
     );
   }
 
   Future<void> _removeOptimistically(MediaItem item) async {
     final index = _items.indexWhere((i) => i.id == item.id);
     if (index == -1) return;
+    final strings = AppStrings.of(context);
     setState(() {
       _items.removeAt(index);
       _policy.updateItems(_items.map((i) => i.id).toList());
     });
     try {
       final succeeded = await widget.onRemove!(item);
-      if (!succeeded && mounted) _restore(item, index);
+      if (!mounted) return;
+      if (!succeeded) {
+        _restore(item, index);
+        _toastSaveFailed(strings);
+        return;
+      }
+      showAppToast(
+        context,
+        PhosphorIconsRegular.x,
+        strings.toast_removedContinue,
+        actionLabel: widget.onUndoRemove == null ? null : strings.toast_undo,
+        onAction: widget.onUndoRemove == null
+            ? null
+            : () => _undoRemove(item, index),
+      );
     } catch (_) {
-      if (mounted) _restore(item, index);
+      if (mounted) {
+        _restore(item, index);
+        _toastSaveFailed(strings);
+      }
       rethrow;
     }
+  }
+
+  void _toastSaveFailed(AppStrings strings) => showAppToast(
+    context,
+    PhosphorIconsRegular.warning,
+    strings.toast_saveFailed,
+  );
+
+  // Puts the card back at its old index, once, and only if it was re-saved.
+  Future<void> _undoRemove(MediaItem item, int index) async {
+    if (_items.any((i) => i.id == item.id)) return;
+    final strings = AppStrings.of(context);
+    bool ok;
+    try {
+      ok = await widget.onUndoRemove!(item);
+    } on Object {
+      ok = false;
+    }
+    if (!mounted) return;
+    if (!ok) return _toastSaveFailed(strings);
+    if (!_items.any((i) => i.id == item.id)) _restore(item, index);
   }
 
   void _restore(MediaItem item, int index) {

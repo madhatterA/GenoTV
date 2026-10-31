@@ -1,8 +1,10 @@
+import '../l10n/genre_labels.dart';
 import '../l10n_gen/app_strings.dart';
 
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../components/pull_refresh.dart';
 import '../components/ambient_background.dart';
 import '../components/app_chip.dart';
 import '../components/app_text_field.dart';
@@ -28,8 +30,12 @@ class GenresPage extends StatefulWidget {
   const GenresPage({
     required this.genresByKind,
     required this.onSeeAll,
+    this.onRefresh,
     super.key,
   });
+
+  /// Reloads the genre lists (phone pull-to-refresh).
+  final Future<void> Function()? onRefresh;
   final Map<TitleKind, List<TitleFilterOption<int>>> genresByKind;
 
   /// Opens the shared grid for [query]; [title] names the genre.
@@ -39,6 +45,7 @@ class GenresPage extends StatefulWidget {
 }
 
 class _GenresPageState extends State<GenresPage> {
+  static const double _tvTileWidth = 180;
   final _memory = FocusMemory();
   final _search = TextEditingController();
   late final FocusNode _firstTile = FocusNode(debugLabel: 'genres-first');
@@ -62,7 +69,7 @@ class _GenresPageState extends State<GenresPage> {
   @override
   Widget build(BuildContext context) {
     final sizes = AdaptiveBehavior.sizesOf(context);
-    final gutter = RivuletSpacing.gutter(sizes.formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final needle = _search.text.trim().toLowerCase();
     final genres = [
       for (final g
@@ -138,54 +145,67 @@ class _GenresPageState extends State<GenresPage> {
         // The tiles are 16:9 cards, so they are sized like the 16:9 cards.
         final columns = sizes.columnsFor(
           constraints.maxWidth,
-          cardWidth: sizes.continueCardWidth,
+          // TV tiles are smaller than the 16:9 cards: a genre is a label, and
+          // at the continue-card size three tiles filled a 1080p screen.
+          cardWidth: sizes.formFactor == FormFactor.tv
+              ? _tvTileWidth
+              : sizes.continueCardWidth,
         );
-        final cellWidth =
-            (constraints.maxWidth - 2 * gutter - (columns - 1) * gap) / columns;
+        final cellWidth = sizes.gridCardWidth(constraints.maxWidth, columns);
         final cellHeight = cellWidth * 9 / 16;
         final room = FocusableCard.focusRoom(cellHeight);
         return FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
-          child: GridView.builder(
-            key: ValueKey('genres-grid-${_kind.name}'),
-            padding: EdgeInsets.fromLTRB(gutter, room, gutter, room),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisExtent: cellHeight,
-              crossAxisSpacing: gap,
-              mainAxisSpacing: gap,
-            ),
-            itemCount: genres.length,
-            itemBuilder: (context, i) {
-              final genre = genres[i];
-              return FocusTraversalOrder(
-                order: NumericFocusOrder(i.toDouble()),
-                child: LineEndStop(
-                  active: i % columns == columns - 1 || i == genres.length - 1,
-                  child: FocusableCard(
-                    focusKey: ValueKey('genre-tile-${genre.label}'),
-                    surfaceId: 'genres-${_kind.name}',
-                    itemId: 'genre-${genre.value}',
-                    memory: _memory,
-                    focusNode: i == 0 ? _firstTile : null,
-                    // TV lands on the first tile; elsewhere the page entry
-                    // (DESIGN_SPEC §6.4 rule 9) decides.
-                    autofocus:
-                        i == 0 &&
-                        (AdaptiveBehavior.of(context).formFactor ==
-                            FormFactor.tv),
-                    semanticLabel: genre.label,
-                    width: double.infinity,
-                    height: cellHeight,
-                    onTap: () => widget.onSeeAll(
-                      TitleQuery(kind: _kind, genreIds: [genre.value]),
-                      genre.label,
+          child: PullRefresh(
+            onRefresh: widget.onRefresh ?? () async {},
+            child: GridView.builder(
+              key: ValueKey('genres-grid-${_kind.name}'),
+              padding: EdgeInsets.fromLTRB(gutter, room, gutter, room),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                mainAxisExtent: cellHeight,
+                crossAxisSpacing: gap,
+                mainAxisSpacing: gap,
+              ),
+              itemCount: genres.length,
+              itemBuilder: (context, i) {
+                final genre = genres[i];
+                return FocusTraversalOrder(
+                  order: NumericFocusOrder(i.toDouble()),
+                  child: LineEndStop(
+                    active:
+                        i % columns == columns - 1 || i == genres.length - 1,
+                    child: FocusableCard(
+                      focusKey: ValueKey('genre-tile-${genre.label}'),
+                      surfaceId: 'genres-${_kind.name}',
+                      itemId: 'genre-${genre.value}',
+                      memory: _memory,
+                      focusNode: i == 0 ? _firstTile : null,
+                      // TV lands on the first tile; elsewhere the page entry
+                      // (DESIGN_SPEC §6.4 rule 9) decides.
+                      autofocus:
+                          i == 0 &&
+                          (AdaptiveBehavior.formFactorOf(context) ==
+                              FormFactor.tv),
+                      semanticLabel: genreLabel(
+                        context,
+                        genre.label,
+                        id: genre.value,
+                      ),
+                      width: double.infinity,
+                      height: cellHeight,
+                      onTap: () => widget.onSeeAll(
+                        TitleQuery(kind: _kind, genreIds: [genre.value]),
+                        genreLabel(context, genre.label, id: genre.value),
+                      ),
+                      child: _GenreTile(
+                        name: genreLabel(context, genre.label, id: genre.value),
+                      ),
                     ),
-                    child: _GenreTile(name: genre.label),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         );
       },

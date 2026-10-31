@@ -182,3 +182,36 @@ bool _has(String text, String pattern) => RegExp(
   '(^|[^a-z0-9])(?:$pattern)(?=[^a-z0-9]|\$)',
   caseSensitive: false,
 ).hasMatch(text);
+
+/// The stream "Play best" starts: highest resolution (4K > 1080p > 720p >
+/// other), then most seeders, then biggest size. A stream with 0 known
+/// seeders is skipped while another has some. Null for an empty list.
+SourceSpec? bestStream(List<SourceSpec> streams, {String providerName = ''}) {
+  if (streams.isEmpty) return null;
+  int? seeders(SourceSpec s) =>
+      parseStreamDisplay(s, providerName: providerName).seeders;
+  final anySeeded = streams.any((s) => (seeders(s) ?? 0) > 0);
+  final candidates = anySeeded
+      ? streams.where((s) => seeders(s) != 0).toList()
+      : streams;
+  int resolution(SourceSpec s) {
+    final badges = parseStreamDisplay(s, providerName: providerName).badges;
+    if (badges.contains('4K')) return 3;
+    if (badges.contains('1080p')) return 2;
+    return badges.contains('720p') ? 1 : 0;
+  }
+
+  // sort is not stable on ties: the index keeps the provider's order.
+  final ranked = candidates.indexed.toList()
+    ..sort((a, b) {
+      final byResolution = resolution(b.$2).compareTo(resolution(a.$2));
+      if (byResolution != 0) return byResolution;
+      final bySeeders = (seeders(b.$2) ?? 0).compareTo(seeders(a.$2) ?? 0);
+      if (bySeeders != 0) return bySeeders;
+      final bySize = (b.$2.expectedBytes ?? 0).compareTo(
+        a.$2.expectedBytes ?? 0,
+      );
+      return bySize != 0 ? bySize : a.$1.compareTo(b.$1);
+    });
+  return ranked.first.$2;
+}

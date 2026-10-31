@@ -18,6 +18,10 @@ final class DisplayModeServiceImpl
 
   String? get diagnostic => _diagnostic;
 
+  /// Content dynamic range (`sdr`, `hdr10`, `hlg`, `dv`) sent with the next apply; tvOS builds its
+  /// AVDisplayCriteria from it. Other platforms ignore the key.
+  String? dynamicRange;
+
   /// Requested fps, chosen/previous mode and approximation reason of the last matchFor.
   String? get matchDiagnostic => _matchDiagnostic;
 
@@ -49,6 +53,7 @@ final class DisplayModeServiceImpl
     required double contentFps,
     int? width,
     int? height,
+    String? dynamicRange,
   }) async {
     final modes = _lastModes ?? await availableModes();
     final current = modes.where((mode) => mode.isCurrent).firstOrNull;
@@ -68,10 +73,10 @@ final class DisplayModeServiceImpl
     }
     try {
       final applied = asMap(
-        await channel.invoke(
-          PlatformMethods.displayApply,
-          _modePayload(match.mode),
-        ),
+        await channel.invoke(PlatformMethods.displayApply, {
+          ..._modePayload(match.mode),
+          'dynamicRange': ?(dynamicRange ?? this.dynamicRange),
+        }),
       );
       if (applied['supported'] == false) {
         throw StateError(

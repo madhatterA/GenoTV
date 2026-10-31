@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../components/ambient_background.dart';
 import '../components/app_chip.dart';
 import '../focus/focus_memory.dart';
+import '../l10n/app_text.dart' show isFarsi;
 import '../navigation/page_entry_focus.dart';
 import '../navigation/page_back_button.dart';
 import '../platform/adaptive_behavior.dart';
@@ -110,8 +111,8 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final presentation = widget.presentation;
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
-    final gutter = RivuletSpacing.gutter(formFactor);
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
+    final gutter = RivuletSpacing.gutterOf(context);
     final rowGap = RivuletSpacing.rowGap(formFactor);
     final trailer = presentation.trailers.firstOrNull;
 
@@ -192,7 +193,12 @@ class SeriesDetailScreenState extends State<SeriesDetailScreen> {
                 ],
               ),
             ),
-            const Positioned(top: 0, left: 0, child: PageBackButton()),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: isFarsi(context) ? 0 : null,
+              child: const PageBackButton(),
+            ),
           ],
         ),
       ),

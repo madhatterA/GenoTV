@@ -42,10 +42,12 @@ const Map<String, List<String>> _propertiesOf = {
   'video.hwdec': ['hwdec'],
   'video.decoder': ['hwdec'],
   'video.aspectRatio': ['keepaspect', 'panscan'],
+  'video.deinterlace': ['deinterlace'],
   'video.scalingQuality': ['scale', 'cscale', 'dscale'],
   'video.toneMapping': ['tone-mapping'],
   'video.pixelFormat': ['vf'],
   'video.chroma': ['vf'],
+  'performance.maxDecoderResolution': ['vf'],
   'video.bitDepth': ['dither-depth'],
   'video.dithering': ['dither'],
   'video.interpolation': ['interpolation'],
@@ -72,18 +74,18 @@ final Set<SettingDef> playerSettingDefs = {
       def,
 };
 
-/// Preset values of the cache/buffer presets. Balanced is the engine's own
-/// state, so the default changes nothing.
+/// Preset values of the cache/buffer presets.
 const Map<String, Map<String, String>> _cachePresets = {
   'Low latency': {
     'cache-secs': '10',
     'demuxer-max-bytes': '8388608',
     'demuxer-readahead-secs': '1',
   },
+  // 120 s ahead (phase p10); the 128 MiB cap holds 120 s up to ~8.5 Mbps.
   'Balanced': {
     'cache-secs': '3600000',
-    'demuxer-max-bytes': '33554432',
-    'demuxer-readahead-secs': '1',
+    'demuxer-max-bytes': '134217728',
+    'demuxer-readahead-secs': '120',
   },
   'Large': {
     'cache-secs': '3600000',
@@ -117,6 +119,9 @@ Set<SettingDef> changedEngineSettings(SettingsValues values, {String? os}) => {
   // gives up before a direct file's first bytes arrive through the local
   // range server (bug_history.md 2026-10-11 stream-fail).
   settingById('playback.networkTimeout'),
+  // Balanced now differs from media_kit's own 32 MiB / 1 s read-ahead, so the
+  // preset must always reach mpv (phase p10: ~2 minutes ahead).
+  settingById('playback.cachePreset'),
   // Android retains its decoder/renderer between videos. Reset rendering
   // values too, so a previous video's CPU filter or HDR curve cannot leak.
   if (_hwdecApi(os) != null)
@@ -133,9 +138,10 @@ String? _hwdecApi(String? os) => switch (os ?? Platform.operatingSystem) {
   'android' => 'mediacodec',
   'ios' => 'videotoolbox',
   // Kodi Windows 2.1: DXVA (D3D11VA) is the only accelerator, default on.
-  // media_kit renders through ANGLE, which has no D3D11 decoder-surface interop
-  // (mpv rejects zero-copy `d3d11va`, hwdec-current "no"): GPU decode + copy.
-  'windows' => 'd3d11va-copy',
+  // The native surface (mpv's own Direct3D 11 context) takes decoded frames
+  // zero-copy; the ANGLE texture fallback has no D3D11 decoder-surface interop,
+  // so mpv falls through the list to GPU decode + copy.
+  'windows' => 'd3d11va,d3d11va-copy',
   _ => null,
 };
 
@@ -171,10 +177,9 @@ Map<String, String> engineOptionsFor(
   final prebuffer = read<double>('streaming.prebuffer');
   all['cache-pause-wait'] = prebuffer > 0 ? prebuffer.toString() : '1';
   final timeout = read<double>('playback.networkTimeout');
-  // Auto: 30 s, the transport range server's own wait for bytes it has not
-  // fetched yet. media_kit's 5 s gave up on direct files before their first
-  // bytes arrived (they come through 127.0.0.1 after aria2 fetches them).
-  all['network-timeout'] = timeout > 0 ? timeout.toString() : '30';
+  // Auto: 600 s, the range server's own wait (rangeWaitTimeout) — a slow
+  // source is a wait, a failed source fails at once.
+  all['network-timeout'] = timeout > 0 ? timeout.toString() : '600';
 
   // The Advanced decoder choice overrides the hardware decoding choice.
   all['hwdec'] = switch ((
@@ -196,6 +201,8 @@ Map<String, String> engineOptionsFor(
   all['keepaspect'] = _flag(aspect != 'Stretch');
   all['panscan'] = aspect == 'Fill' ? '1.0' : '0.0';
 
+  final deinterlace = read<String>('video.deinterlace') == 'On';
+  all['deinterlace'] = _flag(deinterlace);
   final scaling = read<String>('video.scalingQuality');
   final filter = scaling == 'High' ? 'ewa_lanczossharp' : 'bilinear';
   all['scale'] = filter;
@@ -206,10 +213,22 @@ Map<String, String> engineOptionsFor(
   final pixelFormat = read<String>('video.pixelFormat');
   final chroma = _chromaFormat[read<String>('video.chroma')];
   final format = pixelFormat != 'auto' ? pixelFormat : chroma;
-  all['vf'] = format == null ? '' : 'format=$format';
-  // CPU format filters cannot consume MediaCodec's opaque surface frames.
-  if (hwApi != null && all['hwdec'] != 'no' && format != null) {
-    all['hwdec'] = hwApi.endsWith('-copy') ? hwApi : '$hwApi-copy';
+  // Never upscale: the cap is the lesser of the source height and the limit.
+  final cap = _maxHeight[read<String>('performance.maxDecoderResolution')];
+  final filters = [
+    if (format != null) 'format=$format',
+    if (cap != null) "lavfi=[scale=w=-2:h='min(ih,$cap)']",
+  ];
+  all['vf'] = filters.join(',');
+  // CPU filters cannot consume MediaCodec's opaque surface frames.
+  if (hwApi != null &&
+      all['hwdec'] != 'no' &&
+      (filters.isNotEmpty || deinterlace)) {
+    all['hwdec'] = hwApi.contains(',')
+        ? hwApi.split(',').last
+        : hwApi.endsWith('-copy')
+        ? hwApi
+        : '$hwApi-copy';
   }
   final depth = read<String>('video.bitDepth');
   all['dither-depth'] = depth == 'auto' ? 'no' : depth;
@@ -242,11 +261,7 @@ Map<String, String> engineOptionsFor(
     ...scope,
     if (owners.isNotEmpty) ...changedEngineSettings(values, os: os),
     // Live CPU filter edits also switch decode output, including a reset.
-    if (android &&
-        scope.any(
-          (def) => def.id == 'video.pixelFormat' || def.id == 'video.chroma',
-        ))
-      settingById('video.hwdec'),
+    if (android && scope.any(_isVfSetting)) settingById('video.hwdec'),
   };
   return {
     if (owners.isNotEmpty) ..._gpuLevelFor(values),
@@ -257,10 +272,7 @@ Map<String, String> engineOptionsFor(
         )) ...{
       'vd-lavc-software-fallback': 'yes',
       // Remove the CPU filter before restoring opaque surface output.
-      if (format == null &&
-          rest.any(
-            (def) => def.id == 'video.pixelFormat' || def.id == 'video.chroma',
-          ))
+      if (filters.isEmpty && !deinterlace && rest.any(_isVfSetting))
         'vf': all['vf']!,
       'hwdec': all['hwdec']!,
     },
@@ -269,6 +281,22 @@ Map<String, String> engineOptionsFor(
         property: all[property]!,
   };
 }
+
+const _vfSettings = {
+  'video.pixelFormat',
+  'video.chroma',
+  'performance.maxDecoderResolution',
+  'video.deinterlace',
+};
+bool _isVfSetting(SettingDef def) => _vfSettings.contains(def.id);
+
+const Map<String, int> _maxHeight = {
+  '480p': 480,
+  '720p': 720,
+  '1080p': 1080,
+  '1440p': 1440,
+  '2160p': 2160,
+};
 
 const _levelOwners = {'performance.mode', 'performance.gpuQuality'};
 
@@ -651,15 +679,18 @@ final subtitleSettingDefs = {
       def,
 };
 
+/// [defaultFont] stands in for the font setting while it holds its default
+/// ('DejaVu Sans'): Android renders only the bundled font (no system font
+/// provider), so a plain SRT drew nothing with 'DejaVu Sans' on the TV.
 Map<String, String> subtitleEngineOptionsFor(
   SettingsValues values, {
   Set<SettingDef>? scope,
+  String defaultFont = 'DejaVu Sans',
 }) {
   final size = subtitleSizes[values.read<String>(defaultSubtitleSizeSetting)]!;
+  final font = values.read<String>(settingById('subtitles.font'));
   final result = <String, String>{
-    'sub-font': values.read<String>(settingById('subtitles.font')).isEmpty
-        ? 'DejaVu Sans'
-        : values.read<String>(settingById('subtitles.font')),
+    'sub-font': font.isEmpty || font == 'DejaVu Sans' ? defaultFont : font,
     'sub-font-size': (42 * size).toString(),
     'sub-scale': '1',
     // Kodi's 4.95% margin in mpv's 720-high scaled pixels (integer).

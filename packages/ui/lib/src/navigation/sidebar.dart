@@ -3,6 +3,7 @@ import '../l10n_gen/app_strings.dart';
 import 'package:flutter/material.dart';
 
 import '../components/glass_surface.dart';
+import '../components/tinted_surface.dart';
 import '../focus/focusable_action.dart';
 import '../l10n/app_text.dart';
 import '../platform/adaptive_behavior.dart';
@@ -17,7 +18,6 @@ const double _pillIconSize = 20;
 const double _panelSlide = 24;
 
 /// Distance below the top safe area where the top controls sit.
-const double _topControlsGap = 12;
 
 /// Swipe-left close thresholds (DESIGN_SPEC §7.3).
 const double _closeVelocity = 300;
@@ -44,7 +44,8 @@ Rect menuPillRect(BuildContext context, AppDestination active, double shift) {
   label.dispose();
   return Rect.fromLTWH(
     RivuletSpacing.gutter(profile.formFactor) + shift,
-    MediaQuery.paddingOf(context).top + _topControlsGap,
+    MediaQuery.paddingOf(context).top +
+        RivuletSpacing.controlTop(profile.formFactor),
     width,
     sizes.menuPillHeight,
   );
@@ -52,7 +53,8 @@ Rect menuPillRect(BuildContext context, AppDestination active, double shift) {
 
 /// Top y of the top controls (search button, back button).
 double topControlsTop(BuildContext context) =>
-    MediaQuery.paddingOf(context).top + _topControlsGap;
+    MediaQuery.paddingOf(context).top +
+    RivuletSpacing.controlTop(AdaptiveBehavior.formFactorOf(context));
 
 /// The menu pill and the menu panel (DESIGN_SPEC §7.2, §7.3). `expanded` and
 /// the selected id are owned by the caller ([AppShell]); this widget owns the
@@ -120,7 +122,7 @@ class _AppSidebarState extends State<AppSidebar> with TickerProviderStateMixin {
   void didUpdateWidget(AppSidebar old) {
     super.didUpdateWidget(old);
     if (widget.expanded == old.expanded) return;
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
     if (widget.expanded) {
       _controller.duration = effectiveDuration(
         context,
@@ -479,6 +481,99 @@ class _MenuRow extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Persistent slim sidebar for wide desktop windows (Part 07 p10): the menu
+/// panel's rows on a [TintedSurface], laid over the background. Settings is
+/// pinned at the bottom. No collapse toggle.
+class DesktopSidebar extends StatefulWidget {
+  const DesktopSidebar({
+    super.key,
+    required this.destinations,
+    required this.activeId,
+    required this.onSelect,
+  });
+
+  final List<AppDestination> destinations;
+  final String activeId;
+  final ValueChanged<String> onSelect;
+
+  @override
+  State<DesktopSidebar> createState() => DesktopSidebarState();
+}
+
+class DesktopSidebarState extends State<DesktopSidebar> {
+  final Map<String, FocusNode> _rowFocus = <String, FocusNode>{};
+  static const String _pinnedId = 'settings';
+
+  FocusNode _focusFor(String id) => _rowFocus.putIfAbsent(id, FocusNode.new);
+
+  /// Moves focus to the current section's row.
+  void focusActive() => _focusFor(widget.activeId).requestFocus();
+
+  @override
+  void dispose() {
+    for (final node in _rowFocus.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = RivuletTokens.of(context);
+    _MenuRow row(AppDestination d) => _MenuRow(
+      destination: d,
+      current: d.id == widget.activeId,
+      focusNode: _focusFor(d.id),
+      onSelect: widget.onSelect,
+    );
+    return SizedBox(
+      key: const ValueKey<String>('desktop-sidebar'),
+      width: RivuletSpacing.sidebarWidth,
+      child: TintedSurface(
+        radius: 0,
+        child: SafeArea(
+          right: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.all(RivuletSpacing.s24),
+                child: AppText(
+                  AppStrings.of(context).app_title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tokens.typeStyles.title,
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: RivuletSpacing.s8,
+                  ),
+                  children: <Widget>[
+                    for (final d in widget.destinations)
+                      if (d.id != _pinnedId) row(d),
+                  ],
+                ),
+              ),
+              Divider(height: 1, thickness: 1, color: tokens.colors.hairline),
+              Padding(
+                padding: const EdgeInsets.all(RivuletSpacing.s8),
+                child: Column(
+                  children: <Widget>[
+                    for (final d in widget.destinations)
+                      if (d.id == _pinnedId) row(d),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

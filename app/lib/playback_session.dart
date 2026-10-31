@@ -11,7 +11,7 @@ import 'package:platform_services/platform_services.dart'
         planAudio;
 import 'package:playback/playback.dart'
     show applyPreferredTracks, engineDecoderCodecs;
-import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier, VoidCallback;
 
 import 'platform_policy.dart';
 import 'playback_insight.dart';
@@ -47,6 +47,7 @@ final class PlaybackSession {
     required this.controllerFactory,
     this.releaseController,
     this.progress,
+    this.onProgressSaved,
     this.policy,
     this.settings,
     this.originalLanguage,
@@ -54,6 +55,7 @@ final class PlaybackSession {
     this.nextSource,
     this.logger,
     this.insight,
+    this.subtitleFont = 'DejaVu Sans',
   }) {
     _media = media;
     _source = source;
@@ -66,7 +68,14 @@ final class PlaybackSession {
   final PlaybackControllerFactory controllerFactory;
   final Future<void> Function(PlaybackController)? releaseController;
   final ProgressRepository? progress;
+
+  /// Called after the final position is saved on close (Home re-reads Continue watching).
+  final VoidCallback? onProgressSaved;
   final PlatformPolicy? policy;
+
+  /// The font the subtitle font setting's default stands for (see
+  /// [subtitleEngineOptionsFor]).
+  final String subtitleFont;
 
   /// Language and subtitle-size defaults applied when a video opens.
   final AppSettings? settings;
@@ -111,6 +120,8 @@ final class PlaybackSession {
   SourceStatus? _sourceStatus;
   AppFailure? _progressFailure;
   bool _wasPlaying = false;
+  ({Duration target, Stopwatch clock})? _pendingSeek;
+  bool _seekCompleted = false;
   bool _disposed = false;
   Map<String, Object> _audioNextVideo = const {};
   int _audioGeneration = 0;
@@ -142,7 +153,10 @@ final class PlaybackSession {
     source: _sourceStatus,
     failure:
         _transitionFailure ??
-        _sourceStatus?.failure ??
+        // A stall is waiting, not failure: only a failed source is terminal.
+        (_sourceStatus?.state == SourceState.stalled
+            ? null
+            : _sourceStatus?.failure) ??
         _playback.failure ??
         _progressFailure,
   );
@@ -226,7 +240,7 @@ final class PlaybackSession {
                   values,
                   scope: changedEngineSettings(values),
                 ),
-                ...subtitleEngineOptionsFor(values),
+                ...subtitleEngineOptionsFor(values, defaultFont: subtitleFont),
               },
       );
       _engineReady = true;
@@ -315,7 +329,13 @@ final class PlaybackSession {
     if (_engineReady && subtitleSettingDefs.contains(def)) {
       unawaited(
         controller
-            .setEngineOptions(subtitleEngineOptionsFor(values, scope: {def}))
+            .setEngineOptions(
+              subtitleEngineOptionsFor(
+                values,
+                scope: {def},
+                defaultFont: subtitleFont,
+              ),
+            )
             .catchError((Object error, StackTrace stack) {
               logger?.error(
                 'applying subtitle setting ${def.id} failed',
@@ -410,7 +430,7 @@ final class PlaybackSession {
     try {
       if (defaults != null) {
         await controller.setEngineOptions(
-          subtitleEngineOptionsFor(defaults.values),
+          subtitleEngineOptionsFor(defaults.values, defaultFont: subtitleFont),
         );
       }
     } catch (error, stack) {
@@ -602,6 +622,8 @@ final class PlaybackSession {
     _diagnosticsSubscription = null;
     insight?.update(const {});
     _engineReady = false;
+    _pendingSeek = null;
+    _seekCompleted = false;
     _mediaInfoSubscription = null;
     _stateSubscription = null;
     _eventSubscription = null;
@@ -613,6 +635,7 @@ final class PlaybackSession {
     await policy?.stop();
     if (progress != null && _controller != null) {
       await _saveProgress();
+      onProgressSaved?.call();
     }
     final controller = _controller;
     _controller = null;
@@ -635,6 +658,18 @@ final class PlaybackSession {
     final stopped = _wasPlaying && !state.isPlaying;
     _wasPlaying = state.isPlaying;
     _playback = state;
+    final seek = _pendingSeek;
+    if (seek != null &&
+        _seekCompleted &&
+        state.isPlaying &&
+        !state.isBuffering &&
+        (state.position - seek.target).abs() <= const Duration(seconds: 1)) {
+      logger?.info(
+        'seek ${seek.target.inMilliseconds} -> playing '
+        '${seek.clock.elapsedMilliseconds} ms position_ms=${state.position.inMilliseconds}',
+      );
+      _pendingSeek = null;
+    }
     _updateAudioLine(state);
     _emit();
     if (stopped) unawaited(_saveProgress());
@@ -776,7 +811,12 @@ final class PlaybackSession {
     if (p == null || fps == null || fps <= 0) return;
     unawaited(
       p
-          .matchDisplay(contentFps: fps, width: info.width, height: info.height)
+          .matchDisplay(
+            contentFps: fps,
+            width: info.width,
+            height: info.height,
+            dynamicRange: info.dynamicRange,
+          )
           .catchError(
             (Object error, StackTrace stack) => logger?.error(
               'display matching failed',
@@ -788,12 +828,28 @@ final class PlaybackSession {
   }
 
   void _onSourceStatus(SourceStatus status) {
+    if (_sourceStatus?.state != status.state) {
+      logger?.info(
+        'source status=${status.state.name} '
+        'available=${status.available.ranges} failure=${status.failure}',
+      );
+    }
     _sourceStatus = status;
     _emit();
   }
 
   void _onEvent(PlaybackEvent event) {
-    if (event is SeekRequested) unawaited(_hintSeek(event.to));
+    if (event is SeekRequested) {
+      _pendingSeek = (target: event.to, clock: Stopwatch()..start());
+      _seekCompleted = false;
+      logger?.info(
+        'seek requested target_ms=${event.to.inMilliseconds} '
+        'from_ms=${_playback.position.inMilliseconds} '
+        'buffered_ahead_ms=${_playback.bufferedAhead.inMilliseconds}',
+      );
+      unawaited(_hintSeek(event.to));
+    }
+    if (event is SeekCompleted) _seekCompleted = true;
     if (event is PlaybackEnded) unawaited(_onEnded());
     _emit();
   }
@@ -846,6 +902,10 @@ final class PlaybackSession {
                 bounded.inMicroseconds /
                 duration.inMicroseconds)
             .round();
+    logger?.info(
+      'seek range_hint offset=$offset '
+      'available=${_sourceStatus?.available.containsRange(ByteRange(offset, offset))}',
+    );
     await handle.seekHint(offset);
   }
 
@@ -859,6 +919,9 @@ final class PlaybackSession {
     }
     try {
       final selected = _playback.selected;
+      logger?.debug(
+        'save progress ${media.id} ${_playback.position.inSeconds}/${_playback.duration.inSeconds}s',
+      );
       await repository.upsert(
         PlaybackProgress(
           mediaId: media.id,

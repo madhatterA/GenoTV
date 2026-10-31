@@ -4,10 +4,17 @@ set -euo pipefail
 # Pinned, static iOS slices for the torrent ABI. iOS uses aria2's AppleTLS
 # backend for HTTP; the libtorrent slice intentionally disables its OpenSSL
 # backend so it has no hidden host crypto dependency.
+# LIBTORRENT_PLATFORM=tvos builds the same pinned recipe for tvOS (device + simulator, minimum tvOS 15.0).
+platform="${LIBTORRENT_PLATFORM:-ios}"
+if [[ "$platform" == tvos ]]; then
+  dev_sdk=appletvos sim_sdk=appletvsimulator cmake_system=tvOS build_tag=tvos-
+else
+  dev_sdk=iphoneos sim_sdk=iphonesimulator cmake_system=iOS build_tag=
+fi
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 cache="${LIBTORRENT_IOS_CACHE:-/tmp/transport-ios-native-$(id -u)}"
 source_dir="${LIBTORRENT_SOURCE:-$cache/libtorrent-2.1.1}"
-prefix="${LIBTORRENT_IOS_PREFIX:-$root/packages/transport/ios/libs/libtorrent}"
+prefix="${LIBTORRENT_IOS_PREFIX:-$root/packages/transport/$platform/libs/libtorrent}"
 ref="56ae8caba38bf154ffc210403cb23f91d0ecaa49"
 try_signal_ref="105cce59972f925a33aa6b1c3109e4cd3caf583d"
 boost_sha=5c1d40cb8e19adbf740a4ec2da35b3e58f3f5804b1dce44deb53df72193cbc6c
@@ -25,7 +32,7 @@ if [[ ! -d "$cache/boost_1_92_0/boost" ]]; then
   tar -xf "$boost_archive" -C "$cache" boost_1_92_0/boost
 fi
 boost_include="$cache/boost_1_92_0"
-deployment="${IPHONEOS_DEPLOYMENT_TARGET:-15.0}"
+deployment="${IPHONEOS_DEPLOYMENT_TARGET:-15.0}" # tvOS minimum is also 15.0
 
 if [[ ! -d "$source_dir/.git" ]]; then
   mkdir -p "$(dirname "$source_dir")"
@@ -38,9 +45,9 @@ git -C "$source_dir" submodule update --init --depth 1 deps/try_signal
 build_slice() {
   local sdk="$1" name="$2"
   local build
-  build="$cache/build-$name"
+  build="$cache/build-${build_tag}$name"
   cmake -S "$source_dir" -B "$build" -G Ninja \
-    -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT="$sdk" \
+    -DCMAKE_SYSTEM_NAME=$cmake_system -DCMAKE_OSX_SYSROOT="$sdk" \
     -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET="$deployment" \
     -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
     -Dencryption=OFF -Dwebtorrent=OFF -Ddht=ON \
@@ -50,8 +57,8 @@ build_slice() {
   printf '%s\n' "$build/libtorrent-rasterbar.a"
 }
 
-device_archive="$(build_slice iphoneos device)"
-sim_archive="$(build_slice iphonesimulator simulator)"
+device_archive="$(build_slice $dev_sdk device)"
+sim_archive="$(build_slice $sim_sdk simulator)"
 mkdir -p "$prefix"
 mkdir -p "$prefix/boost/include"
 cp -R "$boost_include/boost" "$prefix/boost/include/"

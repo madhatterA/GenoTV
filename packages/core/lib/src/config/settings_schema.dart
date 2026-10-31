@@ -409,6 +409,17 @@ final List<SettingDef> settingDefs = List.unmodifiable(<SettingDef>[
     sourceItems: ['2 | Adv: video decoder (Auto / hardware / software)'],
   ),
   const SettingDef(
+    id: 'video.deinterlace',
+    section: SettingSection.video,
+    tier: _adv,
+    kind: _choice,
+    choices: ['Auto', 'Off', 'On'],
+    defaultValue: 'Auto',
+    apply: _live,
+    target: MpvProperty('deinterlace'),
+    sourceItems: ['2 | Adv: deinterlacing (Auto / Off / On)'],
+  ),
+  const SettingDef(
     id: 'video.scalingQuality',
     section: SettingSection.video,
     tier: _adv,
@@ -1219,7 +1230,38 @@ final List<SettingDef> settingDefs = List.unmodifiable(<SettingDef>[
     section: SettingSection.downloads,
     tier: _exp,
     kind: _text,
-    defaultValue: '',
+    defaultValue:
+        // ngosang/trackerslist trackers_best.txt + top of trackers_all.txt, fetched 2026-10-12.
+        'udp://tracker.opentrackr.org:1337/announce\n'
+        'udp://open.stealth.si:80/announce\n'
+        'udp://open.demonii.com:1337/announce\n'
+        'udp://exodus.desync.com:6969/announce\n'
+        'udp://tracker.skynetcloud.site:6969/announce\n'
+        'udp://tracker.qu.ax:6969/announce\n'
+        'udp://tracker.ducks.party:1984/announce\n'
+        'udp://explodie.org:6969/announce\n'
+        'udp://tracker.nyaa.vc:6969/announce\n'
+        'udp://tracker.corpscorp.online:80/announce\n'
+        'udp://tracker.bittor.pw:1337/announce\n'
+        'udp://tracker-udp.gbitt.info:80/announce\n'
+        'udp://tracker2.dler.org:80/announce\n'
+        'http://tracker.dler.com:6969/announce\n'
+        'udp://tracker.dler.org:6969/announce\n'
+        'udp://retracker01-msk-virt.corbina.net:80/announce\n'
+        'udp://tracker.gmi.gd:6969/announce\n'
+        'http://tracker.renfei.net:8080/announce\n'
+        'udp://tracker.farted.net:6969/announce\n'
+        'udp://tracker.peerfect.org:6969/announce\n'
+        'udp://tracker.torrent.eu.org:451/announce\n'
+        'https://tracker.opentrackr.org:443/announce\n'
+        'http://tracker.opentrackr.org:1337/announce\n'
+        'http://tracker.qu.ax:6969/announce\n'
+        'http://tracker2.dler.org:80/announce\n'
+        'http://tracker.dler.org:6969/announce\n'
+        'udp://tracker.opentrackr.com:6969/announce\n'
+        'udp://tracker.ilibr.org:6969/announce\n'
+        'udp://mail.segso.net:6969/announce\n'
+        'https://tracker.pmman.tech:443/announce',
     target: TransportOption('tracker'),
     sourceItems: ['7 | Exp: piece cache / tracker / DHT / PEX'],
   ),
@@ -1288,6 +1330,17 @@ final List<SettingDef> settingDefs = List.unmodifiable(<SettingDef>[
     defaultValue: 'Auto',
     target: AppBehaviour('performance preset'),
     sourceItems: ['9 | Performance mode (Auto / Battery saver / Quality)'],
+  ),
+  const SettingDef(
+    id: 'performance.maxDecoderResolution',
+    section: SettingSection.performance,
+    tier: _adv,
+    kind: _choice,
+    choices: ['auto', '480p', '720p', '1080p', '1440p', '2160p'],
+    defaultValue: 'auto',
+    apply: _live,
+    target: MpvProperty('vf'),
+    sourceItems: ['9 | Adv: max decoder resolution'],
   ),
   const SettingDef(
     id: 'performance.gpuQuality',

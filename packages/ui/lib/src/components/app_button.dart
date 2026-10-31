@@ -17,6 +17,8 @@ class AppButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     this.expand = false,
+    this.size = RivuletControlSize.m,
+    this.minWidth,
     super.key,
   }) : _primary = true,
        overMedia = false;
@@ -29,6 +31,8 @@ class AppButton extends StatelessWidget {
     this.autofocus = false,
     this.overMedia = false,
     this.expand = false,
+    this.size = RivuletControlSize.m,
+    this.minWidth,
     super.key,
   }) : _primary = false;
 
@@ -45,25 +49,29 @@ class AppButton extends StatelessWidget {
   final bool expand;
   final bool _primary;
 
-  static const double _horizontalPadding = 20;
-  static const double _iconSize = 20;
+  /// Height tier (Part 07 p02); heroes use L.
+  final RivuletControlSize size;
+
+  /// Minimum width; defaults to 2 x height.
+  final double? minWidth;
 
   @override
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
     final colors = tokens.colors;
-    final sizes = AdaptiveBehavior.sizesOf(context);
+    final ff = AdaptiveBehavior.formFactorOf(context);
+    final height = size.height(ff);
     final foreground = _primary ? colors.onAccent : colors.textPrimary;
     final radius = BorderRadius.circular(RivuletRadius.full);
     final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: _horizontalPadding),
+      padding: EdgeInsets.symmetric(horizontal: size.horizontalPadding(ff)),
       child: Row(
         mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           if (icon != null) ...<Widget>[
-            Icon(icon, size: _iconSize, color: foreground),
-            const SizedBox(width: RivuletSpacing.s8),
+            Icon(icon, size: size.glyph(ff), color: foreground),
+            SizedBox(width: size.iconGap(ff)),
           ],
           Flexible(
             child: AppText(
@@ -99,9 +107,11 @@ class AppButton extends StatelessWidget {
       minSize: AdaptiveBehavior.hitTargetOf(context),
       centered: true,
       focusRadius: radius,
-      child: SizedBox(
-        height: sizes.buttonHeight,
-        width: expand ? double.infinity : null,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: height,
+          minWidth: expand ? double.infinity : (minWidth ?? 2 * height),
+        ),
         child: shaped,
       ),
     );

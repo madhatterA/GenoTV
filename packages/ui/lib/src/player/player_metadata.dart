@@ -44,7 +44,7 @@ class PlayerMetadata extends StatelessWidget {
       children: <Widget>[
         if (eyebrow case final eyebrow? when eyebrow.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: RivuletSpacing.s4),
             child: AppText.content(
               eyebrow,
               maxLines: 1,
@@ -69,7 +69,7 @@ class PlayerMetadata extends StatelessWidget {
         ),
         if (!compact && hasMeta)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.only(top: RivuletSpacing.s12),
             child: _MetaRow(
               rating: rating,
               runtime: runtime,
@@ -114,11 +114,11 @@ class _MetaRow extends StatelessWidget {
       children: <Widget>[
         if (rating case final rating?) ...<Widget>[
           _RatingChip(rating: rating),
-          const SizedBox(width: 14),
+          const SizedBox(width: RivuletSpacing.s16),
         ],
         if (runtime case final runtime?) ...<Widget>[
           AppText(runtime, style: metaStyle),
-          const SizedBox(width: 14),
+          const SizedBox(width: RivuletSpacing.s16),
         ],
         if (showDivider) ...<Widget>[
           AppText(
@@ -128,7 +128,7 @@ class _MetaRow extends StatelessWidget {
               fontSize: 20,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: RivuletSpacing.s16),
         ],
         if (audio case final audio?) AppText(audio, style: metaStyle),
       ],
@@ -146,10 +146,10 @@ class _RatingChip extends StatelessWidget {
     key: const ValueKey<String>('rail-rating-chip'),
     height: 28,
     constraints: const BoxConstraints(minWidth: 58),
-    padding: const EdgeInsets.symmetric(horizontal: 8),
+    padding: const EdgeInsets.symmetric(horizontal: RivuletSpacing.s8),
     decoration: BoxDecoration(
       border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(RivuletRadius.xs),
     ),
     // `widthFactor: 1` is load-bearing: `Wrap` hands each child
     // `BoxConstraints(maxWidth: <the wrap's own bounded width>)`, not an

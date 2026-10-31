@@ -4,6 +4,7 @@ import '../l10n/app_text.dart';
 
 import 'package:contracts/contracts.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../accessibility/ui_accessibility.dart';
 
@@ -85,7 +86,7 @@ class SourceStatusRow extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             width: 28,
-            child: active ? Icon(Icons.play_arrow, color: fg, size: 22) : null,
+            child: active ? Icon(PhosphorIconsRegular.play, color: fg, size: 22) : null,
           ),
           Expanded(
             child: Column(
@@ -125,12 +126,12 @@ class SourceStatusRow extends StatelessWidget {
               style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+                  horizontal: RivuletSpacing.s12,
+                  vertical: RivuletSpacing.s8,
                 ),
                 decoration: BoxDecoration(
                   border: Border.all(color: fg),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(RivuletRadius.full),
                 ),
                 child: AppText(
                   UiAccessibility.labelsOf(context).retry,

@@ -29,9 +29,11 @@ struct AriaSession {
   std::mutex mutex;
   std::thread runner;
   std::atomic<bool> stop{false};
-  // Set by a caller that lost try_lock; the worker then leaves a gap so the
-  // caller's retry can win (std::mutex is unfair and the worker relocks at once).
-  std::atomic<bool> contended{false};
+  // Set by a caller that lost try_lock: the worker stays off the mutex until
+  // this steady-clock time (ms) or until a caller gets in. std::mutex is unfair
+  // and the worker relocks at once; a fixed short gap was missed whenever the
+  // caller's thread was late (busy event loop), starving it for 10 s or more.
+  std::atomic<int64_t> reserved_until_ms{0};
 };
 
 #if TRANSPORT_HAS_LIBARIA2
@@ -119,8 +121,14 @@ void set_error_message(AriaSession* s, const std::string& message) noexcept {
   }
 }
 
+int64_t steady_ms() noexcept {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
 void set_busy_error(AriaSession* s) noexcept {
-  s->contended.store(true, std::memory_order_relaxed);
+  s->reserved_until_ms.store(steady_ms() + 500, std::memory_order_relaxed);
   set_error_message(s, "aria2 session busy");
 }
 
@@ -164,8 +172,9 @@ void add_options(aria2::KeyVals* options, const std::string& block) {
 void run_loop(AriaSession* s) noexcept {
   try {
     while (!s->stop.load(std::memory_order_relaxed)) {
-      if (s->contended.exchange(false, std::memory_order_relaxed)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      while (!s->stop.load(std::memory_order_relaxed) &&
+             steady_ms() < s->reserved_until_ms.load(std::memory_order_relaxed)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
       }
       bool idle = false;
       {
@@ -202,7 +211,8 @@ void run_loop(AriaSession* s) noexcept {
 #endif
 }  // namespace
 
-extern "C" transport_aria2_session transport_aria2_create(void) {
+extern "C" transport_aria2_session transport_aria2_create(
+    int32_t verify_certificate) {
 #if !TRANSPORT_HAS_LIBARIA2
   return nullptr;
 #else
@@ -220,6 +230,7 @@ extern "C" transport_aria2_session transport_aria2_create(void) {
     config.keepRunning = true;
     config.useSignalHandler = false;
     aria2::KeyVals options;
+    if (!verify_certificate) options.emplace_back("check-certificate", "false");
     wrapper->session = aria2::sessionNew(options, config);
     if (!wrapper->session) {
       set_error_message(wrapper, "aria2 sessionNew failed");
@@ -312,6 +323,7 @@ extern "C" int32_t transport_aria2_add_uri(
       set_busy_error(s);
       return -3;
     }
+    s->reserved_until_ms.store(0, std::memory_order_relaxed);
     const auto uri_value = bounded(uri, uri_length);
     const auto directory_value = bounded(directory, directory_length);
     const auto output_value = bounded(output, output_length);
@@ -354,6 +366,7 @@ extern "C" int32_t transport_aria2_poll(transport_aria2_session raw) {
       set_busy_error(s);
       return -3;
     }
+    s->reserved_until_ms.store(0, std::memory_order_relaxed);
     return aria2::run(s->session, aria2::RUN_ONCE);
   } catch (const std::exception& e) {
     set_error(s, e);
@@ -384,6 +397,7 @@ extern "C" int32_t transport_aria2_status(
       set_busy_error(s);
       return -3;
     }
+    s->reserved_until_ms.store(0, std::memory_order_relaxed);
     handle = aria2::getDownloadHandle(s->session, gid);
     if (!handle) {
       set_error_message(s, "aria2 download handle not found");
@@ -442,6 +456,7 @@ extern "C" int32_t transport_aria2_change_option(
       set_busy_error(s);
       return -3;
     }
+    s->reserved_until_ms.store(0, std::memory_order_relaxed);
     const auto name_value = bounded(name, name_length);
     const auto value_value = bounded(value, value_length);
     aria2::KeyVals options;
@@ -496,6 +511,7 @@ extern "C" int32_t transport_aria2_get_option(
       set_busy_error(s);
       return -3;
     }
+    s->reserved_until_ms.store(0, std::memory_order_relaxed);
     handle = aria2::getDownloadHandle(s->session, gid);
     if (!handle) {
       set_error_message(s, "aria2 download handle not found");
@@ -533,6 +549,7 @@ extern "C" int32_t transport_aria2_remove(
       set_busy_error(s);
       return -3;
     }
+    s->reserved_until_ms.store(0, std::memory_order_relaxed);
     const auto result = aria2::removeDownload(s->session, gid);
     if (result != 0) {
       set_error_message(s, "aria2 removeDownload failed: " + std::to_string(result));
@@ -564,6 +581,7 @@ extern "C" int32_t transport_aria2_set_paused(
       set_busy_error(s);
       return -3;
     }
+    s->reserved_until_ms.store(0, std::memory_order_relaxed);
     const auto result = paused ? aria2::pauseDownload(s->session, gid, true)
                                : aria2::unpauseDownload(s->session, gid);
     if (result != 0) {

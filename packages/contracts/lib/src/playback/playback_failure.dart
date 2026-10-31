@@ -21,6 +21,13 @@ final class PlaybackFailure extends AppFailure {
   const PlaybackFailure.engineCrashed({required super.cause, super.stack})
     : super(code: _engineCrashed, message: 'The playback engine crashed');
 
+  const PlaybackFailure.surfaceUnavailable({required super.cause, super.stack})
+    : super(
+        code: _surfaceUnavailable,
+        message:
+            'The native video surface failed and this platform has no fallback',
+      );
+
   const PlaybackFailure.sourceUnreachable({required super.cause, super.stack})
     : super(
         code: _sourceUnreachable,
@@ -54,6 +61,7 @@ final class PlaybackFailure extends AppFailure {
   static const String _openFailed = 'playback.open.failed';
   static const String _decodeFailed = 'playback.decode.failed';
   static const String _engineCrashed = 'playback.engine.crashed';
+  static const String _surfaceUnavailable = 'playback.surface.unavailable';
   static const String _sourceUnreachable = 'playback.source.unreachable';
   static const String _unsupportedCodec = 'playback.unsupported.codec';
   static const String _trackSelectionFailed = 'playback.track.selection_failed';

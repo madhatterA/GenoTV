@@ -27,6 +27,8 @@ flutter:
         ffiPlugin: true
       ios:
         pluginClass: CastPlugin
+      tvos:
+        pluginClass: CastPlugin
       macos:
         pluginClass: CastPlugin
       windows:

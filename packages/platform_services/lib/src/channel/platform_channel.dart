@@ -12,11 +12,17 @@ abstract final class PlatformMethods {
   static const displayRestore = 'display.restore';
   static const audioDevices = 'audio.devices';
   static const audioNegotiate = 'audio.negotiate';
+  static const brightnessGet = 'display.brightness.get';
+  static const brightnessSet = 'display.brightness.set';
+  static const brightnessRestore = 'display.brightness.restore';
   static const windowFullscreen = 'window.fullscreen';
   static const lifecycleKeepAwake = 'lifecycle.keepAwake';
   static const lifecycleReleaseAwake = 'lifecycle.releaseKeepAwake';
   static const mediaSessionUpdate = 'lifecycle.mediaSession.update';
   static const mediaSessionClear = 'lifecycle.mediaSession.clear';
+  // tvOS only: a small string map kept in NSUserDefaults (the one storage tvOS never purges).
+  static const storageMirrorRead = 'storage.mirror.read';
+  static const storageMirrorWrite = 'storage.mirror.write';
 }
 
 /// The sole Dart/native transport. Payloads are maps/lists of primitives:

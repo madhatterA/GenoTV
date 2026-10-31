@@ -24,6 +24,8 @@ final Map<String, String Function(AppStrings)> _messages =
           s.failure_transportTorrentFileNotFound,
       'transport.engine.unavailable': (s) =>
           s.failure_transportEngineUnavailable,
+      'transport.disk.insufficient_space': (s) =>
+          s.failure_transportDiskInsufficient,
       'transport.local.not_found': (s) => s.failure_transportLocalNotFound,
       'transport.local.not_readable': (s) =>
           s.failure_transportLocalNotReadable,
@@ -33,6 +35,8 @@ final Map<String, String Function(AppStrings)> _messages =
       'playback.open.failed': (s) => s.failure_playbackOpenFailed,
       'playback.decode.failed': (s) => s.failure_playbackDecodeFailed,
       'playback.engine.crashed': (s) => s.failure_playbackEngineCrashed,
+      'playback.surface.unavailable': (s) =>
+          s.failure_playbackSurfaceUnavailable,
       'playback.source.unreachable': (s) => s.failure_playbackSourceUnreachable,
       'playback.unsupported.codec': (s) => s.failure_playbackUnsupportedCodec,
       'playback.track.selection_failed': (s) =>
@@ -45,6 +49,10 @@ final Map<String, String Function(AppStrings)> _messages =
           s.failure_platformDisplaySwitchFailed,
       'platform.audio.device_lost': (s) => s.failure_platformAudioDeviceLost,
       'platform.probe.failed': (s) => s.failure_platformProbeFailed,
+      'storage.open_failed': (s) => s.failure_storageOpenFailed,
+      'storage.migration_failed': (s) => s.failure_storageMigrationFailed,
+      'storage.write_failed': (s) => s.failure_storageWriteFailed,
+      'storage.corrupt': (s) => s.failure_storageCorrupt,
       'app.unexpected': (s) => s.failure_appUnexpected,
       'app.cancelled': (s) => s.failure_appCancelled,
     };

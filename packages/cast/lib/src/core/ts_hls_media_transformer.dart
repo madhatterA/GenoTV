@@ -54,7 +54,7 @@ class TsHlsMediaTransformer extends DefaultMediaTransformer {
 
     // Extract PAT/PMT packets so the proxy can prepend them to each
     // virtual HLS segment (required for Chromecast's TS demuxer).
-    final patPmt = TsKeyframeScanner.extractPatPmt(file);
+    final patPmt = await TsKeyframeScanner.extractPatPmt(file);
     if (patPmt != null) {
       proxy.setPatPmt(patPmt);
     }
@@ -65,7 +65,7 @@ class TsHlsMediaTransformer extends DefaultMediaTransformer {
 
     // Always use chunked HLS with keyframe-aligned segments.
     // Falls back to single-segment if the file has ≤1 keyframe.
-    final proxyUrl = proxy.wrapLocalFileAsHls(
+    final proxyUrl = await proxy.wrapLocalFileAsHls(
       fileProxyUrl,
       media.url,
       totalDuration: durationSecs,

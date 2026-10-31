@@ -30,4 +30,10 @@ final class ContentSourceFailure extends ProviderFailure {
         'The provider is unavailable right now.',
         cause: cause,
       );
+  const ContentSourceFailure.quotaReached([Object? cause])
+    : this._(
+        'provider.quota_reached',
+        'The provider limit was reached.',
+        cause: cause,
+      );
 }

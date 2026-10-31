@@ -2,16 +2,31 @@ import '../l10n_gen/app_strings.dart';
 
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../accessibility/ui_accessibility.dart';
 import '../components/app_button.dart';
 import '../components/app_text_button.dart';
 import '../l10n/app_text.dart';
+import '../platform/adaptive_behavior.dart';
+import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
 
 import 'failure_messages.dart';
 
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+/// Icon by failure type: network, playback/decoder, anything else.
+IconData errorIconFor(String code) {
+  if (code.startsWith('transport.http.') ||
+      code == 'playback.source.unreachable') {
+    return PhosphorIconsRegular.cloudSlash;
+  }
+  if (code.startsWith('playback.') || code.startsWith('transport.')) {
+    return PhosphorIconsRegular.filmSlate;
+  }
+  return PhosphorIconsRegular.warningCircle;
+}
 
 class ErrorView extends StatefulWidget {
   const ErrorView({
@@ -39,6 +54,26 @@ class ErrorView extends StatefulWidget {
 
 class _ErrorViewState extends State<ErrorView> {
   bool _showCode = false;
+  final FocusNode _action = FocusNode(debugLabel: 'error-action');
+
+  @override
+  void initState() {
+    super.initState();
+    // autofocus is ignored when something else in the route already holds
+    // focus (a back button, the loading view's node): take it explicitly so
+    // the remote always lands on Retry/Back.
+    if (!widget.hasUsableContent) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _action.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _action.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,13 +95,15 @@ class _ErrorViewState extends State<ErrorView> {
     final tokens = RivuletTokens.of(context);
     final colors = tokens.colors;
     final opaque = UiAccessibility.opaqueOf(context);
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Icon(
-          PhosphorIconsRegular.cloudSlash,
+          errorIconFor(widget.failure.code),
+          key: const ValueKey<String>('error-icon'),
           size: 40,
-          color: opaque ? colors.textPrimary : colors.textTertiary,
+          color: opaque ? colors.textPrimary : colors.decorative,
         ),
         const SizedBox(height: RivuletSpacing.s16),
         AppText(
@@ -83,21 +120,40 @@ class _ErrorViewState extends State<ErrorView> {
             color: opaque ? colors.textPrimary : colors.textSecondary,
           ),
         ),
-        AppTextButton(
-          label: _showCode
-              ? (labels?.hideCode ?? strings.state_hideCode)
-              : (labels?.showCode ?? strings.state_showCode),
-          onActivate: () => setState(() => _showCode = !_showCode),
-        ),
-        if (_showCode)
+        // TV has no disclosure or clipboard: the code is a second line.
+        if (tv)
           AppText(
             widget.failure.code,
             key: const ValueKey<String>('error-code-detail'),
             style: tokens.typeStyles.caption,
+          )
+        else ...<Widget>[
+          AppTextButton(
+            label: _showCode
+                ? (labels?.hideCode ?? strings.state_hideCode)
+                : (labels?.showCode ?? strings.state_showCode),
+            onActivate: () => setState(() => _showCode = !_showCode),
           ),
+          if (_showCode) ...<Widget>[
+            AppText(
+              widget.failure.code,
+              key: const ValueKey<String>('error-code-detail'),
+              style: tokens.typeStyles.caption,
+            ),
+            // Code and message only: never the URL or a token.
+            AppTextButton(
+              key: const ValueKey<String>('error-copy'),
+              label: strings.state_copyDetails,
+              onActivate: () => Clipboard.setData(
+                ClipboardData(text: '${widget.failure.code}\n$message'),
+              ),
+            ),
+          ],
+        ],
         const SizedBox(height: RivuletSpacing.s16),
         if (widget.onRetry != null)
           AppButton.primary(
+            focusNode: _action,
             autofocus: !widget.hasUsableContent,
             onActivate: widget.onRetry,
             icon: PhosphorIconsRegular.arrowsClockwise,
@@ -105,6 +161,7 @@ class _ErrorViewState extends State<ErrorView> {
           ),
         if (widget.onRetry == null)
           AppButton.secondary(
+            focusNode: _action,
             autofocus: !widget.hasUsableContent,
             onActivate: widget.onBack ?? () => Navigator.of(context).maybePop(),
             label: (labels?.back ?? strings.common_back),

@@ -29,6 +29,7 @@ class DlnaDiscoveryProvider implements DeviceDiscoveryProvider {
   RawDatagramSocket? _socket;
   StreamController<List<CastDevice>>? _controller;
   Timer? _searchTimer;
+  Timer? _timeoutTimer;
   final Map<String, CastDevice> _devices = {};
 
   /// Creates a [DlnaDiscoveryProvider].
@@ -93,7 +94,7 @@ class DlnaDiscoveryProvider implements DeviceDiscoveryProvider {
       });
 
       // Close after timeout
-      Timer(timeout, () {
+      _timeoutTimer = Timer(timeout, () {
         CastLogger.info('DLNA: discovery timeout reached, closing');
         _controller?.close();
       });
@@ -142,6 +143,8 @@ class DlnaDiscoveryProvider implements DeviceDiscoveryProvider {
   void stopDiscovery() {
     _searchTimer?.cancel();
     _searchTimer = null;
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
     _socket?.close();
     _socket = null;
     if (_controller?.isClosed == false) {

@@ -29,6 +29,8 @@ flutter:
         pluginClass: PlatformServicesPlugin
       ios:
         pluginClass: PlatformServicesPlugin
+      tvos:
+        pluginClass: PlatformServicesPlugin
       macos:
         pluginClass: PlatformServicesPlugin
       windows:

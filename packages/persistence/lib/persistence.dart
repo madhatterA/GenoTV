@@ -14,6 +14,8 @@
 library;
 
 export 'src/database/app_database.dart' show openDatabase, recoverByRenaming;
+export 'src/database/memory_database.dart' show openInMemoryDatabase;
+export 'src/database/mirror.dart' show exportMirror, importMirror;
 export 'src/repositories/drift_favourites_repository.dart' show createFavouritesRepository;
 export 'src/repositories/drift_next_up_repository.dart' show createNextUpRepository;
 export 'src/repositories/drift_progress_repository.dart' show createProgressRepository;

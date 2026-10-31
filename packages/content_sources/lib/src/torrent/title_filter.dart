@@ -1,5 +1,5 @@
 // Ported from PlayTorrioV3 lib/services/scraper/sites/knaben.dart,
-// commit 39b736f. GPL-3.0; see root README.md (Credits) and LICENSE.
+// commit 39b736f. GPL-3.0; see root NOTICE.md.
 import 'package:contracts/contracts.dart';
 
 bool matchesRequest(Map<String, dynamic> parsed, MediaItem item) {

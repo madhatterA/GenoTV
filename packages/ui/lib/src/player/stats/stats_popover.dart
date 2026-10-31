@@ -2,6 +2,7 @@ import '../../l10n_gen/app_strings.dart';
 import '../../l10n/app_text.dart';
 
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../theme/rivulet_tokens.dart';
 import '../../theme/stats_colors.dart';
@@ -88,12 +89,12 @@ class _StatsPopoverState extends State<StatsPopover> {
           children: <Widget>[
             if (rows.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s8),
                 child: Text(statsUnknown, style: tokens.typeStyles.body),
               ),
             for (final (label, value) in rows)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s4),
                 child: Row(
                   children: <Widget>[
                     Expanded(
@@ -110,13 +111,13 @@ class _StatsPopoverState extends State<StatsPopover> {
                   ],
                 ),
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: RivuletSpacing.s8),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 key: const ValueKey<String>('stats-advanced'),
                 onPressed: widget.onAdvanced,
-                icon: const Icon(Icons.analytics_outlined, size: 18),
+                icon: const Icon(PhosphorIconsRegular.chartBar, size: 18),
                 label: AppText(AppStrings.of(context).player_advanced),
               ),
             ),

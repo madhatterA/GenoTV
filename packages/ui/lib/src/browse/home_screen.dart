@@ -10,11 +10,14 @@ import 'package:flutter/services.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../components/ambient_background.dart';
+import '../components/pull_refresh.dart';
 import '../components/artwork.dart';
+import '../components/hints_scope.dart';
 import '../focus/focus_memory.dart';
 import '../navigation/page_entry_focus.dart';
 import '../platform/adaptive_behavior.dart';
 import '../platform/form_factor.dart';
+import '../navigation/app_shell.dart';
 import '../theme/rivulet_tokens.dart';
 import '../states/empty_view.dart';
 import '../states/error_view.dart';
@@ -30,6 +33,8 @@ class HomeScreen extends StatefulWidget {
     this.onItemTap,
     this.onSeeAll,
     this.onRetry,
+    this.onRemove,
+    this.onUndoRemove,
     this.logger,
     super.key,
   });
@@ -40,6 +45,10 @@ class HomeScreen extends StatefulWidget {
   final ValueChanged<MediaItem>? onItemTap;
   final ValueChanged<HomeRow>? onSeeAll;
   final VoidCallback? onRetry;
+
+  /// Continue Watching removal and its Undo (see [MediaRow.onRemove]).
+  final Future<bool> Function(MediaItem item)? onRemove;
+  final Future<bool> Function(MediaItem item)? onUndoRemove;
   final AppLogger? logger;
 
   @override
@@ -50,20 +59,15 @@ class HomeScreen extends StatefulWidget {
 /// fakeable 2s/3s staged-reveal gate from the Phase file's step 7. Matches
 /// Rivulet's staging of secondary shelves behind the always-ready hero +
 /// primary rows.
-const int _firstDeferredRowIndex = 3;
-const int _secondDeferredRowIndex = 4;
 
-/// Decoded size of one 3840x2160 RGBA picture, the largest TMDB `original`
-/// backdrop: headroom reserved before the first hero picture's real size is
-/// known (default image cache is 100 MiB, one such picture is ~31.6 MiB).
-const int _largestRgbaImageBytes = 3840 * 2160 * 4;
+/// On TV only the first hero pictures are loaded ahead (memory is tight).
+const int _tvHeroPreloadCount = 3;
 
 class _HomeScreenState extends State<HomeScreen> {
   final FocusMemory _memory = FocusMemory();
-  Timer? _firstDeferredTimer;
-  Timer? _secondDeferredTimer;
-  bool _firstDeferredRevealed = false;
-  bool _secondDeferredRevealed = false;
+  /// Row titles already drawn; a row that shows up later (its data arrived)
+  /// fades in instead of popping.
+  final Set<String> _shownTitles = <String>{};
 
   // Part B: secondary-action gate + hero collapse/Back-staging focus plumbing.
   //
@@ -119,13 +123,26 @@ class _HomeScreenState extends State<HomeScreen> {
   /// happened.
   bool _heroEverFocused = false;
 
+  /// One-time gesture hint: TV teaches the menu key, phone the long-press.
+  void _showFirstVisitHint() {
+    final strings = AppStrings.of(context);
+    switch (AdaptiveBehavior.formFactorOf(context)) {
+      case FormFactor.tv:
+        showHintOnce(context, 'tvHomeMenu', strings.hint_tvMenu);
+      case FormFactor.phone:
+        showHintOnce(context, 'phoneHold', strings.hint_phoneHold);
+      case FormFactor.desktop:
+        break;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     widget.viewModel.addListener(_onViewModelChanged);
-    _armDeferredSections();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _precacheHero();
+      if (mounted) _showFirstVisitHint();
     });
     _entry = PageEntryFocus.register(context, _heroPlayFocusNode);
     _heroFocusScope.addListener(_onHeroFocusScopeChanged);
@@ -137,9 +154,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Fetches and decodes every hero item's picture (the same provider the
+  /// Fetches and decodes the hero items' pictures (the same provider the
   /// hero paints with, so the image-cache key matches), first item first, so
-  /// paging the hero never waits on the network. A failed picture is logged
+  /// paging the hero never waits on the network. TV loads the first
+  /// [_tvHeroPreloadCount] only. The image-cache limit set at startup is
+  /// never raised here. A failed picture is logged
   /// and left to the hero's own fallback; there is no retry.
   Future<void> _precacheHero() async {
     final model = widget.viewModel;
@@ -147,16 +166,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final resolve = ArtworkResolverScope.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final cache = PaintingBinding.instance.imageCache;
-    var largest = _largestRgbaImageBytes;
-    for (final item in model.heroItems) {
+    final items = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv
+        ? model.heroItems.take(_tvHeroPreloadCount)
+        : model.heroItems;
+    for (final item in items) {
       final url = model.heroArtwork[item.id] ?? item.artwork;
       if (url == null) continue;
-      // Keep room for the rest of the set so earlier pictures are not
-      // evicted by later ones; only ever raises the limit.
-      final needed = cache.currentSizeBytes + largest;
-      if (cache.maximumSizeBytes < needed) cache.maximumSizeBytes = needed;
-      final before = cache.currentSizeBytes;
       await precacheImage(
         ArtworkView.sized(resolve(url.toString()), width, dpr),
         context,
@@ -167,8 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
       if (!mounted || widget.viewModel != model) return;
-      final decoded = cache.currentSizeBytes - before;
-      if (decoded > 0) largest = decoded;
     }
   }
 
@@ -180,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final away = FocusManager.instance.primaryFocus?.context;
     if (!entered &&
         _heroFocusEntered &&
-        (AdaptiveBehavior.of(context).formFactor == FormFactor.tv) &&
+        (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv) &&
         away != null &&
         away.findAncestorStateOfType<_HomeScreenState>() != this) {
       entered = true;
@@ -238,36 +251,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void didUpdateWidget(HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.viewModel != widget.viewModel) {
-      // Home session changed identity: cancel the old session's timers and
-      // re-arm fresh ones against the new session, rather than let a stale
-      // timer reveal a section that belongs to a since-replaced viewModel.
+      // Home session changed identity: rows of the new session fade in fresh.
       oldWidget.viewModel.removeListener(_onViewModelChanged);
       widget.viewModel.addListener(_onViewModelChanged);
-      _cancelDeferredTimers();
-      _firstDeferredRevealed = false;
-      _secondDeferredRevealed = false;
-      _armDeferredSections();
+      _shownTitles.clear();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _precacheHero();
-      });
-    }
-  }
-
-  void _armDeferredSections() {
-    if (widget.viewModel.firstDeferredSectionReady) {
-      _firstDeferredRevealed = true;
-    } else {
-      _firstDeferredTimer = Timer(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        setState(() => _firstDeferredRevealed = true);
-      });
-    }
-    if (widget.viewModel.secondDeferredSectionReady) {
-      _secondDeferredRevealed = true;
-    } else {
-      _secondDeferredTimer = Timer(const Duration(seconds: 3), () {
-        if (!mounted) return;
-        setState(() => _secondDeferredRevealed = true);
       });
     }
   }
@@ -275,36 +264,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onViewModelChanged() {
     if (!mounted) return;
     var changed = !identical(_shownRows, widget.viewModel.rows);
-    if (!_firstDeferredRevealed && widget.viewModel.firstDeferredSectionReady) {
-      _firstDeferredTimer?.cancel();
-      _firstDeferredTimer = null;
-      _firstDeferredRevealed = true;
-      changed = true;
-    }
-    if (!_secondDeferredRevealed &&
-        widget.viewModel.secondDeferredSectionReady) {
-      _secondDeferredTimer?.cancel();
-      _secondDeferredTimer = null;
-      _secondDeferredRevealed = true;
-      changed = true;
-    }
     if (changed) setState(() {});
   }
+
+  Object? _rowsKey;
+  List<Widget> _rowWidgets = const <Widget>[];
 
   /// The rows list last built, to notice an in-place [HomeViewModel.replaceRows].
   late List<HomeRow> _shownRows = widget.viewModel.rows;
 
-  void _cancelDeferredTimers() {
-    _firstDeferredTimer?.cancel();
-    _secondDeferredTimer?.cancel();
-    _firstDeferredTimer = null;
-    _secondDeferredTimer = null;
-  }
-
   @override
   void dispose() {
     widget.viewModel.removeListener(_onViewModelChanged);
-    _cancelDeferredTimers();
     _entry?.release(_heroPlayFocusNode);
     _heroFocusScope.removeListener(_onHeroFocusScopeChanged);
     _firstRowFocusScope.removeListener(_onFirstRowFocusScopeChanged);
@@ -328,28 +299,38 @@ class _HomeScreenState extends State<HomeScreen> {
           fullScreen: true,
         );
       case HomeLoadState.empty:
-        return EmptyView(
-          key: const ValueKey<String>('home-empty'),
-          headline: AppStrings.of(context).state_emptyTitle,
-        );
+        return _empty(context);
       case HomeLoadState.content:
         break;
     }
     _shownRows = widget.viewModel.rows;
     if (widget.viewModel.rows.isEmpty) {
-      return EmptyView(
-        key: const ValueKey<String>('home-empty'),
-        headline: AppStrings.of(context).state_emptyTitle,
-      );
+      return _empty(context);
     }
     return _page(context, loading: false);
+  }
+
+  Widget _empty(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final openSettings = AppShellScope.selectOf(context);
+    return EmptyView(
+      key: const ValueKey<String>('home-empty'),
+      headline: strings.state_emptyTitle,
+      body: strings.home_emptyBody,
+      fullScreen: true,
+      autofocusPrimary: true,
+      primaryLabel: openSettings == null ? null : strings.home_openSettings,
+      onPrimary: openSettings == null ? null : () => openSettings('settings'),
+      secondaryLabel: strings.common_retry,
+      onSecondary: widget.onRetry,
+    );
   }
 
   /// The real Home layout; while [loading] it is fed placeholder rows and
   /// drawn as bones, so the content replaces it with no layout shift
   /// (DESIGN_SPEC §9.10).
   Widget _page(BuildContext context, {required bool loading}) {
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
     final tv = formFactor == FormFactor.tv;
     final colors = RivuletTokens.of(context).colors;
     final still = tv || MediaQuery.disableAnimationsOf(context);
@@ -362,34 +343,60 @@ class _HomeScreenState extends State<HomeScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _entered = true);
     }
     final firstVisible = rows.indexWhere((row) => row.items.isNotEmpty);
+    // The shelves are rebuilt only when what they show changes: a focus move
+    // between the hero and the first shelf flips hero state only, and
+    // rebuilding every mounted card for it cost ~170 ms on the TV.
+    final rowsKey = (
+      loading,
+      rows,
+      model.rowsRevision,
+      play,
+      formFactor,
+      Localizations.localeOf(context),
+      widget.progress,
+      widget.onRowBuild,
+      widget.onItemTap,
+      widget.onSeeAll,
+    );
+    if (_rowsKey != rowsKey) {
+      _rowsKey = rowsKey;
+      // Rows whose data arrives after the first ones fade in; none on TV.
+      final lateTitles = <String>{
+        if (!loading && !still && _shownTitles.isNotEmpty)
+          for (final row in rows)
+            if (!_shownTitles.contains(row.title)) row.title,
+      };
+      if (!loading) _shownTitles.addAll(rows.map((row) => row.title));
+      _rowWidgets = <Widget>[
+        for (var index = 0; index < rows.length; index++)
+          // A row with nothing in it is not drawn.
+          if (rows[index].items.isNotEmpty)
+            _RowEntry(
+              key: ValueKey<String>(
+                loading ? 'skeleton-row-$index' : 'entry-${rows[index].title}',
+              ),
+              index: index,
+              play: play || lateTitles.contains(rows[index].title),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: RivuletSpacing.rowGap(formFactor),
+                ),
+                child: _buildRow(
+                  rows[index],
+                  index,
+                  loading: loading,
+                  first: index == firstVisible,
+                ),
+              ),
+            ),
+      ];
+    }
     final children = <Widget>[
       ListenableBuilder(
         listenable: model,
         builder: (_, _) => loading ? _skeletonHero() : _hero(context),
       ),
-      for (var index = 0; index < rows.length; index++)
-        // A row with nothing in it is not drawn.
-        if (rows[index].items.isNotEmpty &&
-            (loading ||
-                ((index != _firstDeferredRowIndex || _firstDeferredRevealed) &&
-                    (index != _secondDeferredRowIndex ||
-                        _secondDeferredRevealed))))
-          _RowEntry(
-            key: ValueKey<String>(
-              loading ? 'skeleton-row-$index' : 'entry-${rows[index].title}',
-            ),
-            index: index,
-            play: play,
-            child: Padding(
-              padding: EdgeInsets.only(top: RivuletSpacing.rowGap(formFactor)),
-              child: _buildRow(
-                rows[index],
-                index,
-                loading: loading,
-                first: index == firstVisible,
-              ),
-            ),
-          ),
+      ..._rowWidgets,
       SizedBox(height: RivuletSpacing.rowGap(formFactor)),
     ];
     return Focus(
@@ -418,7 +425,10 @@ class _HomeScreenState extends State<HomeScreen> {
               switchInCurve: RivuletMotion.easeOut,
               switchOutCurve: RivuletMotion.easeOut,
             ),
-            child: ListView(padding: EdgeInsets.zero, children: children),
+            child: PullRefresh(
+              onRefresh: () async => widget.onRetry?.call(),
+              child: ListView(padding: EdgeInsets.zero, children: children),
+            ),
           ),
         ),
       ),
@@ -442,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final heroItems = model.heroItems;
     final heroIndex = model.hero == null ? 0 : heroItems.indexOf(model.hero!);
     final currentIndex = heroIndex < 0 ? 0 : heroIndex;
-    final remote = (AdaptiveBehavior.of(context).formFactor == FormFactor.tv);
+    final remote = (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv);
     final hidden = remote
         ? _heroEverFocused && !_heroFocusEntered
         : _firstRowFocused;
@@ -494,6 +504,9 @@ class _HomeScreenState extends State<HomeScreen> {
           : null,
       onFocused: widget.viewModel.focus,
       rowIndex: index,
+      isContinue: row.isContinue,
+      onRemove: loading ? null : widget.onRemove,
+      onUndoRemove: loading ? null : widget.onUndoRemove,
     );
     // Only the first shelf row is wrapped in `_firstRowFocusScope` — that's
     // the one whose focus collapses the hero and whose Back returns to it

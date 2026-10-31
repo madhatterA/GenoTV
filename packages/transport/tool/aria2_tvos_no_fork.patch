@@ -1,0 +1,55 @@
+--- a/src/option_processing.cc	2026-10-29 12:57:09
++++ b/src/option_processing.cc	2026-10-29 12:57:16
+@@ -32,6 +32,9 @@
+  * files in the program, then also delete it here.
+  */
+ /* copyright --> */
++#ifdef __APPLE__
++#  include <TargetConditionals.h>
++#endif
+ #include "common.h"
+ 
+ #include <cstdlib>
+@@ -325,7 +328,11 @@
+ #  pragma GCC diagnostic push
+ #  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+ #endif // defined(__GNUC__) && defined(__APPLE__)
++#if TARGET_OS_TV
++    const auto daemonized = -1; // tvOS forbids daemon()/fork
++#else
+     const auto daemonized = daemon(0, 0);
++#endif
+ #if defined(__GNUC__) && defined(__APPLE__)
+ #  pragma GCC diagnostic pop
+ #endif // defined(__GNUC__) && defined(__APPLE__)
+--- a/src/util.cc	2026-10-29 12:57:09
++++ b/src/util.cc	2026-10-29 12:57:09
+@@ -33,6 +33,9 @@
+  */
+ /* copyright --> */
+ #include "util.h"
++#ifdef __APPLE__
++#  include <TargetConditionals.h>
++#endif
+ 
+ #ifdef __sun
+ // For opensolaris, just include signal.h which includes sys/signal.h
+@@ -2237,6 +2240,10 @@
+ #ifndef __MINGW32__
+   A2_LOG_INFO(fmt("Executing user command: %s %s %s %s", command.c_str(),
+                   gidStr.c_str(), numFilesStr.c_str(), firstFilename.c_str()));
++#if TARGET_OS_TV
++  A2_LOG_ERROR("user commands are not supported on tvOS");
++  return;
++#else
+   pid_t cpid = fork();
+   if (cpid == 0) {
+     // child!
+@@ -2252,6 +2259,7 @@
+     A2_LOG_ERROR("fork() failed. Cannot execute user command.");
+   }
+   return;
++#endif
+ 
+ #else // __MINGW32__
+   PROCESS_INFORMATION pi;

@@ -11,7 +11,14 @@ fi
 
 symbols_file="$(mktemp "${TMPDIR:-/tmp}/transport-lt-abi.XXXXXX")"
 trap 'rm -f "$symbols_file"' EXIT
-nm -gU "$artifact" | awk '{symbol=$NF; sub(/^_/, "", symbol); print symbol}' | sort -u >"$symbols_file"
+nm_tool="${2:-nm}"
+if [[ "$artifact" == *.so ]]; then
+  "$nm_tool" -D --defined-only "$artifact" >"$symbols_file"
+else
+  "$nm_tool" -gU "$artifact" >"$symbols_file"
+fi
+awk '{symbol=$NF; sub(/^_/, "", symbol); print symbol}' "$symbols_file" | sort -u >"$symbols_file.sorted"
+mv "$symbols_file.sorted" "$symbols_file"
 missing=0
 declared=0
 while IFS= read -r symbol; do

@@ -91,7 +91,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
     final person = widget.person;
     final sizes = AdaptiveBehavior.sizesOf(context);
     final phone = sizes.formFactor == FormFactor.phone;
-    final gutter = RivuletSpacing.gutter(sizes.formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final photo = person.photo;
     final portrait = SizedBox.square(
       key: const ValueKey('person-portrait'),

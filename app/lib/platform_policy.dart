@@ -67,6 +67,7 @@ final class PlatformPolicy {
   CapabilityReport? _capabilityReport;
   DisplayModeLease? _displayLease;
   double? _matchedFps;
+  String? _matchedRange;
   Future<void> Function()? _releaseKeepAwake;
   // These long-lived subscriptions are cancelled by [stop] on every path.
   // ignore: cancel_subscriptions
@@ -82,6 +83,7 @@ final class PlatformPolicy {
     double? contentFps,
     int? width,
     int? height,
+    String? dynamicRange,
     AudioStreamSpec? audioSpec,
   }) async {
     if (_active) throw StateError('platform policy already started');
@@ -99,6 +101,7 @@ final class PlatformPolicy {
           contentFps: contentFps,
           width: width,
           height: height,
+          dynamicRange: dynamicRange,
         );
       } else {
         _recordDisplay(
@@ -144,6 +147,7 @@ final class PlatformPolicy {
     required double contentFps,
     int? width,
     int? height,
+    String? dynamicRange,
   }) async {
     if (!_active) return;
     if (!displayModeMatchingEnabled) {
@@ -151,7 +155,12 @@ final class PlatformPolicy {
       return;
     }
     if (_displayLease != null) {
-      if (!displayOptions.rematchOnChange || _matchedFps == contentFps) return;
+      // A newly known dynamic range always re-matches: the start-up match has no video-params yet.
+      final sameRange = dynamicRange == null || _matchedRange == dynamicRange;
+      if (sameRange &&
+          (!displayOptions.rematchOnChange || _matchedFps == contentFps)) {
+        return;
+      }
       final previous = _displayLease!;
       _displayLease = null;
       await previous.release();
@@ -173,6 +182,7 @@ final class PlatformPolicy {
         contentFps: fps,
         width: matchWidth,
         height: matchHeight,
+        dynamicRange: dynamicRange,
       );
     } else {
       final modes = await displayModes.availableModes();
@@ -191,6 +201,7 @@ final class PlatformPolicy {
               contentFps: match.mode.refreshHz,
               width: match.mode.width,
               height: match.mode.height,
+              dynamicRange: dynamicRange,
             );
     }
     if (!_active) {
@@ -200,6 +211,7 @@ final class PlatformPolicy {
     }
     _displayLease = lease;
     _matchedFps = lease == null ? null : contentFps;
+    _matchedRange = lease == null ? null : dynamicRange;
     _recordDisplay('displayMode', lease == null ? 'unavailable' : 'leased');
   }
 
@@ -257,8 +269,17 @@ final class PlatformPolicy {
     }
     _controller = null;
     _matchedFps = null;
+    _matchedRange = null;
     _resumeAfterInterruption = false;
     if (firstError != null) Error.throwWithStackTrace(firstError, firstStack!);
+  }
+
+  /// The policy starts before the engine opens the media; a lifecycle or
+  /// route event in that window has nothing to pause (and pause() would throw).
+  void _pauseIfOpen(PlaybackController controller) {
+    final state = controller.currentState;
+    if (!state.isPlaying && state.duration == Duration.zero) return;
+    unawaited(controller.pause());
   }
 
   void _onPlatformEvent(PlatformEvent event) {
@@ -270,11 +291,14 @@ final class PlatformPolicy {
             event.lossKind != 'permanent' &&
             event.shouldResume &&
             controller.currentState.isPlaying;
-        unawaited(controller.pause());
+        _pauseIfOpen(controller);
       case PlatformEventType.becameNoisy:
-      case PlatformEventType.appBackgrounded:
         _resumeAfterInterruption = false;
-        unawaited(controller.pause());
+        _pauseIfOpen(controller);
+      case PlatformEventType.appBackgrounded:
+        // Leaving the app pauses; coming back resumes only what was playing.
+        _resumeAfterInterruption = controller.currentState.isPlaying;
+        _pauseIfOpen(controller);
       case PlatformEventType.audioInterruptionEnded:
       case PlatformEventType.appForegrounded:
         if (event.shouldResume || _resumeAfterInterruption) {

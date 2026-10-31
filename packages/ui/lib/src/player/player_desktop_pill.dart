@@ -1,7 +1,9 @@
 import '../l10n_gen/app_strings.dart';
 
 import 'package:contracts/contracts.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../components/tinted_surface.dart';
 import '../theme/rivulet_tokens.dart';
@@ -32,6 +34,7 @@ class PlayerDesktopPill extends StatefulWidget {
     this.onAudio,
     this.onInfo,
     this.onUpNext,
+    this.onNextEpisode,
     this.extraActions = 0,
     this.markers = const <ProgressMarker>[],
     this.thumbnail,
@@ -39,9 +42,16 @@ class PlayerDesktopPill extends StatefulWidget {
     this.onScrubUpdate,
     this.onScrubEnd,
     this.previewPosition,
+    this.volume,
+    this.onVolumeChanged,
+    this.onVolumeChangeEnd,
     super.key,
   });
 
+  /// The player's remembered volume; null makes the slider keep its own value.
+  final ValueListenable<double>? volume;
+  final ValueChanged<double>? onVolumeChanged;
+  final ValueChanged<double>? onVolumeChangeEnd;
   final Widget? actions;
   final PlaybackController controller;
   final PlaybackState state;
@@ -49,6 +59,7 @@ class PlayerDesktopPill extends StatefulWidget {
   final VoidCallback? onAudio;
   final VoidCallback? onInfo;
   final VoidCallback? onUpNext;
+  final VoidCallback? onNextEpisode;
 
   /// Buttons in [actions] the callbacks above do not name (each 52px wide).
   final int extraActions;
@@ -68,15 +79,23 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
   Widget build(BuildContext context) {
     final secondary = <MapEntry<String, IconData>>[
       if (widget.onSubtitles != null)
-        const MapEntry<String, IconData>('subtitles', Icons.subtitles_outlined),
-      if (widget.onAudio != null)
-        const MapEntry<String, IconData>('audio', Icons.graphic_eq),
-      if (widget.onInfo != null)
-        const MapEntry<String, IconData>('info', Icons.info_outline),
-      if (widget.onUpNext != null)
         const MapEntry<String, IconData>(
-          'upNext',
-          Icons.video_collection_outlined,
+          'subtitles',
+          PhosphorIconsRegular.subtitles,
+        ),
+      if (widget.onAudio != null)
+        const MapEntry<String, IconData>(
+          'audio',
+          PhosphorIconsRegular.waveform,
+        ),
+      if (widget.onInfo != null)
+        const MapEntry<String, IconData>('info', PhosphorIconsRegular.info),
+      if (widget.onUpNext != null)
+        const MapEntry<String, IconData>('upNext', PhosphorIconsRegular.stack),
+      if (widget.onNextEpisode != null)
+        const MapEntry<String, IconData>(
+          'nextEpisode',
+          PhosphorIconsRegular.skipForward,
         ),
     ];
     final callbackFor = <String, VoidCallback?>{
@@ -84,6 +103,7 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
       'audio': widget.onAudio,
       'info': widget.onInfo,
       'upNext': widget.onUpNext,
+      'nextEpisode': widget.onNextEpisode,
     };
 
     return LayoutBuilder(
@@ -94,9 +114,10 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
             .clamp(
               widget.actions == null
                   ? 360.0
-                  : 534.0 +
+                  : 538.0 +
                         52 *
                             ((widget.onUpNext == null ? 0 : 1) +
+                                (widget.onNextEpisode == null ? 0 : 1) +
                                 widget.extraActions),
               900.0,
             )
@@ -107,7 +128,10 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
             child: TintedSurface.overMedia(
               key: const ValueKey<String>('player-desktop-pill'),
               radius: RivuletRadius.large,
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: RivuletSpacing.s24,
+                vertical: RivuletSpacing.s16,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -119,7 +143,12 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
                     children: <Widget>[
                       // Keep volume at its natural size; narrow pills wrap
                       // the transport/actions instead of shrinking it.
-                      PlayerVolumeControl(controller: widget.controller),
+                      PlayerVolumeControl(
+                        controller: widget.controller,
+                        volume: widget.volume,
+                        onChanged: widget.onVolumeChanged,
+                        onChangeEnd: widget.onVolumeChangeEnd,
+                      ),
                       PlayerPrimaryTransport(
                         controller: widget.controller,
                         state: widget.state,
@@ -143,7 +172,8 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
                               i < secondary.length;
                               i++
                             ) ...<Widget>[
-                              if (i > 0) const SizedBox(width: 10),
+                              if (i > 0)
+                                const SizedBox(width: RivuletSpacing.s8),
                               TransportControlButton(
                                 key: ValueKey<String>(
                                   'desktop-action-${secondary[i].key}',
@@ -159,6 +189,9 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
                                   'info' => AppStrings.of(
                                     context,
                                   ).player_action_info,
+                                  'nextEpisode' => AppStrings.of(
+                                    context,
+                                  ).player_nextEpisode,
                                   _ => AppStrings.of(
                                     context,
                                   ).player_action_upNext,
@@ -176,7 +209,7 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: RivuletSpacing.s8),
                   PlayerProgressRow(
                     controller: widget.controller,
                     state: widget.state,
@@ -201,17 +234,25 @@ class _PlayerDesktopPillState extends State<PlayerDesktopPill> {
   }
 }
 
-/// `PlaybackController.setVolume` has no matching readable field on
-/// `PlaybackState` (Rivulet doesn't surface current volume either), so this
-/// keeps its own local 0.0-1.0 value, starting at full volume, and only
-/// pushes changes outward — the same "local UI state, contract action" shape
-/// `player_chrome_controller.dart`'s ambient/scrub gestures already use.
+/// `PlaybackState` has no readable volume, so the level shown comes from
+/// [volume] (the player's remembered value, kept in step with the keys and the
+/// engine). Without one the control keeps its own value starting at full.
 class PlayerVolumeControl extends StatefulWidget {
   const PlayerVolumeControl({
     required this.controller,
     this.sliderWidth = 90,
+    this.volume,
+    this.onChanged,
+    this.onChangeEnd,
     super.key,
   });
+
+  final ValueListenable<double>? volume;
+
+  /// Called while the slider moves; the owner of [volume] updates it and the
+  /// engine. Null: the control sets the engine itself.
+  final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
 
   final PlaybackController controller;
   final double sliderWidth;
@@ -221,7 +262,10 @@ class PlayerVolumeControl extends StatefulWidget {
 }
 
 class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
-  double _volume = 1;
+  double _local = 1;
+
+  ValueListenable<double> get _source =>
+      widget.volume ?? ValueNotifier<double>(_local);
 
   @override
   // Fixed-size on purpose (`mainAxisSize: min`, no internal `Expanded`):
@@ -234,47 +278,57 @@ class _PlayerVolumeControlState extends State<PlayerVolumeControl> {
   // implicit default whenever an `Expanded` child is present) then filled
   // the entire screen width with the slider track — caught by reading
   // `player_rail_compact_844.png` directly, per the brief.
-  Widget build(BuildContext context) => Row(
-    key: const ValueKey<String>('player-volume'),
-    mainAxisSize: MainAxisSize.min,
-    children: <Widget>[
-      Icon(
-        _volume == 0 ? Icons.volume_off : Icons.volume_up,
-        color: Colors.white,
-        size: 18,
-      ),
-      const SizedBox(width: 4),
-      SizedBox(
-        width: widget.sliderWidth,
-        // Explicit height, not just width: `Slider` sizes itself to
-        // whatever max height its loose incoming constraints allow, and
-        // both call sites (`PlayerDesktopPill`'s `Wrap` and
-        // `the former phone volume bar`'s bare `Align(topRight)`) hand it unbounded
-        // height — with no cap here the slider stretched to the full
-        // screen height and its thumb painted vertically centered on
-        // screen, which is what read as "volume slider misplaced" (it
-        // wasn't horizontally misplaced, `Align(topRight)` already worked;
-        // the control's own render box was just 386px tall on a 390px-tall
-        // phone screen). 24 matches the row's other controls (18px icon).
-        height: 24,
-        child: SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 3,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            overlayShape: SliderComponentShape.noOverlay,
-            activeTrackColor: Colors.white,
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
-            thumbColor: Colors.white,
-          ),
-          child: Slider(
-            value: _volume,
-            onChanged: (value) {
-              setState(() => _volume = value);
-              widget.controller.setVolume(value);
-            },
+  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+    valueListenable: _source,
+    builder: (context, _volume, _) => Row(
+      key: const ValueKey<String>('player-volume'),
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(
+          _volume == 0
+              ? PhosphorIconsRegular.speakerSlash
+              : PhosphorIconsRegular.speakerHigh,
+          color: Colors.white,
+          size: 18,
+        ),
+        const SizedBox(width: RivuletSpacing.s4),
+        SizedBox(
+          width: widget.sliderWidth,
+          // Explicit height, not just width: `Slider` sizes itself to
+          // whatever max height its loose incoming constraints allow, and
+          // both call sites (`PlayerDesktopPill`'s `Wrap` and
+          // `the former phone volume bar`'s bare `Align(topRight)`) hand it unbounded
+          // height — with no cap here the slider stretched to the full
+          // screen height and its thumb painted vertically centered on
+          // screen, which is what read as "volume slider misplaced" (it
+          // wasn't horizontally misplaced, `Align(topRight)` already worked;
+          // the control's own render box was just 386px tall on a 390px-tall
+          // phone screen). 24 matches the row's other controls (18px icon).
+          height: 24,
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: SliderComponentShape.noOverlay,
+              activeTrackColor: Colors.white,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.28),
+              thumbColor: Colors.white,
+            ),
+            child: Slider(
+              value: _volume,
+              onChanged: (value) {
+                if (widget.onChanged != null) {
+                  widget.onChanged!(value);
+                } else {
+                  setState(() => _local = value);
+                  widget.controller.setVolume(value);
+                }
+              },
+              onChangeEnd: widget.onChangeEnd,
+            ),
           ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }

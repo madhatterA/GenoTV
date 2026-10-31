@@ -109,6 +109,9 @@ class AppStringsEn extends AppStrings {
   String get common_liked => 'Liked';
 
   @override
+  String get common_continueWatching => 'Continue watching';
+
+  @override
   String get common_home => 'Home';
 
   @override
@@ -223,6 +226,10 @@ class AppStringsEn extends AppStrings {
   String get playlink_import => 'Import .torrent';
 
   @override
+  String get playlink_noFiles =>
+      'Apple TV cannot open files. Paste a torrent or https link above instead.';
+
+  @override
   String get playlink_insert => 'Insert link';
 
   @override
@@ -242,6 +249,12 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get play_insertLink => 'Insert link…';
+
+  @override
+  String get play_best => 'Play best';
+
+  @override
+  String get play_otherSources => 'Other sources';
 
   @override
   String get play_pickProvider => 'Pick a provider';
@@ -323,112 +336,139 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get failure_transportHttpNoRangeSupport =>
-      'This HTTP source does not support seeking.';
+      'This HTTP source does not support seeking. Choose another source.';
 
   @override
   String get failure_transportHttpValidatorChanged =>
-      'The HTTP file changed while it was loading.';
+      'The HTTP file changed while it was loading. Try again.';
 
   @override
   String get failure_transportHttpUnreachable =>
-      'The HTTP source could not be reached.';
+      'The HTTP source could not be reached. Check your connection and try again.';
 
   @override
   String get failure_transportRangeUnsatisfiable =>
-      'The requested media range is unavailable.';
+      'The requested part of the media is unavailable. Choose another source.';
 
   @override
   String get failure_transportTorrentNoMetadata =>
-      'Torrent metadata did not arrive in time.';
+      'Torrent details did not arrive in time. Try again.';
 
   @override
   String get failure_transportTorrentNoPeers =>
-      'This torrent has no available peers.';
+      'This torrent has no available peers. Choose another torrent.';
 
   @override
   String get failure_transportTorrentStalled =>
-      'The torrent stopped delivering the requested media.';
+      'The torrent stopped delivering the media. Try again or choose another source.';
 
   @override
   String get failure_transportTorrentFileError =>
-      'The torrent could not access its media files.';
+      'The torrent could not access its files. Check that the device has free storage space and try again.';
 
   @override
   String get failure_transportTorrentFileNotFound =>
-      'The requested file is not in the torrent.';
+      'The requested file is not in the torrent. Choose another file.';
 
   @override
   String get failure_transportEngineUnavailable =>
-      'The streaming engine is unavailable on this device.';
+      'The streaming engine failed to start on this device. Restart the app; if it keeps happening, reinstall it.';
+
+  @override
+  String get failure_transportDiskInsufficient =>
+      'There is not enough free storage space to start this stream. Free up space or lower the cache size limit in Settings, then try again.';
 
   @override
   String get failure_transportLocalNotFound =>
-      'The local file could not be found.';
+      'The local file could not be found. Check that it has not been moved or deleted.';
 
   @override
   String get failure_transportLocalNotReadable =>
-      'The local file could not be read.';
+      'The local file could not be read. Check the file permissions.';
 
   @override
-  String get failure_transportLocalEmpty => 'The local file is empty.';
+  String get failure_transportLocalEmpty =>
+      'The local file is empty. Choose another file.';
 
   @override
   String get failure_transportLocalUnsupportedUri =>
-      'This local source URI is not supported.';
+      'This local source address is not supported. Choose another file.';
 
   @override
-  String get failure_playbackOpenFailed => 'The media could not be opened.';
+  String get failure_playbackOpenFailed =>
+      'The media could not be opened. Try again or choose another source.';
 
   @override
-  String get failure_playbackDecodeFailed => 'The media could not be decoded.';
+  String get failure_playbackDecodeFailed =>
+      'The media could not be decoded. Choose another source.';
+
+  @override
+  String get failure_playbackSurfaceUnavailable =>
+      'The video output could not start on this device. Restart the app and try again.';
 
   @override
   String get failure_playbackEngineCrashed =>
-      'The playback engine stopped unexpectedly.';
+      'The playback engine stopped unexpectedly. Try again; if it keeps happening, restart the app.';
 
   @override
   String get failure_playbackSourceUnreachable =>
-      'The playback source became unreachable.';
+      'The connection to the playback source was lost. Check your connection and try again.';
 
   @override
   String get failure_playbackUnsupportedCodec =>
-      'This media uses an unsupported codec.';
+      'This media uses a codec that is not supported. Choose another source.';
 
   @override
   String get failure_playbackTrackSelectionFailed =>
-      'The requested playback track could not be selected.';
+      'The requested track could not be selected. Choose another track.';
 
   @override
   String get failure_playbackSubtitleLoadFailed =>
-      'The external subtitle could not be loaded.';
+      'The external subtitle could not be loaded. Check the subtitle file and try again.';
 
   @override
   String get failure_platformUnsupported =>
-      'This operation is not supported on this platform.';
+      'This operation is not supported on this device.';
 
   @override
   String get failure_platformPermissionDenied =>
-      'The platform denied the required permission.';
+      'The required permission was not granted. Check the permissions in the device settings.';
 
   @override
   String get failure_platformDisplaySwitchFailed =>
-      'The display mode could not be changed.';
+      'The display mode could not be changed. Choose another mode.';
 
   @override
   String get failure_platformAudioDeviceLost =>
-      'The selected audio device is no longer available.';
+      'The selected audio device is no longer available. Choose another device.';
 
   @override
   String get failure_platformProbeFailed =>
-      'Platform capabilities could not be determined.';
+      'The device capabilities could not be determined. Try again.';
 
   @override
   String get failure_appUnexpected =>
-      'The application encountered an unexpected failure.';
+      'The app hit an unexpected error. Try again.';
 
   @override
   String get failure_appCancelled =>
       'The operation was cancelled before completion.';
+
+  @override
+  String get failure_storageOpenFailed =>
+      'The app database could not be opened. Restart the app; if it keeps happening, free up storage space.';
+
+  @override
+  String get failure_storageMigrationFailed =>
+      'The app database could not be updated to the new version. Restart the app; if it keeps happening, reinstall it.';
+
+  @override
+  String get failure_storageWriteFailed =>
+      'Your changes could not be saved. Check that the device has free storage space and try again.';
+
+  @override
+  String get failure_storageCorrupt =>
+      'The app database is damaged. Restart the app; if it keeps happening, reinstall it.';
 
   @override
   String badge_progress(String percent) {
@@ -545,10 +585,13 @@ class AppStringsEn extends AppStrings {
   String get state_errorTitle => 'Unable to continue';
 
   @override
-  String get state_hideCode => 'Hide error code';
+  String get state_hideCode => 'Hide details';
 
   @override
-  String get state_showCode => 'Show error code';
+  String get state_showCode => 'Details';
+
+  @override
+  String get state_copyDetails => 'Copy';
 
   @override
   String get state_offline => 'You\'re offline';
@@ -730,6 +773,9 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get settings_video_scalingQuality_label => 'Scaling quality';
+
+  @override
+  String get settings_video_deinterlace_label => 'Deinterlacing';
 
   @override
   String get settings_video_toneMapping_label => 'HDR to SDR tone mapping';
@@ -964,6 +1010,10 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get settings_performance_decoderThreads_label => 'Decoder threads';
+
+  @override
+  String get settings_performance_maxDecoderResolution_label =>
+      'Max decoder resolution';
 
   @override
   String get settings_advanced_diagnostics_label => 'Playback diagnostics';
@@ -1339,7 +1389,7 @@ class AppStringsEn extends AppStrings {
   String get settings_display_title => 'Display';
 
   @override
-  String get settings_streaming_title => 'Streaming & Network';
+  String get settings_streaming_title => 'Network';
 
   @override
   String get settings_downloads_title => 'Downloads & Torrent';
@@ -1363,7 +1413,7 @@ class AppStringsEn extends AppStrings {
   String get settings_unlimited => 'Unlimited';
 
   @override
-  String get settings_providers => 'Providers';
+  String get settings_providers => 'Sources';
 
   @override
   String get settings_advancedSettings => 'Advanced settings';
@@ -1431,6 +1481,12 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get player_download => 'Download';
+
+  @override
+  String get player_errorTitle => 'Couldn\'t play this';
+
+  @override
+  String get player_tryAnotherSource => 'Try another source';
 
   @override
   String get player_nextEpisode => 'Next episode';
@@ -1502,6 +1558,9 @@ class AppStringsEn extends AppStrings {
   String get providers_username => 'Username or email';
 
   @override
+  String get providers_apiKey => 'API key';
+
+  @override
   String get providers_password => 'Password';
 
   @override
@@ -1539,6 +1598,37 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get player_backToSubtitles => 'Back to subtitles';
+
+  @override
+  String get player_subtitleDownloadFailed =>
+      'The subtitle could not be downloaded.';
+
+  @override
+  String get player_subtitleAuthFailed =>
+      'The subtitle service rejected your key or login. Sign in again in Settings → Providers.';
+
+  @override
+  String get player_subtitleQuotaReached =>
+      'The daily subtitle download limit is reached. Try again tomorrow.';
+
+  @override
+  String get player_subtitleServiceDown =>
+      'The subtitle service is not responding. Try again later.';
+
+  @override
+  String get home_limitedMode =>
+      'Limited mode — international internet unavailable';
+
+  @override
+  String get player_subtitleSearchFailed => 'Subtitle search failed.';
+
+  @override
+  String get player_noSubtitlesFound => 'No subtitles found for this title.';
+
+  @override
+  String player_subtitleSignIn(String services) {
+    return 'Sign in to $services in Settings → Providers to search them.';
+  }
 
   @override
   String get player_noSubtitleSources => 'No subtitle sources yet';
@@ -1612,6 +1702,14 @@ class AppStringsEn extends AppStrings {
   @override
   String settings_seconds(String value) {
     return '$value seconds';
+  }
+
+  @override
+  String get settings_cacheUsed => 'Cache used';
+
+  @override
+  String settings_cacheUsedValue(String used, String cap) {
+    return '$used of $cap';
   }
 
   @override
@@ -1801,6 +1899,10 @@ class AppStringsEn extends AppStrings {
   String get diagnostics_copy => 'Copy diagnostics';
 
   @override
+  String get diagnostics_previousCrash =>
+      'The app closed unexpectedly last time — share the log using Copy diagnostics.';
+
+  @override
   String get diagnostics_copied => 'Diagnostics copied';
 
   @override
@@ -1845,6 +1947,20 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get player_stats_Network => 'Network';
+
+  @override
+  String get player_stats_Downloading => 'Downloading';
+
+  @override
+  String get player_stats_Finding_peers => 'Finding peers';
+
+  @override
+  String get player_stats_Complete => 'Complete';
+
+  @override
+  String player_stats_Failed(String message) {
+    return 'Failed: $message';
+  }
 
   @override
   String get player_stats_Speed => 'Speed';
@@ -2178,6 +2294,11 @@ class AppStringsEn extends AppStrings {
   }
 
   @override
+  String settings_choiceResolution(String value) {
+    return '${value}p';
+  }
+
+  @override
   String player_playbackRate(String value) {
     return '$value×';
   }
@@ -2198,4 +2319,560 @@ class AppStringsEn extends AppStrings {
 
   @override
   String get player_subtitleNotAdded => 'Subtitle was not added.';
+
+  @override
+  String get settings_titleApi => 'Title API';
+
+  @override
+  String get settings_titleApi_hint =>
+      'Where titles, posters and details come from. The app tries these from top to bottom.';
+
+  @override
+  String get domain_label => 'Domain';
+
+  @override
+  String get domain_change => 'Change';
+
+  @override
+  String get domain_useDefault => 'Use default';
+
+  @override
+  String get domain_save => 'Save';
+
+  @override
+  String get domain_hint => 'e.g. https://example.com:8888/path';
+
+  @override
+  String get domain_invalid => 'Enter an http or https address with a host.';
+
+  @override
+  String get titleApi_proxy => 'Backup proxy';
+
+  @override
+  String get titleApi_reset => 'Reset domains and order';
+
+  @override
+  String get toast_liked => 'Added to Liked';
+
+  @override
+  String get toast_unliked => 'Removed from Liked';
+
+  @override
+  String get toast_removedContinue => 'Removed from Continue Watching';
+
+  @override
+  String get back_pressAgainToExit => 'Press back again to exit';
+
+  @override
+  String get toast_undo => 'Undo';
+
+  @override
+  String get toast_saveFailed => 'Couldn\'t save. Try again.';
+
+  @override
+  String menu_resumeAt(String time) {
+    return 'Resume at $time';
+  }
+
+  @override
+  String get menu_moreOptions => 'More options';
+
+  @override
+  String get hint_holdOk => 'Hold OK for options';
+
+  @override
+  String get hint_tvMenu => 'Press ◀ for the menu';
+
+  @override
+  String get hint_phoneHold => 'Press and hold a poster for options';
+
+  @override
+  String get detail_more => 'More';
+
+  @override
+  String get shortcuts_title => 'Keyboard shortcuts';
+
+  @override
+  String get shortcuts_app => 'App';
+
+  @override
+  String get shortcuts_player => 'Player';
+
+  @override
+  String get shortcuts_refresh => 'Refresh this page';
+
+  @override
+  String get shortcuts_back => 'Go back';
+
+  @override
+  String get shortcuts_menu => 'Open the menu';
+
+  @override
+  String get shortcuts_help => 'Show this list';
+
+  @override
+  String get shortcuts_playPause => 'Play or pause';
+
+  @override
+  String get shortcuts_seek => 'Skip 10 seconds back or forward';
+
+  @override
+  String get shortcuts_volume => 'Volume up or down';
+
+  @override
+  String get shortcuts_mute => 'Mute or unmute';
+
+  @override
+  String get shortcuts_fullscreen => 'Full screen';
+
+  @override
+  String get shortcuts_subtitles => 'Subtitles on or off';
+
+  @override
+  String get shortcuts_stats => 'Playback stats';
+
+  @override
+  String get shortcuts_jump => 'Jump back or forward';
+
+  @override
+  String get menuBar_view => 'View';
+
+  @override
+  String get menuBar_help => 'Help';
+
+  @override
+  String player_badge_seconds(int n) {
+    return '$n s';
+  }
+
+  @override
+  String player_badge_volume(int percent) {
+    return 'Volume $percent%';
+  }
+
+  @override
+  String get player_badge_muted => 'Muted';
+
+  @override
+  String get player_fullscreen => 'Full screen';
+
+  @override
+  String get player_exitFullscreen => 'Exit full screen';
+
+  @override
+  String get player_fitScreen => 'Fit to screen';
+
+  @override
+  String get hint_tvSeek => '◀ ▶ skip 10 s · hold to scrub · OK to confirm';
+
+  @override
+  String get settings_desc_playback_resume =>
+      'Choose whether a video continues where you stopped.';
+
+  @override
+  String get settings_desc_playback_autoPlayNext =>
+      'Starts the next episode on its own when one ends.';
+
+  @override
+  String get settings_desc_playback_rememberPosition =>
+      'Saves how far you watched so you can come back later.';
+
+  @override
+  String get settings_desc_playback_speed => 'How fast videos play by default.';
+
+  @override
+  String get settings_desc_playback_syncToDisplay =>
+      'Matches video timing to the screen for smoother motion.';
+
+  @override
+  String get settings_desc_playback_avSyncCorrection =>
+      'Keeps picture and sound together when they drift apart.';
+
+  @override
+  String get settings_desc_playback_cachePreset =>
+      'How much video is loaded ahead of time; more helps on slow networks.';
+
+  @override
+  String get settings_desc_playback_demuxerCacheSize =>
+      'The memory set aside for video that is loaded but not yet played.';
+
+  @override
+  String get settings_desc_playback_readAhead =>
+      'How many seconds of video are loaded in advance.';
+
+  @override
+  String get settings_desc_playback_networkTimeout =>
+      'How long to wait for a slow server before giving up.';
+
+  @override
+  String get settings_desc_video_hwdec =>
+      'Uses the device\'s video chip, which saves battery and runs smoother.';
+
+  @override
+  String get settings_desc_video_hdr =>
+      'Chooses how bright, high-contrast HDR videos are shown.';
+
+  @override
+  String get settings_desc_video_matchFrameRate =>
+      'Switches the screen to the video\'s frame rate for smoother motion.';
+
+  @override
+  String get settings_desc_video_matchResolution =>
+      'Switches the screen to the video\'s resolution when it can.';
+
+  @override
+  String get settings_desc_video_aspectRatio =>
+      'Chooses how the picture is stretched or cropped to fit the screen.';
+
+  @override
+  String get settings_desc_video_decoder =>
+      'Picks which decoder turns the video file into a picture.';
+
+  @override
+  String get settings_desc_video_deinterlace =>
+      'Removes the comb-like lines that interlaced videos can show.';
+
+  @override
+  String get settings_desc_video_scalingQuality =>
+      'Higher quality sharpens upscaled video but uses more power.';
+
+  @override
+  String get settings_desc_video_toneMapping =>
+      'Converts HDR colours so they look right on a normal screen.';
+
+  @override
+  String get settings_desc_video_pixelFormat =>
+      'The colour format used inside the video pipeline.';
+
+  @override
+  String get settings_desc_video_bitDepth =>
+      'How many shades of colour the output can show.';
+
+  @override
+  String get settings_desc_video_chroma =>
+      'How colour detail is scaled; leave on automatic unless you see colour fringes.';
+
+  @override
+  String get settings_desc_video_dithering =>
+      'Adds tiny noise to hide visible bands in smooth colours.';
+
+  @override
+  String get settings_desc_video_interpolation =>
+      'Blends frames to make motion look smoother.';
+
+  @override
+  String get settings_desc_video_debanding =>
+      'Smooths visible colour bands in skies and dark scenes.';
+
+  @override
+  String get settings_desc_video_gpuRendering =>
+      'Advanced options for how the graphics chip draws the video.';
+
+  @override
+  String get settings_desc_video_displayModeWhitelist =>
+      'Limits which screen modes the app may switch to.';
+
+  @override
+  String get settings_desc_audio_outputDevice =>
+      'Where sound plays: speakers, headphones or another device.';
+
+  @override
+  String get settings_desc_audio_speakerLayout =>
+      'How many speakers your setup has, from stereo to surround.';
+
+  @override
+  String get settings_desc_audio_normalizeVolume =>
+      'Evens out loud and quiet scenes so you touch the volume less.';
+
+  @override
+  String get settings_desc_audio_outputMode =>
+      'Lets the app adjust sound automatically or keeps a fixed format.';
+
+  @override
+  String get settings_desc_audio_passthrough =>
+      'Sends the original surround sound to your receiver untouched.';
+
+  @override
+  String get settings_desc_audio_passthroughDevice =>
+      'The device that receives passthrough sound.';
+
+  @override
+  String get settings_desc_audio_receiver_dolbyDigital =>
+      'Turn on if your receiver can play Dolby Digital.';
+
+  @override
+  String get settings_desc_audio_receiver_ddPlus =>
+      'Turn on if your receiver can play Dolby Digital Plus.';
+
+  @override
+  String get settings_desc_audio_receiver_dts =>
+      'Turn on if your receiver can play DTS.';
+
+  @override
+  String get settings_desc_audio_receiver_trueHd =>
+      'Turn on if your receiver can play Dolby TrueHD.';
+
+  @override
+  String get settings_desc_audio_receiver_dtsHd =>
+      'Turn on if your receiver can play DTS-HD.';
+
+  @override
+  String get settings_desc_audio_receiver_atmos =>
+      'Turn on if your receiver can play Dolby Atmos.';
+
+  @override
+  String get settings_desc_audio_receiver_dtsX =>
+      'Turn on if your receiver can play DTS:X.';
+
+  @override
+  String get settings_desc_audio_multichannelLpcm =>
+      'Sends surround sound as uncompressed audio over HDMI.';
+
+  @override
+  String get settings_desc_audio_ac3Transcode =>
+      'Converts other surround formats to Dolby Digital for older receivers.';
+
+  @override
+  String get settings_desc_audio_stereoUpmix =>
+      'Spreads two-channel sound across all your speakers.';
+
+  @override
+  String get settings_desc_audio_downmixDialogue =>
+      'Makes voices louder when surround is mixed down to fewer speakers.';
+
+  @override
+  String get settings_desc_audio_resamplingQuality =>
+      'Higher quality gives cleaner sound but uses more processing.';
+
+  @override
+  String get settings_desc_audio_sampleRate =>
+      'The sound rate sent to your output device.';
+
+  @override
+  String get settings_desc_audio_exclusiveMode =>
+      'Gives this app full control of the sound device for the best quality.';
+
+  @override
+  String get settings_desc_audio_deviceKeepAlive =>
+      'Keeps the sound device awake so playback starts without a pop or delay.';
+
+  @override
+  String get settings_desc_subtitles_autoEnable =>
+      'Turns subtitles on by itself when they are found.';
+
+  @override
+  String get settings_desc_subtitles_hearingImpaired =>
+      'Prefer or avoid subtitles that also describe sounds.';
+
+  @override
+  String get settings_desc_subtitles_font => 'The typeface used for subtitles.';
+
+  @override
+  String get settings_desc_subtitles_position =>
+      'How high or low subtitles sit on the screen.';
+
+  @override
+  String get settings_desc_subtitles_encoding =>
+      'The text encoding used to read subtitle files; change it if letters look wrong.';
+
+  @override
+  String get settings_desc_subtitles_border =>
+      'The outline around subtitle letters.';
+
+  @override
+  String get settings_desc_subtitles_shadow =>
+      'A soft shadow behind subtitle letters.';
+
+  @override
+  String get settings_desc_subtitles_background =>
+      'A dark box behind subtitles so they are easier to read.';
+
+  @override
+  String get settings_desc_subtitles_delay =>
+      'Moves subtitles earlier or later to match the speech.';
+
+  @override
+  String get settings_desc_subtitles_forcedBehaviour =>
+      'What to do with forced subtitles, which only translate foreign speech.';
+
+  @override
+  String get settings_desc_subtitles_assStyling =>
+      'Use the subtitle file\'s own styling or the app\'s style.';
+
+  @override
+  String get settings_desc_display_monitor =>
+      'Which screen the video plays on.';
+
+  @override
+  String get settings_desc_display_fullscreenMode =>
+      'How the player fills the screen on a computer.';
+
+  @override
+  String get settings_desc_display_refreshRate =>
+      'The screen refresh rate used during playback.';
+
+  @override
+  String get settings_desc_display_hdrOutputMode =>
+      'Whether the screen is switched into HDR mode for HDR videos.';
+
+  @override
+  String get settings_desc_display_calibration =>
+      'Adjusts brightness and colour to suit your screen.';
+
+  @override
+  String get settings_desc_streaming_quality =>
+      'The video quality to prefer when a title offers several.';
+
+  @override
+  String get settings_desc_streaming_protocol =>
+      'The network method used to fetch streams.';
+
+  @override
+  String get settings_desc_streaming_cacheSizeLimit =>
+      'The most disk space streams may use before old data is removed.';
+
+  @override
+  String get settings_desc_streaming_bufferSize =>
+      'How much video is held in memory while streaming.';
+
+  @override
+  String get settings_desc_streaming_prebuffer =>
+      'How much video loads before playback starts.';
+
+  @override
+  String get settings_desc_streaming_maxHttpConnections =>
+      'How many connections the app opens at once to download a stream.';
+
+  @override
+  String get settings_desc_streaming_connectionTimeout =>
+      'How long to wait for a connection before trying again.';
+
+  @override
+  String get settings_desc_streaming_retryCount =>
+      'How many times to retry a failed download.';
+
+  @override
+  String get settings_desc_streaming_proxy =>
+      'Send streams through a proxy server if your network needs one.';
+
+  @override
+  String get settings_desc_streaming_userAgent =>
+      'The name this app gives to servers when it asks for video.';
+
+  @override
+  String get settings_desc_streaming_headers =>
+      'Extra information sent with every video request, for advanced setups.';
+
+  @override
+  String get settings_desc_streaming_tls =>
+      'Security options for encrypted connections.';
+
+  @override
+  String get settings_desc_downloads_bandwidthLimit =>
+      'The fastest speed downloads may use, so the network stays free.';
+
+  @override
+  String get settings_desc_downloads_torrentDownLimit =>
+      'The fastest speed torrents may download at.';
+
+  @override
+  String get settings_desc_downloads_torrentUpLimit =>
+      'The fastest speed torrents may upload at.';
+
+  @override
+  String get settings_desc_downloads_connectionLimit =>
+      'The most connections torrents may open in total.';
+
+  @override
+  String get settings_desc_downloads_peerLimit =>
+      'The most other users a single torrent may connect to.';
+
+  @override
+  String get settings_desc_downloads_seeding =>
+      'Whether to keep sharing a torrent after it has finished.';
+
+  @override
+  String get settings_desc_downloads_tracker =>
+      'Extra tracker addresses that help torrents find other users.';
+
+  @override
+  String get settings_desc_downloads_dht =>
+      'Lets torrents find other users without a tracker.';
+
+  @override
+  String get settings_desc_downloads_pex =>
+      'Lets torrent users share the addresses of others they know.';
+
+  @override
+  String get settings_desc_languages_preferOriginalAudio =>
+      'Plays the original language of a title when it is available.';
+
+  @override
+  String get settings_desc_languages_preferForcedSubtitles =>
+      'Picks forced subtitles that translate only foreign speech.';
+
+  @override
+  String get settings_desc_languages_preferBestAudio =>
+      'Chooses the track with the best sound quality in your language.';
+
+  @override
+  String get settings_desc_languages_trackPriority =>
+      'Rules that decide which audio and subtitle tracks are picked first.';
+
+  @override
+  String get settings_desc_performance_mode =>
+      'Balances picture quality against speed and battery.';
+
+  @override
+  String get settings_desc_performance_gpuQuality =>
+      'Lower this if video stutters on an older device.';
+
+  @override
+  String get settings_desc_performance_backgroundPreload =>
+      'Prepares the next video in the background so it opens faster.';
+
+  @override
+  String get settings_desc_performance_maxDecoderResolution =>
+      'The largest picture size the app will try to play.';
+
+  @override
+  String get settings_desc_performance_decoderThreads =>
+      'How many processor cores may decode video; automatic is best.';
+
+  @override
+  String get settings_desc_advanced_diagnostics =>
+      'Shows technical details about playback, for support.';
+
+  @override
+  String get settings_desc_advanced_customMpvOptions =>
+      'Extra player options for experts; wrong values can break playback.';
+
+  @override
+  String get settings_desc_playback_preferredAudioLanguage =>
+      'The audio language picked first when a video has several.';
+
+  @override
+  String get settings_desc_playback_preferredSubtitleLanguage =>
+      'The subtitle language picked first when a video has several.';
+
+  @override
+  String get settings_desc_playback_defaultSubtitleSize =>
+      'How large subtitles appear.';
+
+  @override
+  String get settings_desc_app_language =>
+      'The language of the app\'s menus and buttons.';
+
+  @override
+  String get home_emptyBody =>
+      'Nothing to show yet. Check your sources in Settings or try again.';
+
+  @override
+  String get home_openSettings => 'Open Settings';
+
+  @override
+  String get settings_searchHint => 'Search settings';
+
+  @override
+  String get settings_searchNone => 'No setting matches.';
 }

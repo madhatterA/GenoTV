@@ -30,6 +30,10 @@ final class LtAlert extends Struct {
 
 typedef _CreateNative = Pointer<Void> Function();
 typedef LtCreate = Pointer<Void> Function();
+typedef _CreateWithStateNative = Pointer<Void> Function(Pointer<Uint8>, Int32);
+typedef LtCreateWithState = Pointer<Void> Function(Pointer<Uint8>, int);
+typedef _SaveStateNative = Int32 Function(Pointer<Void>, Pointer<Uint8>, Int32);
+typedef LtSaveState = int Function(Pointer<Void>, Pointer<Uint8>, int);
 typedef _DestroyNative = Void Function(Pointer<Void>);
 typedef LtDestroy = void Function(Pointer<Void>);
 typedef _ErrorNative = Int32 Function(Pointer<Void>, Pointer<Utf8>, Int32);
@@ -40,6 +44,13 @@ final class LtBindings {
   LtBindings(DynamicLibrary library)
     : create = library.lookupFunction<_CreateNative, LtCreate>(
         'transport_lt_session_create',
+      ),
+      createWithState = library
+          .lookupFunction<_CreateWithStateNative, LtCreateWithState>(
+            'transport_lt_session_create_with_state',
+          ),
+      saveState = library.lookupFunction<_SaveStateNative, LtSaveState>(
+        'transport_lt_session_save_state',
       ),
       destroy = library.lookupFunction<_DestroyNative, LtDestroy>(
         'transport_lt_session_destroy',
@@ -91,6 +102,8 @@ final class LtBindings {
           );
 
   final LtCreate create;
+  final LtCreateWithState createWithState;
+  final LtSaveState saveState;
   final LtDestroy destroy;
   final LtError lastError;
   final AddMagnet addMagnet;

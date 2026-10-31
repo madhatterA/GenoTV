@@ -1,0 +1,7 @@
+diff --git a/Common/MVKOSExtensions.mm b/Common/MVKOSExtensions.mm
+index 4e2c974..b8b4c9c 100644
+--- a/Common/MVKOSExtensions.mm
++++ b/Common/MVKOSExtensions.mm
+@@ -115 +115 @@ uint64_t mvkGetSystemMemorySize() {
+-	return 0;
++	return [NSProcessInfo processInfo].physicalMemory;

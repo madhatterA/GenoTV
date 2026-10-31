@@ -1,5 +1,7 @@
 // Ported from PlayTorrioV3 lib/services/scraper/sites/torrent_galaxy.dart,
-// commit 39b736f. GPL-3.0; see root README.md (Credits) and LICENSE.
+// commit 39b736f. GPL-3.0; see root NOTICE.md.
+import 'dart:isolate';
+
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
 import 'package:html/dom.dart';
@@ -38,7 +40,9 @@ class TorrentGalaxySearch {
       Uri.parse('$baseUrl/get-posts/keywords:${Uri.encodeComponent(query)}'),
       headers: {'User-Agent': _userAgent},
     );
-    final document = parser.parse(body);
+    Future<Document> parseBody(String payload) =>
+        Isolate.run(() => parser.parse(payload));
+    final document = await parseBody(body!);
     if (document.querySelector('.tgxtable') == null) {
       throw const ContentSourceFailure.invalidResponse(
         'TorrentGalaxy page has no results table',
@@ -85,7 +89,9 @@ class TorrentGalaxySearch {
   ) async {
     try {
       final body = await http.getText(url, headers: {'User-Agent': _userAgent});
-      final document = parser.parse(body);
+      Future<Document> parseBody(String payload) =>
+          Isolate.run(() => parser.parse(payload));
+      final document = await parseBody(body!);
       final magnet = document
           .querySelector('a[href^="magnet:"]')
           ?.attributes['href'];

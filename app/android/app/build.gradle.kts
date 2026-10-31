@@ -1,7 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Release key lives outside the repo (~/.genotv/key.properties: storeFile,
+// storePassword, keyAlias, keyPassword); `-PkeyProps=<file>` overrides the path.
+val keyProps = Properties().apply {
+    val f = file(
+        (project.findProperty("keyProps") as String?)
+            ?: "${System.getProperty("user.home")}/.genotv/key.properties",
+    )
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -28,10 +40,21 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (keyProps.isNotEmpty()) {
+                storeFile = file(keyProps.getProperty("storeFile"))
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Local release builds use the debug key until a distribution keystore is provisioned.
-            signingConfig = signingConfigs.getByName("debug")
+            // Never the debug key: without key.properties the release build fails.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

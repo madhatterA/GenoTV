@@ -9,8 +9,10 @@ import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../components/focus_button.dart';
+import '../components/orb_loader.dart';
 import '../theme/rivulet_tokens.dart';
 import 'info_insights_panels.dart';
 import 'panel_row.dart';
@@ -60,6 +62,31 @@ class SubtitleSource {
   final String name;
 }
 
+/// One online subtitle offered in the Subtitles → Download list.
+class UiSubtitleResult {
+  const UiSubtitleResult({
+    required this.id,
+    required this.service,
+    required this.language,
+    required this.release,
+    required this.uploader,
+    required this.hearingImpaired,
+  });
+  final String id;
+  final String service;
+  final String language;
+  final String release;
+  final String uploader;
+  final bool hearingImpaired;
+}
+
+/// What a subtitle search found; [notSignedIn] are service names to sign in to.
+class UiSubtitleSearch {
+  const UiSubtitleSearch(this.results, this.notSignedIn);
+  final List<UiSubtitleResult> results;
+  final List<String> notSignedIn;
+}
+
 class SubtitleSourcesPanel extends StatelessWidget {
   const SubtitleSourcesPanel({
     required this.sources,
@@ -93,6 +120,121 @@ class SubtitleSourcesPanel extends StatelessWidget {
   );
 }
 
+/// The message for an online-subtitle failure (en + fa); anything that is not
+/// a provider failure falls through to the player's own messages.
+String subtitleFailureMessage(AppFailure failure, AppStrings strings) =>
+    switch (failure.code) {
+      'provider.auth_required' => strings.player_subtitleAuthFailed,
+      'provider.quota_reached' => strings.player_subtitleQuotaReached,
+      'provider.network' ||
+      'provider.unavailable' ||
+      'provider.invalid_response' => strings.player_subtitleServiceDown,
+      'provider.not_found' => strings.player_noSubtitlesFound,
+      _ => playerFailureMessage(failure, strings),
+    };
+
+/// Search results for the playing title; tap one to download and load it.
+class OnlineSubtitlesPanel extends StatefulWidget {
+  const OnlineSubtitlesPanel({
+    required this.search,
+    required this.onPick,
+    required this.onBack,
+    super.key,
+  });
+  final Future<UiSubtitleSearch> Function() search;
+  final Future<void> Function(UiSubtitleResult) onPick;
+  final VoidCallback onBack;
+
+  @override
+  State<OnlineSubtitlesPanel> createState() => _OnlineSubtitlesPanelState();
+}
+
+class _OnlineSubtitlesPanelState extends State<OnlineSubtitlesPanel> {
+  late final Future<UiSubtitleSearch> _search = widget.search();
+  bool _busy = false;
+  String? _failure;
+
+  static const _names = {'fa': 'فارسی', 'en': 'English'};
+
+  Future<void> _pick(UiSubtitleResult result) async {
+    if (_busy) return;
+    final strings = AppStrings.of(context);
+    setState(() {
+      _busy = true;
+      _failure = null;
+    });
+    try {
+      await widget.onPick(result);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _failure = error is AppFailure
+              ? subtitleFailureMessage(error, strings)
+              : strings.player_subtitleDownloadFailed,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FocusButton(
+          key: const ValueKey('subtitle-sources-back'),
+          variant: FocusButtonVariant.row,
+          label: strings.player_backToSubtitles,
+          onActivate: widget.onBack,
+        ),
+        if (_failure != null) AppText(_failure!),
+        Expanded(
+          child: FutureBuilder<UiSubtitleSearch>(
+            future: _search,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                final error = snapshot.error;
+                return AppText(
+                  error is AppFailure
+                      ? subtitleFailureMessage(error, strings)
+                      : strings.player_subtitleSearchFailed,
+                );
+              }
+              final found = snapshot.data;
+              if (found == null) return const Center(child: OrbLoader.small());
+              return ListView(
+                children: [
+                  if (found.notSignedIn.isNotEmpty)
+                    AppText(
+                      strings.player_subtitleSignIn(
+                        found.notSignedIn.join(', '),
+                      ),
+                    ),
+                  if (found.results.isEmpty) AppText(strings.player_noSubtitlesFound),
+                  for (final r in found.results)
+                    FocusButton(
+                      key: ValueKey('online-subtitle-${r.service}-${r.id}'),
+                      variant: FocusButtonVariant.row,
+                      enabled: !_busy,
+                      label:
+                          '${_names[r.language] ?? r.language.toUpperCase()} · '
+                          '${r.release}${r.hearingImpaired ? ' · HI' : ''}'
+                          ' · ${r.uploader.isEmpty ? r.service : r.uploader}',
+                      onActivate: () => _pick(r),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Composes the existing player panels; never pauses or replaces the surface.
 class PlayerBoxOptions extends StatefulWidget {
   const PlayerBoxOptions({
@@ -104,9 +246,17 @@ class PlayerBoxOptions extends StatefulWidget {
     this.audioOutput,
     this.subtitleSources = const [],
     this.onAddSubtitleFiles,
+    this.onSearchSubtitles,
+    this.onFetchSubtitle,
     super.key,
   });
   final Future<List<({String name, Uri uri})>> Function()? onAddSubtitleFiles;
+
+  /// Online subtitles: search for the playing title, then fetch (download,
+  /// unzip, stage) the chosen one. Both null keeps the old empty source list.
+  final Future<UiSubtitleSearch> Function()? onSearchSubtitles;
+  final Future<List<({String name, Uri uri})>> Function(UiSubtitleResult)?
+  onFetchSubtitle;
   final PlaybackController controller;
   final PlaybackState state;
   final VoidCallback dismiss;
@@ -244,7 +394,7 @@ class _PlayerBoxOptionsState extends State<PlayerBoxOptions> {
           onPressed: _busy || value <= -limit
               ? null
               : () => change(value - step),
-          icon: const Icon(Icons.remove),
+          icon: const Icon(PhosphorIconsRegular.minus),
         ),
         IconButton(
           key: ValueKey('$prefix-plus'),
@@ -254,7 +404,7 @@ class _PlayerBoxOptionsState extends State<PlayerBoxOptions> {
           onPressed: _busy || value >= limit
               ? null
               : () => change(value + step),
-          icon: const Icon(Icons.add),
+          icon: const Icon(PhosphorIconsRegular.plus),
         ),
         _choice(
           '$prefix-reset',
@@ -428,9 +578,24 @@ class _PlayerBoxOptionsState extends State<PlayerBoxOptions> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: RivuletSpacing.s12),
           Expanded(
             child: switch (_section) {
+              'Subtitles' when _sourcesOpen && widget.onSearchSubtitles != null =>
+                OnlineSubtitlesPanel(
+                  search: widget.onSearchSubtitles!,
+                  onPick: (result) async {
+                    final strings = AppStrings.of(context);
+                    final files = await widget.onFetchSubtitle!(result);
+                    await addAndSelectSubtitles(
+                      widget.controller,
+                      files,
+                      strings,
+                    );
+                    if (mounted) setState(() => _sourcesOpen = false);
+                  },
+                  onBack: () => setState(() => _sourcesOpen = false),
+                ),
               'Subtitles' when _sourcesOpen => SubtitleSourcesPanel(
                 sources: widget.subtitleSources,
                 onBack: () => setState(() => _sourcesOpen = false),

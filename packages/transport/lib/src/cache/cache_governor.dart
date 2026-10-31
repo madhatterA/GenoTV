@@ -23,7 +23,6 @@ class CacheGovernor implements CacheClient {
     required this.evict,
     required this.limitAhead,
     required this._logger,
-    required this.onFailure,
   }) {
     budget.register(this);
   }
@@ -38,10 +37,10 @@ class CacheGovernor implements CacheClient {
   final RangeSet Function()? occupied;
 
   /// Disk bytes really allocated inside a range, when the transport can tell.
-  final int Function(ByteRange range)? allocatedIn;
+  final FutureOr<int> Function(ByteRange range)? allocatedIn;
 
   /// Disk bytes the whole stream really occupies, when the transport can tell.
-  final int Function()? measuredUsed;
+  final FutureOr<int> Function()? measuredUsed;
 
   /// Evict nothing until at least this many bytes are outside the window.
   final int evictBatchBytes;
@@ -52,7 +51,6 @@ class CacheGovernor implements CacheClient {
   /// Stops or resumes downloading so data ahead of [head] stays within
   /// [aheadBytes].
   final Future<void> Function(int head, int aheadBytes) limitAhead;
-  final void Function(Object error) onFailure;
   final AppLogger _logger;
 
   static const int _step = 1024 * 1024;
@@ -67,10 +65,17 @@ class CacheGovernor implements CacheClient {
 
   final Map<Object, ({int start, int pos})> _readers = {};
   int _head = 0;
+
+  /// Where playback really is: the file start until a reader has sustained a
+  /// read, then that reader's position. Seek hints and short probes move
+  /// [_head] but never this, and its window is never evicted.
+  int _anchor = 0;
+  bool _anchorSustained = false;
   int _evaluatedHead = -(1 << 60);
   bool _running = false;
   bool _rerun = false;
   bool _closed = false;
+  bool _warnedOverCap = false;
   final Stopwatch _sinceEvaluation = Stopwatch()..start();
   Future<void>? _inflight;
 
@@ -78,8 +83,8 @@ class CacheGovernor implements CacheClient {
   RangeSet? _snapshot;
 
   @override
-  int get usedBytes =>
-      measuredUsed?.call() ?? rangesLength(_snapshot ?? available());
+  Future<int> get usedBytes async =>
+      await measuredUsed?.call() ?? rangesLength(_snapshot ?? available());
 
   @override
   int get batchBytes => evictBatchBytes;
@@ -89,6 +94,11 @@ class CacheGovernor implements CacheClient {
     final start = _readers[reader]?.start ?? position;
     _readers[reader] = (start: start, pos: position);
     if (position - start >= _primaryAfter) _head = position;
+    // Sustained reading (not an index probe at the file end) is real playback.
+    if (position - start >= _readerAhead) {
+      _anchor = position;
+      _anchorSustained = true;
+    }
     if ((_head - _evaluatedHead).abs() >= _step) _schedule();
   }
 
@@ -127,11 +137,10 @@ class CacheGovernor implements CacheClient {
       } while (_rerun && !_closed);
     } catch (error, stack) {
       _logger.error(
-        'Cache limit enforcement failed',
+        'Cache limit enforcement failed (maintenance only; streaming continues)',
         error: error,
         stack: stack,
       );
-      onFailure(error);
     } finally {
       _running = false;
     }
@@ -142,7 +151,7 @@ class CacheGovernor implements CacheClient {
     if (total == null || total <= 0) return;
     _sinceEvaluation.reset();
     final snapshot = _snapshot = (occupied ?? available)();
-    final ahead = budget.aheadFor(this, total: total);
+    final ahead = await budget.aheadFor(this, total: total);
     final head = _head;
     if (ahead >= total) {
       // The whole file fits: download it all, evict nothing.
@@ -151,11 +160,18 @@ class CacheGovernor implements CacheClient {
       await limitAhead(head, ahead);
       return;
     }
+    if (!_warnedOverCap) {
+      _warnedOverCap = true;
+      _logger.warn(
+        'Playing item ($total bytes) is larger than the cache limit '
+        '(${budget.limit}); keeping only a window around the play head',
+      );
+    }
     final futureWindow = ByteRange(
       head.clamp(0, total - 1).toInt(),
       (head + math.max(1, ahead) - 1).clamp(0, total - 1).toInt(),
     );
-    final projectedUsed = budget.openUsed - usedBytes +
+    final projectedUsed = await budget.openUsed - await usedBytes +
         rangesLength(snapshot.add(futureWindow));
     final keepStart = math.max(0, head - budget.backWindow);
     var outside = subtractRange(
@@ -171,11 +187,22 @@ class CacheGovernor implements CacheClient {
         ),
       );
     }
+    outside = subtractRange(
+      outside,
+      ByteRange(
+        math.max(0, _anchor - _readerBehind),
+        _anchor + (_anchorSustained ? _readerAhead : 2 * _primaryAfter),
+      ),
+    );
     _snapshot = null;
     final measure = allocatedIn;
-    final outsideBytes = measure == null
-        ? rangesLength(outside)
-        : outside.ranges.fold<int>(0, (sum, r) => sum + measure(r));
+    var outsideBytes = rangesLength(outside);
+    if (measure != null) {
+      outsideBytes = 0;
+      for (final range in outside.ranges) {
+        outsideBytes += await measure(range);
+      }
+    }
     await budget.makeRoom();
     if (outsideBytes >= evictBatchBytes &&
         projectedUsed >= budget.limit - evictBatchBytes) {
@@ -192,5 +219,11 @@ class CacheGovernor implements CacheClient {
     _closed = true;
     budget.unregister(this);
     await _inflight;
+    // Session end: trim the closed streams (this one included) to the limit.
+    try {
+      await budget.makeRoom(force: true);
+    } on Object catch (error, stack) {
+      _logger.error('Cache trim at session end failed', error: error, stack: stack);
+    }
   }
 }

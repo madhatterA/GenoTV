@@ -49,7 +49,7 @@ class DetailSections extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
     final sections = <Widget>[
       if (presentation.cast.isNotEmpty)
         _PeopleSection(
@@ -108,8 +108,7 @@ class DetailSections extends StatelessWidget {
               canRequestFocus: false,
               onFocusChange: (focused) {
                 if (focused &&
-                    (AdaptiveBehavior.of(context).formFactor ==
-                        FormFactor.tv)) {
+                    (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv)) {
                   FocusableCard.revealSection(context);
                 }
               },
@@ -124,7 +123,7 @@ class DetailSections extends StatelessWidget {
 
 /// A section's left and right inset: the page gutter.
 EdgeInsets _gutterOf(BuildContext context) => EdgeInsets.symmetric(
-  horizontal: RivuletSpacing.gutter(AdaptiveBehavior.of(context).formFactor),
+  horizontal: RivuletSpacing.gutterOf(context),
 );
 
 class _SectionTitle extends StatelessWidget {
@@ -197,7 +196,6 @@ class _PeopleSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
     final label = tokens.typeStyles.label.copyWith(
       color: tokens.colors.textPrimary,
     );
@@ -207,7 +205,7 @@ class _PeopleSection extends StatelessWidget {
         (scaler.scale(style.fontSize!) *
                 (isFarsi(context) ? faHeight : style.height!))
             .ceilToDouble();
-    final gutter = RivuletSpacing.gutter(formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[

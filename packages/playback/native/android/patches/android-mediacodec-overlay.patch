@@ -1,0 +1,259 @@
+diff --git a/video/out/vo_mediacodec_embed.c b/video/out/vo_mediacodec_embed.c
+index 08d3866..1d65fd9 100644
+--- a/video/out/vo_mediacodec_embed.c
++++ b/video/out/vo_mediacodec_embed.c
+@@ -15,6 +15,9 @@
+  * License along with mpv.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <android/native_window.h>
++#include <android/native_window_jni.h>
++#include <libavcodec/jni.h>
+ #include <libavcodec/mediacodec.h>
+ #include <libavutil/hwcontext.h>
+ #include <libavutil/hwcontext_mediacodec.h>
+@@ -23,12 +26,26 @@
+ #include "vo.h"
+ #include "video/mp_image.h"
+ #include "video/hwdec.h"
++#include "options/m_option.h"
++#include "sub/draw_bmp.h"
++#include "sub/osd.h"
++#include "video/mp_image_pool.h"
+ 
+ struct priv {
++    int64_t overlay_ref;            // JNI global ref of the overlay android.view.Surface (0 = none)
++    ANativeWindow *overlay;
++    struct mp_image *overlay_img;   // RGBA scratch, owned by us so the OSD path can draw in place
++    int64_t overlay_change_id;      // last sub_bitmap_list change_id drawn
++    bool overlay_posted;            // independent of redraw/resize invalidation
++    struct mp_draw_sub_cache *overlay_draw_cache;
++    double overlay_pts;
++
+     struct mp_image *next_image;
+     struct mp_hwdec_ctx hwctx;
+ };
+ 
++static int overlay_init(struct vo *vo);
++
+ static AVBufferRef *create_mediacodec_device_ref(struct vo *vo)
+ {
+     AVBufferRef *device_ref = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_MEDIACODEC);
+@@ -62,9 +79,115 @@ static int preinit(struct vo *vo)
+     }
+ 
+     hwdec_devices_add(vo->hwdec_devs, &p->hwctx);
++    p->overlay_pts = MP_NOPTS_VALUE;
++    return overlay_init(vo);
++}
++
++static int overlay_init(struct vo *vo)
++{
++    struct priv *p = vo->priv;
++    if (!p->overlay_ref)
++        return 0;
++    JavaVM *vm = av_jni_get_java_vm(NULL);
++    JNIEnv *env = NULL;
++    bool attached = false;
++    if (vm && (*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6) == JNI_EDETACHED)
++        attached = (*vm)->AttachCurrentThread(vm, &env, NULL) == 0;
++    if (!env) {
++        MP_ERR(vo, "overlay: no JNIEnv\n");
++        return -1;
++    }
++    p->overlay = ANativeWindow_fromSurface(env, (jobject)(intptr_t)p->overlay_ref);
++    if (attached)
++        (*vm)->DetachCurrentThread(vm);
++    if (!p->overlay) {
++        MP_ERR(vo, "overlay: ANativeWindow_fromSurface failed\n");
++        return -1;
++    }
++    if (ANativeWindow_setBuffersGeometry(p->overlay, 0, 0,
++                                        WINDOW_FORMAT_RGBA_8888) != 0) {
++        MP_ERR(vo, "overlay: RGBA buffer geometry failed\n");
++        return -1;
++    }
++    p->overlay_draw_cache = mp_draw_sub_alloc(p, vo->global);
++    if (!p->overlay_draw_cache) {
++        MP_ERR(vo, "overlay: software OSD cache allocation failed\n");
++        return -1;
++    }
++    p->overlay_change_id = -1;
+     return 0;
+ }
+ 
++// mpv's software OSD renderer owns subtitle decoding; only changed content is posted.
++static void overlay_update(struct vo *vo, double pts)
++{
++    struct priv *p = vo->priv;
++    if (!p->overlay)
++        return;
++    int w = ANativeWindow_getWidth(p->overlay), h = ANativeWindow_getHeight(p->overlay);
++    if (w <= 0 || h <= 0) {
++        MP_ERR(vo, "overlay: invalid window dimensions %dx%d\n", w, h);
++        return;
++    }
++    if (!p->overlay_img || p->overlay_img->w != w || p->overlay_img->h != h) {
++        talloc_free(p->overlay_img);
++        p->overlay_img = mp_image_alloc(IMGFMT_RGBA, w, h);
++        p->overlay_change_id = -1;
++    }
++    if (!p->overlay_img) {
++        MP_ERR(vo, "overlay: RGBA allocation failed\n");
++        return;
++    }
++    p->overlay_img->params.alpha = MP_ALPHA_PREMUL;
++    struct mp_osd_res res = { .w = w, .h = h, .display_par = 1.0 };
++    struct sub_bitmap_list *list = osd_render(vo->osd, res, pts, 0, mp_draw_sub_formats);
++    if (!list) {
++        MP_ERR(vo, "overlay: OSD bitmap rendering failed\n");
++        return;
++    }
++    int64_t id = list->change_id;
++    int n = list->num_items;
++    if (id == p->overlay_change_id) {
++        talloc_free(list);
++        return;
++    }
++    for (int y = 0; y < h; y++)
++        memset(p->overlay_img->planes[0] + (size_t)y * p->overlay_img->stride[0],
++               0, (size_t)w * 4); // Transparent premultiplied RGBA: 0,0,0,0.
++    bool drawn = !n || mp_draw_sub_bitmaps(p->overlay_draw_cache, p->overlay_img, list);
++    talloc_free(list);
++    if (!drawn) {
++        MP_ERR(vo, "overlay: software OSD drawing failed\n");
++        return;
++    }
++    ANativeWindow_Buffer buffer;
++    int result = ANativeWindow_lock(p->overlay, &buffer, NULL);
++    if (result != 0) {
++        MP_ERR(vo, "overlay: lock failed (%d)\n", result);
++        return;
++    }
++    bool valid = buffer.bits && buffer.width == w && buffer.height == h &&
++                 buffer.stride >= w && buffer.format == WINDOW_FORMAT_RGBA_8888;
++    if (valid) {
++        for (int y = 0; y < h; y++)
++            memcpy((uint8_t *)buffer.bits + (size_t)y * buffer.stride * 4,
++                   p->overlay_img->planes[0] + (size_t)y * p->overlay_img->stride[0],
++                   (size_t)w * 4);
++    } else {
++        MP_ERR(vo, "overlay: unexpected locked buffer geometry or format\n");
++    }
++    result = ANativeWindow_unlockAndPost(p->overlay);
++    if (result != 0) {
++        MP_ERR(vo, "overlay: post failed (%d)\n", result);
++        return;
++    }
++    if (valid) {
++        p->overlay_change_id = id;
++        p->overlay_posted = true;
++        MP_VERBOSE(vo, "overlay: posted %d items (change_id %lld)\n", n, (long long)id);
++    }
++}
++
+ static void flip_page(struct vo *vo)
+ {
+     struct priv *p = vo->priv;
+@@ -84,6 +207,9 @@ static void draw_frame(struct vo *vo, struct vo_frame *frame)
+     if (!frame->redraw && !frame->repeat)
+         mpi = mp_image_new_ref(frame->current);
+ 
++    if (frame->current)
++        p->overlay_pts = frame->current->pts;
++    overlay_update(vo, p->overlay_pts);
+     talloc_free(p->next_image);
+     p->next_image = mpi;
+ }
+@@ -95,6 +221,20 @@ static int query_format(struct vo *vo, int format)
+ 
+ static int control(struct vo *vo, uint32_t request, void *data)
+ {
++    struct priv *p = vo->priv;
++    switch (request) {
++    case VOCTRL_RESET:
++        p->overlay_pts = MP_NOPTS_VALUE;
++        p->overlay_change_id = -1;
++        overlay_update(vo, p->overlay_pts);
++        return VO_TRUE;
++    case VOCTRL_PAUSE:
++    case VOCTRL_RESUME:
++    case VOCTRL_SET_PANSCAN:
++        overlay_update(vo, p->overlay_pts);
++        vo->want_redraw = true;
++        return VO_TRUE;
++    }
+     return VO_NOTIMPL;
+ }
+ 
+@@ -103,15 +243,60 @@ static int reconfig(struct vo *vo, struct mp_image_params *params)
+     return 0;
+ }
+ 
++// Clear the surviving SDR GUI plane before changing away from this video output.
++static void overlay_clear(struct vo *vo)
++{
++    struct priv *p = vo->priv;
++    if (!p->overlay || !p->overlay_posted)
++        return;
++    int w = ANativeWindow_getWidth(p->overlay), h = ANativeWindow_getHeight(p->overlay);
++    if (w <= 0 || h <= 0) {
++        MP_ERR(vo, "overlay cleanup: invalid window dimensions %dx%d\n", w, h);
++        return;
++    }
++    ANativeWindow_Buffer buffer;
++    int result = ANativeWindow_lock(p->overlay, &buffer, NULL);
++    if (result != 0) {
++        MP_ERR(vo, "overlay cleanup: lock failed (%d)\n", result);
++        return;
++    }
++    bool valid = buffer.bits && buffer.width > 0 && buffer.height > 0 &&
++                 buffer.stride >= buffer.width && buffer.format == WINDOW_FORMAT_RGBA_8888;
++    if (valid) {
++        for (int y = 0; y < buffer.height; y++)
++            memset((uint8_t *)buffer.bits + (size_t)y * buffer.stride * 4,
++                   0, (size_t)buffer.width * 4);
++    } else {
++        MP_ERR(vo, "overlay cleanup: unexpected locked buffer geometry or format\n");
++    }
++    result = ANativeWindow_unlockAndPost(p->overlay);
++    if (result != 0) {
++        MP_ERR(vo, "overlay cleanup: post failed (%d)\n", result);
++        return;
++    }
++    if (valid) {
++        p->overlay_posted = false;
++        MP_VERBOSE(vo, "overlay cleanup: cleared on uninit\n");
++    }
++}
++
+ static void uninit(struct vo *vo)
+ {
+     struct priv *p = vo->priv;
+     mp_image_unrefp(&p->next_image);
++    overlay_clear(vo);
++    talloc_free(p->overlay_img);
++    talloc_free(p->overlay_draw_cache);
++    if (p->overlay)
++        ANativeWindow_release(p->overlay);
++    p->overlay = NULL;
++    p->overlay_posted = false;
+ 
+     hwdec_devices_remove(vo->hwdec_devs, &p->hwctx);
+     av_buffer_unref(&p->hwctx.av_device_ref);
+ }
+ 
++#define OPT_BASE_STRUCT struct priv
+ const struct vo_driver video_out_mediacodec_embed = {
+     .description = "Android (Embedded MediaCodec Surface)",
+     .name = "mediacodec_embed",
+@@ -124,4 +309,9 @@ const struct vo_driver video_out_mediacodec_embed = {
+     .reconfig = reconfig,
+     .uninit = uninit,
+     .priv_size = sizeof(struct priv),
++    .options = (const struct m_option[]) {
++        {"overlay-surface", OPT_INT64(overlay_ref)},
++        {0}
++    },
++    .options_prefix = "vo-mediacodec-embed",
+ };

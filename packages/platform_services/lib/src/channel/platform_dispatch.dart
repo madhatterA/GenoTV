@@ -2,7 +2,7 @@ import 'dart:io' show Platform;
 
 import 'platform_channel.dart';
 
-enum PlatformKind { android, ios, macos, windows, unsupported }
+enum PlatformKind { android, ios, tvos, macos, windows, unsupported }
 
 /// The only file in this package that reads [Platform.is*].
 final class PlatformDispatch {
@@ -14,13 +14,19 @@ final class PlatformDispatch {
 
   PlatformKind get resolved => kind ?? current;
 
-  static PlatformKind get current {
-    if (Platform.isAndroid) return PlatformKind.android;
-    if (Platform.isIOS) return PlatformKind.ios;
-    if (Platform.isMacOS) return PlatformKind.macos;
-    if (Platform.isWindows) return PlatformKind.windows;
-    return PlatformKind.unsupported;
-  }
+  static PlatformKind get current =>
+      fromOperatingSystem(Platform.operatingSystem);
+
+  /// flutter-tvos reports `tvos` here while [Platform.isIOS] is also true, so
+  /// the OS name (not `isIOS`) decides.
+  static PlatformKind fromOperatingSystem(String os) => switch (os) {
+    'android' => PlatformKind.android,
+    'tvos' => PlatformKind.tvos,
+    'ios' => PlatformKind.ios,
+    'macos' => PlatformKind.macos,
+    'windows' => PlatformKind.windows,
+    _ => PlatformKind.unsupported,
+  };
 
   static PlatformChannel channel({PlatformChannel? override}) =>
       override ?? MethodPlatformChannel();

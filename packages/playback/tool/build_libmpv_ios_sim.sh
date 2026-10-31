@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# media_kit_libs_ios_video 1.1.4 / darwin v0.6.0: enable simulator AudioUnit.
+# Public entry builds Metal for both iOS slices; explicit BUILD_ONLY is internal preparation.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
+if [ -z "${LIBMPV_IOS_SIM_BUILD_ONLY+x}" ]; then
+  exec bash "$root/packages/playback/tool/build_libmpv_ios_metal.sh"
+fi
 cache=${LIBMPV_IOS_SIM_CACHE:-/tmp/vp-libmpv-ios-recipe-v0.6.0}
 pin=4286f5557bdccc0747030e3c376ce5cd160a96a0
 for tool in git meson ninja cmake nasm pkg-config python3 timeout; do command -v "$tool" >/dev/null; done
@@ -60,6 +63,15 @@ for p in (cache / 'cross-files').glob('*.ini'):
     if p.name.startswith('iossimulator-'):
         text = text.replace('-miphoneos-version-min=12.0', '-mios-simulator-version-min=12.0')
     p.write_text(text)
+# tvOS (LIBMPV_PLATFORM=tvos): same recipe, cross files derived from the iOS ones with the tvOS SDK and minimum.
+tv = {'tvos': ('ios-arm64', 'iPhoneOS', 'AppleTVOS', '-miphoneos-version-min=9.0', '-mtvos-version-min=15.0'),
+      'tvossimulator': ('iossimulator-arm64', 'iPhoneSimulator', 'AppleTVSimulator',
+                        '-mios-simulator-version-min=12.0', '-mtvos-simulator-version-min=15.0')}
+for name, (base, old_sdk, new_sdk, old_min, new_min) in tv.items():
+    text = (cache / 'cross-files' / (base + '.ini')).read_text()
+    assert old_min in text and old_sdk + '.platform' in text, name
+    (cache / 'cross-files' / (name + '-arm64.ini')).write_text(
+        text.replace(old_sdk, new_sdk).replace(old_min, new_min))
 # Invalidate artifacts emitted with the old device target flag on first migration.
 marker = cache / 'build/.vp-simulator-target-v1'
 if not marker.exists():
@@ -104,7 +116,7 @@ sdk_pc = cache / 'build/sdk-pc'
 sdk_pc.mkdir(exist_ok=True)
 version = re.search(r'#define ZLIB_VERSION "([^"]+)"', (sdk / 'usr/include/zlib.h').read_text())[1]
 (sdk_pc / 'zlib.pc').write_text('Name: zlib\nDescription: Apple simulator SDK zlib\nVersion: ' +
-    version + '\nLibs: -lz\nCflags: -I' + str(sdk / 'usr/include') + '\n')
+    version + '\nLibs: -lz\nCflags:\n')
 pc.write_text('#!/bin/sh\nexport PKG_CONFIG_LIBDIR=' + str(sdk_pc) + '\nexec ' +
               shutil.which('pkg-config') + ' "$@"\n')
 pc.chmod(0o755)
@@ -112,17 +124,37 @@ alias = tools / 'pkgconfig'
 if not alias.exists():
     alias.symlink_to('pkg-config')
 # The default flavour enables only overlay/equalizer filters; mpv's lavfi chain
-# (Kodi stereo upmix `pan`) needs these audio filters. Rebuild FFmpeg and everything
+# (Kodi stereo upmix `pan`) needs these audio filters, the yadif/bwdif/scale video filters and the TrueHD/MLP decoders. Rebuild FFmpeg and everything
 # downstream once when this list changes.
 p = cache / 'scripts/ffmpeg/meson.build'
 p.write_text(p.read_text().replace("    '--enable-filter=equalizer',\n",
     "    '--enable-filter=equalizer',\n" + ''.join(
         "    '--enable-filter=" + f + "',\n"
-        for f in ['abuffer', 'abuffersink', 'pan', 'aformat', 'aresample']), 1))
-marker = cache / 'build/.vp-ffmpeg-audio-filters-v1'
+        for f in ['abuffer', 'abuffersink', 'pan', 'aformat', 'aresample',
+                  'yadif', 'bwdif', 'scale', 'format', 'buffer', 'buffersink']) + ''.join(
+        "    '--enable-" + f + "',\n"
+        for f in ['decoder=truehd', 'decoder=mlp', 'parser=mlp', 'demuxer=mlp']), 1))
+marker = cache / 'build/.vp-ffmpeg-audio-filters-v2'
 if not marker.exists():
     for prefix in ['ffmpeg_', 'mpv_', 'libs-arch_', 'libs_', 'frameworks_']:
         for p in (cache / 'build/intermediate').glob(prefix + 'iossimulator*'):
+            shutil.rmtree(p)
+    marker.touch()
+# harfbuzz 7.2.0 calls sincosf, which the Xcode 27 SDK no longer declares; __sincosf is the same function.
+p = cache / 'scripts/harfbuzz/build.sh'
+p.write_text(p.read_text().replace('cd ${SRC_DIR}\n',
+    'cd ${SRC_DIR}\nsed -i "" "s/sincosf (/__sincosf (/" src/OT/glyf/VarCompositeGlyph.hh\n', 1))
+# Metal needs original NV12/P010 VideoToolbox output, not the old GLES BGRA8 override.
+patch = root / 'packages/playback/tool/ios_metal_ffmpeg.patch'
+shutil.copyfile(patch, cache / 'patches/vp-ios-metal-ffmpeg.patch')
+p = cache / 'scripts/ffmpeg/build.sh'
+p.write_text(p.read_text().replace(
+    'patch -p1 <${PROJECT_DIR}/patches/ffmpeg-fix-ios-hdr-texture.patch\n', '').replace(
+    'cd ${SRC_DIR}', 'cd ${SRC_DIR}\npatch -p1 <${PROJECT_DIR}/patches/vp-ios-metal-ffmpeg.patch'))
+marker = cache / ('build/.vp-ios-metal-decoder-' + hashlib.sha256(patch.read_bytes()).hexdigest())
+if not marker.exists():
+    for prefix in ['ffmpeg_', 'mpv_', 'libs-arch_', 'libs_', 'frameworks_']:
+        for p in (cache / 'build/intermediate').glob(prefix + 'ios*'):
             shutil.rmtree(p)
     marker.touch()
 # The simulator needs the same ios-gl VideoToolbox interop as the device slice
@@ -155,13 +187,25 @@ make.chmod(0o755)
 p = cache / 'scripts/mpv/build.sh'
 p.write_text(p.read_text().replace('cd ${SRC_DIR}',
     'cd ${SRC_DIR}\nif [ "${OS}" == "iossimulator" ]; then\n'
-    '    patch -p1 <${PROJECT_DIR}/patches/vp-ios-sim-gl-upload.patch\nfi')
+    '    patch -p1 <${PROJECT_DIR}/patches/vp-ios-sim-gl-upload.patch\nfi\n'
+    # tvOS forbids fork/execve: build mpv's no-op subprocess source instead of the posix one (no run/ytdl subprocess on tvOS).
+    'if [[ "${OS}" == tvos* ]]; then\n'
+    '    sed -i "" "s|subprocess_source = files(.osdep/subprocess-posix.c.)|subprocess_source = files(cc.get_define(\'TARGET_OS_TV\', prefix: \'#include <TargetConditionals.h>\') == \'1\' ? \'osdep/subprocess-dummy.c\' : \'osdep/subprocess-posix.c\')|" meson.build\n'
+    'fi')
     .replace('elif [ "${OS}" == "ios" ]; then',
-    'elif [ "${OS}" == "ios" ] || [ "${OS}" == "iossimulator" ]; then')
+    'elif [[ "${OS}" == ios* || "${OS}" == tvos* ]]; then')
 )
+p = cache / 'scripts/frameworks/build.sh'
+p.write_text(p.read_text().replace('elif [ "${OS}" == "ios" ] || [ "${OS}" == "iossimulator" ]; then',
+    'elif [ "${OS}" == "ios" ] || [ "${OS}" == "iossimulator" ] || [ "${OS}" == "tvos" ] || [ "${OS}" == "tvossimulator" ]; then'))
 PY
 cd "$cache"
-timeout 900 make -j1 build/intermediate/frameworks_iossimulator-arm64-video-default
+if [ "${LIBMPV_PLATFORM:-ios}" = tvos ]; then
+  timeout "${LIBMPV_MAKE_TIMEOUT:-900}" make -j1 build/intermediate/frameworks_tvossimulator-arm64-video-default build/intermediate/frameworks_tvos-arm64-video-default
+  exit 0
+fi
+timeout "${LIBMPV_MAKE_TIMEOUT:-900}" make -j1 build/intermediate/frameworks_iossimulator-arm64-video-default
+if [ "${LIBMPV_IOS_SIM_BUILD_ONLY:-0}" = 1 ]; then exit 0; fi
 plugin="$root/packages/media_kit_libs_ios_video/ios"
 mkdir -p "$plugin/.cache"
 archive="$plugin/.cache/upstream-v0.6.0.tar.gz"
@@ -190,11 +234,11 @@ for variant in info['AvailableLibraries']:
 p.write_bytes(plistlib.dumps(info))
 PY
 # Avfilter's simulator variant is also ours: upstream's has no audio filters (pan etc.).
-built=build/intermediate/frameworks_iossimulator-arm64-video-default/Avfilter.9.3.framework
+built=build/intermediate/frameworks_iossimulator-arm64-video-default/Avfilter.framework
 avf="$plugin/Frameworks/Avfilter.xcframework"
 rm -rf "$avf/ios-arm64_x86_64-simulator"
 mkdir -p "$avf/ios-arm64-simulator/Avfilter.framework"
-cp "$built/Avfilter.9.3" "$avf/ios-arm64-simulator/Avfilter.framework/Avfilter"
+cp "$built/Avfilter" "$avf/ios-arm64-simulator/Avfilter.framework/Avfilter"
 install_name_tool -id @rpath/Avfilter.framework/Avfilter "$avf/ios-arm64-simulator/Avfilter.framework/Avfilter"
 cp "$plugin/Frameworks/Avutil.xcframework/ios-arm64_x86_64-simulator/Avutil.framework/Info.plist" "$avf/ios-arm64-simulator/Avfilter.framework/Info.plist"
 plutil -replace CFBundleExecutable -string Avfilter "$avf/ios-arm64-simulator/Avfilter.framework/Info.plist"

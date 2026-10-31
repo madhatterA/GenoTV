@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   playback
   transport
   url_launcher_windows
+  video_surface
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

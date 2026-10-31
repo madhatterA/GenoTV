@@ -1,6 +1,7 @@
 #include "lt_shim.h"
 #include <algorithm>
 #include <chrono>
+#include <cerrno>
 #include <condition_variable>
 #include <cstdio>
 #include <cstring>
@@ -8,17 +9,23 @@
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 #include <libtorrent/add_torrent_params.hpp>
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/announce_entry.hpp>
 #include <libtorrent/load_torrent.hpp>
 #include <libtorrent/magnet_uri.hpp>
 #include <libtorrent/read_resume_data.hpp>
+#include <libtorrent/bdecode.hpp>
 #include <libtorrent/session.hpp>
+#include <libtorrent/session_params.hpp>
 #include <libtorrent/settings_pack.hpp>
 #include <libtorrent/torrent_handle.hpp>
 #include <libtorrent/write_resume_data.hpp>
@@ -61,9 +68,13 @@ template <typename F> int32_t call(Torrent* t, F&& f) {
   if (!t) return -1;
   std::lock_guard<std::mutex> registry_guard(registry_mutex);
   const auto it = live_torrents.find(t);
-  if (it == live_torrents.end() || !live_sessions.count(it->second) || !it->second->session || it->first->closing) return -1;
+  if (it == live_torrents.end() || !live_sessions.count(it->second) || !it->second->session) return -1;
   auto* s = it->second;
   std::lock_guard<std::mutex> guard(s->mutex);
+  if (t->closing) {
+    s->error = "torrent handle is closing or its replacement failed";
+    return -1;
+  }
   try { s->error.clear(); return f(t); }
   catch (const std::exception& e) { s->error = e.what(); return -1; }
   catch (...) { s->error = "unknown libtorrent exception"; return -1; }
@@ -152,7 +163,7 @@ template <typename P> libtorrent::add_torrent_params decode(P const* data, int32
 }
 }
 
-extern "C" transport_lt_session transport_lt_session_create(void) {
+extern "C" transport_lt_session transport_lt_session_create_with_state(uint8_t const* state, int32_t size) {
   auto* s = new (std::nothrow) Session(); if (!s) return nullptr;
   {
     std::lock_guard<std::mutex> registry_guard(registry_mutex);
@@ -177,9 +188,30 @@ extern "C" transport_lt_session transport_lt_session_create(void) {
     p.set_bool(libtorrent::settings_pack::enable_natpmp, false);
     p.set_bool(libtorrent::settings_pack::enable_outgoing_utp, false);
     p.set_bool(libtorrent::settings_pack::enable_incoming_utp, false);
-    s->session = std::make_unique<libtorrent::session>(p);
+    // Saved DHT routing table (size 0 = none). Unreadable bytes are ignored
+    // and reported through last_error; this never turns DHT on by itself.
+    libtorrent::session_params params;
+    if (state && size > 0) {
+      libtorrent::span<char const> bytes(reinterpret_cast<char const*>(state), static_cast<size_t>(size));
+      libtorrent::error_code ec;
+      libtorrent::bdecode_node node = libtorrent::bdecode(bytes, ec);
+      if (ec || node.type() != libtorrent::bdecode_node::dict_t) s->error = "dht state ignored: not valid session state";
+      else params = libtorrent::read_session_params(bytes, libtorrent::session::save_dht_state);
+    }
+    params.settings = p;
+    s->session = std::make_unique<libtorrent::session>(std::move(params));
   } catch (const std::exception& e) { s->error = e.what(); }
   return s;
+}
+extern "C" transport_lt_session transport_lt_session_create(void) { return transport_lt_session_create_with_state(nullptr, 0); }
+extern "C" int32_t transport_lt_session_save_state(transport_lt_session raw, uint8_t* out, int32_t cap) {
+  auto* s = static_cast<Session*>(raw); if (!s || cap < 0 || (cap > 0 && !out)) return -1;
+  return call(s, [&] {
+    auto bytes = libtorrent::write_session_params_buf(s->session->session_state(libtorrent::session::save_dht_state), libtorrent::session::save_dht_state);
+    if (cap < static_cast<int32_t>(bytes.size())) return cap == 0 ? static_cast<int32_t>(bytes.size()) : -2;
+    std::memcpy(out, bytes.data(), bytes.size());
+    return static_cast<int32_t>(bytes.size());
+  });
 }
 extern "C" void transport_lt_session_destroy(transport_lt_session raw) {
   auto* s = static_cast<Session*>(raw); if (!s) return;
@@ -516,7 +548,7 @@ extern "C" int32_t transport_lt_pop_alerts(transport_lt_session raw, transport_l
     return count;
   });
 }
-extern "C" int32_t transport_lt_torrent_save_resume(transport_lt_torrent raw, uint8_t* out, int32_t cap) { auto* t = valid(raw); if (!t || !out || cap <= 0) return -1; return call(t, [&](Torrent* x) { auto bytes = libtorrent::write_resume_data_buf(x->handle.get_resume_data(libtorrent::torrent_handle::save_info_dict)); if (cap < static_cast<int32_t>(bytes.size())) return -static_cast<int32_t>(bytes.size()); std::memcpy(out, bytes.data(), bytes.size()); return static_cast<int32_t>(bytes.size()); }); }
+extern "C" int32_t transport_lt_torrent_save_resume(transport_lt_torrent raw, uint8_t* out, int32_t cap) { auto* t = valid(raw); if (!t || cap < 0 || (cap > 0 && !out)) return -1; return call(t, [&](Torrent* x) { auto bytes = libtorrent::write_resume_data_buf(x->handle.get_resume_data(libtorrent::torrent_handle::save_info_dict)); if (cap < static_cast<int32_t>(bytes.size())) return cap == 0 ? static_cast<int32_t>(bytes.size()) : -2; std::memcpy(out, bytes.data(), bytes.size()); return static_cast<int32_t>(bytes.size()); }); }
 // Replaces the torrent's libtorrent handle by a fresh add of `p`.
 // remove_torrent() is asynchronous.  Never overwrite x->handle while
 // the old handle can still receive disk/peer callbacks: the wrapper is a
@@ -628,8 +660,25 @@ extern "C" int32_t transport_lt_torrent_evict_pieces(transport_lt_session raw, t
       // Merge consecutive pieces into one punch per file run.
       std::string run_path; int64_t run_start = 0, run_end = 0;
       auto flush = [&] {
-        if (run_end > run_start && transport_lt_fs_punch_hole(run_path.data(), static_cast<int32_t>(run_path.size()), run_start, run_end - run_start) != 0)
-          throw std::runtime_error("torrent cache hole punching failed");
+        if (run_end > run_start) {
+          const auto rc = transport_lt_fs_punch_hole(run_path.data(), static_cast<int32_t>(run_path.size()), run_start, run_end - run_start);
+          if (rc != 0) {
+#if defined(_WIN32)
+            const auto code = static_cast<int>(GetLastError());
+            // A never-created (unwanted) file has nothing to free.
+            if (code == ERROR_FILE_NOT_FOUND || code == ERROR_PATH_NOT_FOUND) { run_end = run_start = 0; return; }
+            const auto error = std::error_code(code, std::system_category());
+            const char* label = "win32_error=";
+#else
+            const auto code = errno;
+            // A never-created (unwanted) file has nothing to free.
+            if (code == ENOENT) { run_end = run_start = 0; return; }
+            const auto error = std::error_code(code, std::generic_category());
+            const char* label = "errno=";
+#endif
+            throw std::runtime_error("torrent cache hole punching failed (rc=" + std::to_string(rc) + ", " + label + std::to_string(code) + "): " + error.message() + "; path=" + run_path);
+          }
+        }
         run_end = run_start = 0;
       };
       for (int32_t i = 0; i < count; i++) {

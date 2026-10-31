@@ -31,8 +31,9 @@ class PlayLinkInput extends StatefulWidget {
   final PlayLinkHandler onPlay;
 
   /// Opens the file picker; returns the chosen .torrent path, or null if the
-  /// viewer cancelled.
-  final Future<String?> Function() pickTorrent;
+  /// viewer cancelled. A null function means the platform has no file picker
+  /// (tvOS): the import button is replaced by a message.
+  final Future<String?> Function()? pickTorrent;
 
   @override
   State<PlayLinkInput> createState() => _PlayLinkInputState();
@@ -67,14 +68,15 @@ class _PlayLinkInputState extends State<PlayLinkInput> {
   }
 
   Future<void> _import() async {
-    final path = await widget.pickTorrent();
+    final path = await widget.pickTorrent!();
     if (path != null && mounted) await _play(path);
   }
 
   @override
   Widget build(BuildContext context) {
-    final phone = AdaptiveBehavior.of(context).formFactor == FormFactor.phone;
+    final phone = AdaptiveBehavior.formFactorOf(context) == FormFactor.phone;
     final field = AppTextField(
+      fieldKey: const ValueKey<String>('playlink-field'),
       controller: _input,
       autofocus: true,
       icon: PhosphorIconsRegular.link,
@@ -110,11 +112,19 @@ class _PlayLinkInputState extends State<PlayLinkInput> {
         const SizedBox(height: RivuletSpacing.s16),
         Align(
           alignment: Alignment.centerLeft,
-          child: AppButton.secondary(
-            icon: PhosphorIconsRegular.folderOpen,
-            label: AppStrings.of(context).playlink_import,
-            onActivate: _busy ? null : _import,
-          ),
+          child: widget.pickTorrent == null
+              ? AppText(
+                  AppStrings.of(context).playlink_noFiles,
+                  key: const ValueKey<String>('playlink-no-files'),
+                  style: RivuletTokens.of(context).typeStyles.body.copyWith(
+                    color: RivuletTokens.of(context).colors.textSecondary,
+                  ),
+                )
+              : AppButton.secondary(
+                  icon: PhosphorIconsRegular.folderOpen,
+                  label: AppStrings.of(context).playlink_import,
+                  onActivate: _busy ? null : _import,
+                ),
         ),
       ],
     );
@@ -126,7 +136,7 @@ class _PlayLinkInputState extends State<PlayLinkInput> {
 Future<bool?> showPlayLinkDialog(
   BuildContext context, {
   required PlayLinkHandler onPlay,
-  required Future<String?> Function() pickTorrent,
+  required Future<String?> Function()? pickTorrent,
 }) => showAppDialog<bool>(
   context: context,
   builder: (dialogContext) => Column(

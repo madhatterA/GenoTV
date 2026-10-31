@@ -12,6 +12,10 @@ typedef struct transport_lt_stats { int64_t total_upload; float distributed_copi
 typedef struct transport_lt_alert { int32_t kind; int32_t piece; int32_t peers; int32_t error_code; int32_t message_length; uintptr_t torrent; } transport_lt_alert;
 enum { TRANSPORT_LT_ALERT_METADATA=1, TRANSPORT_LT_ALERT_PIECE_FINISHED, TRANSPORT_LT_ALERT_TORRENT_ERROR, TRANSPORT_LT_ALERT_FILE_ERROR, TRANSPORT_LT_ALERT_TRACKER_ERROR, TRANSPORT_LT_ALERT_TORRENT_FINISHED, TRANSPORT_LT_ALERT_STATE_CHANGED, TRANSPORT_LT_ALERT_PEER_DISCONNECTED, TRANSPORT_LT_ALERT_RESUME_DATA, TRANSPORT_LT_ALERT_ALERTS_DROPPED, TRANSPORT_LT_ALERT_TORRENT_REMOVED };
 transport_lt_session transport_lt_session_create(void);
+/* Like create, seeded with DHT state from save_state (size 0 = none). Unreadable state is ignored and reported via last_error. */
+transport_lt_session transport_lt_session_create_with_state(uint8_t const* state, int32_t size);
+/* DHT state bytes; capacity 0 returns the size needed; -1 error, -2 buffer too small. */
+int32_t transport_lt_session_save_state(transport_lt_session session, uint8_t* out, int32_t capacity);
 void transport_lt_session_destroy(transport_lt_session session);
 int32_t transport_lt_session_last_error(transport_lt_session session, char* out, int32_t capacity);
 transport_lt_torrent transport_lt_add_magnet(transport_lt_session session, const char* magnet, int32_t magnet_length, const char* save_path, int32_t save_path_length, int32_t payload_paused);

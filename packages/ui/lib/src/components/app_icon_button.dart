@@ -15,6 +15,7 @@ class AppIconButton extends StatelessWidget {
     this.onActivate,
     this.glass = false,
     this.overMedia = false,
+    this.size = RivuletControlSize.m,
     this.focusNode,
     this.autofocus = false,
     super.key,
@@ -29,15 +30,18 @@ class AppIconButton extends StatelessWidget {
   final VoidCallback? onActivate;
   final bool glass;
   final bool overMedia;
+
+  /// Diameter and glyph tier (Part 07 p02); heroes use L.
+  final RivuletControlSize size;
   final FocusNode? focusNode;
   final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final colors = RivuletTokens.of(context).colors;
-    final sizes = AdaptiveBehavior.sizesOf(context);
+    final ff = AdaptiveBehavior.formFactorOf(context);
     final glyph = Center(
-      child: Icon(icon, size: sizes.iconGlyph, color: colors.textPrimary),
+      child: Icon(icon, size: size.glyph(ff), color: colors.textPrimary),
     );
     const radius = RivuletRadius.full;
     final Widget surface = glass
@@ -54,7 +58,7 @@ class AppIconButton extends StatelessWidget {
       minSize: AdaptiveBehavior.hitTargetOf(context),
       centered: true,
       focusRadius: BorderRadius.circular(radius),
-      child: SizedBox.square(dimension: sizes.iconButton, child: surface),
+      child: SizedBox.square(dimension: size.height(ff), child: surface),
     );
     return AdaptiveBehavior.of(context).inputMode == InputMode.pointer
         ? Tooltip(

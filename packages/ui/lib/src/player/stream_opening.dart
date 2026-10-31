@@ -18,9 +18,6 @@ import '../states/error_view.dart';
 import '../theme/rivulet_tokens.dart';
 import 'stats/stats_format.dart';
 
-/// Seconds of video the opening screen waits for before it lets playback show.
-const int _openingSeconds = 300;
-
 /// What the opening screen says and how far along it is. [progress] is null
 /// for a stage that has no measurable total (never a made-up number).
 class StreamOpeningStatus {
@@ -40,11 +37,11 @@ class StreamOpeningStatus {
     final torrent =
         kind == SourceKind.torrentMagnet || kind == SourceKind.torrentFile;
     final buffering = playback?.bufferingProgress;
-    if (source != null && buffering != null && buffering < 1) {
+    final speed = (source?.bytesPerSecond ?? 0) > 0
+        ? ' · ${formatSpeed(source!.bytesPerSecond)}'
+        : '';
+    if (buffering != null) {
       final percent = (buffering * 100).floor();
-      final speed = source.bytesPerSecond > 0
-          ? ' · ${formatSpeed(source.bytesPerSecond)}'
-          : '';
       return StreamOpeningStatus(
         label: s.player_bufferingProgress(percent, speed),
         progress: buffering,
@@ -55,45 +52,25 @@ class StreamOpeningStatus {
         label: torrent ? s.player_fetchingMetadata : s.player_connecting,
       );
     }
+    if (source.state == SourceState.stalled) {
+      return StreamOpeningStatus(label: s.player_sourceStalled);
+    }
+    if (source.state == SourceState.resolving) {
+      return StreamOpeningStatus(label: s.player_connecting);
+    }
+    if (source.state == SourceState.metadata) {
+      return StreamOpeningStatus(label: s.player_fetchingMetadata);
+    }
     final downloaded = source.available.ranges.fold<int>(
       0,
       (sum, range) => sum + range.length,
     );
-    final total = source.totalBytes;
-    if (source.state != SourceState.resolving &&
-        source.state != SourceState.metadata &&
-        downloaded > 0) {
-      // The bar measures the first five minutes of the video, never the whole
-      // file: the bytes those minutes take (the file's share, once the engine
-      // knows the length) counted from the start of the file. Without a
-      // length the bar animates and the label shows only what arrived.
-      final seconds = (playback?.duration.inMicroseconds ?? 0) / 1e6;
-      if (total == null || total <= 0 || seconds <= 0) {
-        return StreamOpeningStatus(
-          label: s.player_preparingProgress(formatProgress(downloaded, null)),
-        );
-      }
-      final needed = seconds <= _openingSeconds
-          ? total
-          : (total * _openingSeconds / seconds).ceil().clamp(1, total);
-      final have = source.available.ranges.fold<int>(0, (sum, range) {
-        final end = range.endInclusive < needed
-            ? range.endInclusive + 1
-            : needed;
-        return range.start < end ? sum + end - range.start : sum;
-      });
+    if (downloaded > 0) {
       return StreamOpeningStatus(
-        label: s.player_preparingProgress(formatProgress(have, needed)),
-        progress: (have / needed).clamp(0.0, 1.0),
+        label: s.player_preparingProgress('${formatBytes(downloaded)}$speed'),
       );
     }
-    return switch (source.state) {
-      SourceState.resolving => StreamOpeningStatus(label: s.player_connecting),
-      SourceState.metadata => StreamOpeningStatus(
-        label: s.player_fetchingMetadata,
-      ),
-      _ => StreamOpeningStatus(label: s.player_preparing),
-    };
+    return StreamOpeningStatus(label: s.player_preparing);
   }
 
   /// True once the engine knows the length, is playing and its cache is full:
@@ -136,7 +113,7 @@ class StreamOpeningScreen extends StatelessWidget {
     final tokens = RivuletTokens.of(context);
     final colors = tokens.colors;
     final labels = UiAccessibility.labelsOf(context);
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
     final failure = this.failure;
     return PopOnEscape(
       onPop: onBack,
@@ -246,7 +223,7 @@ class _Progress extends StatelessWidget {
         // halo never touches the title or the bar.
         const SizedBox(height: 128, child: Center(child: OrbLoader.large())),
         ClipRRect(
-          borderRadius: BorderRadius.circular(RivuletRadius.small),
+          borderRadius: BorderRadius.circular(RivuletRadius.full),
           child: LinearProgressIndicator(
             key: const ValueKey<String>('stream-opening-bar'),
             // Null animates (a stage with no total); under reduced motion an

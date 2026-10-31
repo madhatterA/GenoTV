@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../components/tinted_surface.dart';
+import '../platform/app_haptics.dart';
 import '../models/ui_media.dart';
 import '../theme/rivulet_tokens.dart';
 
@@ -74,8 +75,8 @@ class SkipMarkerButton extends StatefulWidget {
   /// `SkipPillButton.swift:80` — `UIEdgeInsets(top: 16, left: 34, bottom:
   /// 16, right: 34)`.
   static const EdgeInsets contentPadding = EdgeInsets.symmetric(
-    horizontal: 34,
-    vertical: 16,
+    horizontal: RivuletSpacing.s32,
+    vertical: RivuletSpacing.s16,
   );
 
   /// `SkipPillButton.swift:176` — `CGAffineTransform(scaleX: 1.05, y: 1.05)`.
@@ -172,6 +173,7 @@ class _SkipMarkerButtonState extends State<SkipMarkerButton>
     if (_fired) return;
     _fired = true;
     _fill.stop();
+    AppHaptics.light(context);
     widget.onSkip();
   }
 

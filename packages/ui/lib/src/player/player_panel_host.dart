@@ -2,6 +2,7 @@ import '../l10n/app_text.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../components/glass_surface.dart';
 import '../focus/focusable_action.dart';
@@ -289,7 +290,7 @@ class PlayerPanelHostState extends State<PlayerPanelHost>
           );
           final faded = FadeTransition(opacity: curved, child: child);
           return reduceMotion ||
-                  AdaptiveBehavior.of(context).formFactor == FormFactor.tv
+                  AdaptiveBehavior.formFactorOf(context) == FormFactor.tv
               ? faded
               : ScaleTransition(
                   alignment: Alignment.bottomRight,
@@ -299,7 +300,7 @@ class PlayerPanelHostState extends State<PlayerPanelHost>
         },
         child: FocusScope(
           node: _scopeNode,
-          autofocus: AdaptiveBehavior.of(context).formFactor == FormFactor.tv,
+          autofocus: AdaptiveBehavior.formFactorOf(context) == FormFactor.tv,
           onKeyEvent: _handleKey,
           child: FocusTraversalGroup(
             child: KeyedSubtree(
@@ -315,7 +316,7 @@ class PlayerPanelHostState extends State<PlayerPanelHost>
                   children: <Widget>[
                     if (widget.title case final title?)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(bottom: RivuletSpacing.s12),
                         child: Row(
                           children: <Widget>[
                             Expanded(
@@ -327,14 +328,14 @@ class PlayerPanelHostState extends State<PlayerPanelHost>
                             FocusRing(
                               child: IconButton(
                                 autofocus:
-                                    AdaptiveBehavior.of(context).formFactor ==
+                                    AdaptiveBehavior.formFactorOf(context) ==
                                     FormFactor.tv,
                                 key: const ValueKey<String>(
                                   'close-player-overlay',
                                 ),
                                 onPressed: dismiss,
                                 icon: Icon(
-                                  Icons.close,
+                                  PhosphorIconsRegular.x,
                                   color: tokens.colors.textPrimary,
                                 ),
                               ),

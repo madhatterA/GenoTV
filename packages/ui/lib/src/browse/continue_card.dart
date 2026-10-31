@@ -21,8 +21,9 @@ class ContinueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
     final fraction = PosterCard.fractionOf(progress);
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
-    final showCaption = !tv || (Focus.maybeOf(context)?.hasFocus ?? false);
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
+    // TV: titles always show, one line; the focused card keeps two.
+    final lines = tv && !(Focus.maybeOf(context)?.hasFocus ?? false) ? 1 : 2;
     final artwork = item.artwork;
     return RepaintBoundary(
       child: Column(
@@ -56,21 +57,19 @@ class ContinueCard extends StatelessWidget {
           ),
           SizedBox(
             height: PosterCard.captionBlockHeight(context),
-            child: showCaption
-                ? Padding(
-                    padding: const EdgeInsets.only(top: RivuletSpacing.s8),
-                    child: ExcludeSemantics(
-                      child: AppText.content(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: tokens.typeStyles.caption.copyWith(
-                          color: tokens.colors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  )
-                : null,
+            child: Padding(
+              padding: const EdgeInsets.only(top: RivuletSpacing.s8),
+              child: ExcludeSemantics(
+                child: AppText.content(
+                  item.title,
+                  maxLines: lines,
+                  overflow: TextOverflow.ellipsis,
+                  style: tokens.typeStyles.caption.copyWith(
+                    color: tokens.colors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

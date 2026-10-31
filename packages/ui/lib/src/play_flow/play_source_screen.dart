@@ -32,7 +32,7 @@ import 'stream_display.dart';
 /// Provider list, then that provider's stream list — the screen between
 /// picking "play" on a title and handing a [SourceSpec] to the player
 /// (DESIGN_SPEC §8.6). Renders only what the caller hands it: no resolving,
-/// no provider knowledge, no persistence of the last choice.
+/// no provider knowledge; the caller remembers the last provider.
 class PlaySourceScreen extends StatefulWidget {
   const PlaySourceScreen({
     required this.title,
@@ -46,6 +46,7 @@ class PlaySourceScreen extends StatefulWidget {
     this.onInsertLink,
     this.onRetry,
     this.onRefresh,
+    this.onOtherSources,
     this.backdropArtwork,
     super.key,
   });
@@ -68,6 +69,10 @@ class PlaySourceScreen extends StatefulWidget {
 
   /// Loads the selected provider's streams afresh (skips the saved list).
   final VoidCallback? onRefresh;
+
+  /// Phone only: the stream list's "Other sources" chip, back to the provider
+  /// list. Without it the chip is not shown.
+  final VoidCallback? onOtherSources;
 
   /// The title's artwork URL, painted behind the top of the page with the
   /// detail hero's backdrop and fade. Null paints no backdrop.
@@ -93,17 +98,24 @@ class _PlaySourceScreenState extends State<PlaySourceScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.streams is UiStreamListReady) _focusStreamsAfterFrame();
+  }
+
+  void _focusStreamsAfterFrame() =>
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _firstStreamNode.requestFocus();
+      });
+
+  @override
   void didUpdateWidget(PlaySourceScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     final becameReady =
         widget.streams is UiStreamListReady &&
         (oldWidget.selectedProviderId != widget.selectedProviderId ||
             oldWidget.streams is! UiStreamListReady);
-    if (becameReady) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _firstStreamNode.requestFocus();
-      });
-    }
+    if (becameReady) _focusStreamsAfterFrame();
   }
 
   String get _providerName =>
@@ -198,7 +210,7 @@ class _PlaySourceScreenState extends State<PlaySourceScreen> {
     RivuletSizes sizes, {
     required bool overMedia,
   }) {
-    final gutter = RivuletSpacing.gutter(sizes.formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final providers = _ProviderList(
       overMedia: overMedia,
       providers: widget.providers,
@@ -219,6 +231,9 @@ class _PlaySourceScreenState extends State<PlaySourceScreen> {
       onSelected: widget.onStreamSelected,
       onRetry: widget.onRetry,
       onRefresh: widget.onRefresh,
+      onOtherSources: sizes.formFactor == FormFactor.phone
+          ? widget.onOtherSources
+          : null,
       onBack: widget.onBack,
       firstFocusNode: _firstStreamNode,
       onArrowLeft: onArrowLeft,
@@ -321,7 +336,7 @@ class _Header extends StatelessWidget {
             left:
                 pill.right +
                 RivuletSpacing.s16 -
-                RivuletSpacing.gutter(AdaptiveBehavior.of(context).formFactor),
+                RivuletSpacing.gutterOf(context),
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: pill.height),
@@ -435,6 +450,7 @@ class _StreamPanel extends StatefulWidget {
     required this.onSelected,
     required this.onRetry,
     required this.onRefresh,
+    required this.onOtherSources,
     required this.onBack,
     required this.firstFocusNode,
     required this.onArrowLeft,
@@ -446,6 +462,7 @@ class _StreamPanel extends StatefulWidget {
   final ValueChanged<SourceSpec> onSelected;
   final VoidCallback? onRetry;
   final VoidCallback? onRefresh;
+  final VoidCallback? onOtherSources;
   final VoidCallback onBack;
   final FocusNode firstFocusNode;
   final VoidCallback onArrowLeft;
@@ -522,13 +539,23 @@ class _StreamPanelState extends State<_StreamPanel> {
     final collapsed = collapseHls(all);
     final visible = _sorted(collapsed);
     final hasSeeders = collapsed.any((spec) => _seeders(spec) != null);
+    final best = bestStream(collapsed, providerName: widget.providerName);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        if (collapsed.length > 1 || widget.onRefresh != null) ...<Widget>[
+        if (collapsed.length > 1 ||
+            widget.onRefresh != null ||
+            widget.onOtherSources != null) ...<Widget>[
           Wrap(
             spacing: RivuletSpacing.s8,
             children: <Widget>[
+              if (widget.onOtherSources case final other?)
+                AppChip(
+                  key: const ValueKey<String>('stream-other-sources'),
+                  icon: PhosphorIconsRegular.listBullets,
+                  label: AppStrings.of(context).play_otherSources,
+                  onActivate: other,
+                ),
               if (collapsed.length > 1) _sortControl(hasSeeders),
               if (widget.onRefresh case final refresh?)
                 AppChip(
@@ -548,6 +575,20 @@ class _StreamPanelState extends State<_StreamPanel> {
               AppRowGroup(
                 overMedia: widget.overMedia,
                 children: <Widget>[
+                  if (best != null)
+                    _paneKey(
+                      LogicalKeyboardKey.arrowLeft,
+                      widget.onArrowLeft,
+                      AppRow(
+                        key: const ValueKey<String>('stream-play-best'),
+                        icon: PhosphorIconsRegular.play,
+                        label: AppStrings.of(context).play_best,
+                        caret: true,
+                        autofocus: true,
+                        focusNode: widget.firstFocusNode,
+                        onActivate: () => widget.onSelected(best),
+                      ),
+                    ),
                   for (var i = 0; i < visible.length; i++)
                     _paneKey(
                       LogicalKeyboardKey.arrowLeft,
@@ -556,8 +597,10 @@ class _StreamPanelState extends State<_StreamPanel> {
                         key: ValueKey<String>('stream-row-$i'),
                         spec: visible[i],
                         providerName: widget.providerName,
-                        autofocus: i == 0,
-                        focusNode: i == 0 ? widget.firstFocusNode : null,
+                        autofocus: best == null && i == 0,
+                        focusNode: best == null && i == 0
+                            ? widget.firstFocusNode
+                            : null,
                         onTap: () => widget.onSelected(visible[i]),
                       ),
                     ),
@@ -598,7 +641,7 @@ class _StreamPanelState extends State<_StreamPanel> {
               SizedBox(
                 width: 240,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(RivuletRadius.small),
+                  borderRadius: BorderRadius.circular(RivuletRadius.full),
                   child: LinearProgressIndicator(
                     key: const ValueKey<String>('play-source-progress'),
                     value: progress,
@@ -747,7 +790,7 @@ class _QualityBadge extends StatelessWidget {
     final tokens = RivuletTokens.of(context);
     final caption = tokens.typeStyles.caption;
     return TintedSurface(
-      radius: RivuletRadius.small,
+      radius: RivuletRadius.xs,
       padding: const EdgeInsets.symmetric(
         horizontal: RivuletSpacing.s8,
         vertical: RivuletSpacing.s4,

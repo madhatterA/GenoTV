@@ -4,15 +4,30 @@ import 'dart:io';
 import 'package:core/core.dart';
 import 'package:flutter/material.dart';
 import 'package:ui/ui.dart';
+import 'package:platform_services/platform_services.dart';
+
+import 'crash_capture.dart';
 
 import 'composition.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installNetworkPolicy();
+  CrashCapture? capture;
+  final nativeCrash = NativeCrashCapture();
   try {
-    final composition = await AppComposition.create();
-    runApp(_ComposedApp(composition));
+    final logger = ConsoleLogger();
+    final support = await AppPaths(logger: logger).support;
+    final crashLog = CrashLog(
+      Directory('${support.path}${Platform.pathSeparator}crashes'),
+    );
+    capture = CrashCapture(crashLog, logger)..install();
+    await nativeCrash.install(crashLog.nativePendingPath);
+    final composition = await AppComposition.create(crashLog: crashLog);
+    composition.startAfterFirstFrame();
+    runApp(_ComposedApp(composition, capture, nativeCrash));
   } catch (error, stack) {
+    capture?.capture('startup', error, stack);
     runApp(
       MaterialApp(
         onGenerateTitle: (context) => AppStrings.of(context).app_title,
@@ -29,9 +44,11 @@ Future<void> main() async {
 }
 
 final class _ComposedApp extends StatefulWidget {
-  const _ComposedApp(this.composition);
+  const _ComposedApp(this.composition, this.capture, this.nativeCrash);
 
   final AppComposition composition;
+  final CrashCapture capture;
+  final NativeCrashCapture nativeCrash;
 
   @override
   State<_ComposedApp> createState() => _ComposedAppState();
@@ -43,6 +60,8 @@ final class _ComposedAppState extends State<_ComposedApp> {
 
   @override
   void dispose() {
+    widget.capture.dispose();
+    unawaited(widget.nativeCrash.uninstall());
     unawaited(widget.composition.dispose());
     super.dispose();
   }

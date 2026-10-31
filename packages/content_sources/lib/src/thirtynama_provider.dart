@@ -15,22 +15,30 @@ class ThirtyNamaProvider implements SourceProvider {
     File? sessionFile,
     Uri? searchUrl,
     Uri? actionUrl,
+    this.domain,
   }) : sessionFile =
            sessionFile ??
-           File('${Platform.environment['HOME']}/.30nama-session.json'),
+           defaultSessionFile('30nama'),
        searchUrl =
            searchUrl ??
            Uri.parse(
              'https://stg-ciera.webpanel.systems/videoContent/user-video-content/explore',
            ),
-       actionUrl =
+       _actionUrl =
            actionUrl ?? Uri.parse('https://interface.30nama.com/api/v1/action');
 
   final ProviderHttp http;
   final AppLogger logger;
   final File sessionFile;
   final Uri searchUrl;
-  final Uri actionUrl;
+  final Uri _actionUrl;
+
+  /// The user's Providers domain for the action API (the search host is a
+  /// separate service and stays), read on every request (phase 14).
+  final Uri? Function()? domain;
+
+  Uri get actionUrl =>
+      rebase(_actionUrl, Uri.parse(_actionUrl.origin), domain?.call());
   @override
   String get id => 'thirtynama';
   @override

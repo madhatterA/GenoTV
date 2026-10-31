@@ -5,7 +5,7 @@ import 'lt_ffi_session.dart';
 // Every peer is a socket. A GUI app on macOS starts with a soft limit of 256
 // descriptors for the whole process, and libtorrent's default of 200 peers
 // exhausted it mid-playback (EMFILE took out logging, mpv and range reads).
-const int _defaultConnections = 60;
+const int _defaultConnections = 200;
 const int _socks5 = 2;
 const int _socks5Auth = 3;
 
@@ -27,6 +27,17 @@ void applyTorrentSessionOptions(
     'connections_limit':
         '${o.connectionsLimit > 0 ? o.connectionsLimit : _defaultConnections}',
     'enable_dht': o.dht ? '1' : '0',
+    'dht_bootstrap_nodes':
+        'dht.libtorrent.org:25401,router.bittorrent.com:6881,router.utorrent.com:6881,dht.transmissionbt.com:6881',
+    // The shim creates the session TCP-only (uTP off); most NATed swarm peers
+    // only accept uTP, which capped a 3,000-seed torrent at ~8 peers.
+    'enable_outgoing_utp': '1',
+    'enable_incoming_utp': '1',
+    // One tracker at a time (the default) walks the list in order, 10 s per
+    // dead UDP tracker; where UDP is blackholed that never reaches the HTTP
+    // trackers inside the metadata timeout.
+    'announce_to_all_trackers': '1',
+    'announce_to_all_tiers': '1',
     'user_agent': o.userAgent.isEmpty ? defaultUserAgent : o.userAgent,
     'proxy_type': '${proxy.type}',
     'proxy_hostname': proxy.host,

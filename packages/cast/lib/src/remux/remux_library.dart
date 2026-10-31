@@ -8,7 +8,7 @@ String remuxLibraryPath({
   'macos' => File(
     executable ?? Platform.resolvedExecutable,
   ).parent.parent.uri.resolve('Frameworks/libcast_remux.dylib').toFilePath(),
-  'ios' =>
+  'ios' || 'tvos' =>
     File(executable ?? Platform.resolvedExecutable).parent.uri
         .resolve('Frameworks/cast_remux.framework/cast_remux')
         .toFilePath(),

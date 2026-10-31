@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Theme;
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart' show Bidi;
 
@@ -8,7 +9,7 @@ bool isFarsi(BuildContext context) =>
 
 /// The one text widget for UI strings (DESIGN_SPEC §10.3). In Farsi the text
 /// shapes right-to-left and the style takes the role's Farsi line height; the
-/// widget's position never changes. [paragraph] blocks align right in Farsi.
+/// widget's position never changes. Farsi UI labels and [paragraph] blocks align right (Part 07 p17).
 class AppText extends StatelessWidget {
   const AppText(
     this.text, {
@@ -52,12 +53,7 @@ class AppText extends StatelessWidget {
   Widget build(BuildContext context) {
     final fa = isFarsi(context);
     final rtl = _content ? Bidi.detectRtlDirectionality(text) : fa;
-    var effective = style;
-    if (fa) {
-      final base = effective ?? DefaultTextStyle.of(context).style;
-      final height = _faHeight(RivuletTokens.of(context).typeStyles, base);
-      if (height != null) effective = base.copyWith(height: height);
-    }
+    final effective = effectiveStyle(context, style);
     return Text(
       text,
       style: effective,
@@ -65,11 +61,36 @@ class AppText extends StatelessWidget {
           textDirection ?? (rtl ? TextDirection.rtl : TextDirection.ltr),
       textAlign:
           textAlign ??
-          (rtl ? (paragraph ? TextAlign.right : TextAlign.left) : null),
+          (rtl
+              ? (paragraph || !_content ? TextAlign.right : TextAlign.left)
+              : null),
       softWrap: softWrap,
       maxLines: maxLines,
       overflow: overflow,
     );
+  }
+
+  /// The style [AppText] really draws with (tracking / Farsi line height).
+  /// Anything that measures text to match an [AppText] must use this.
+  static TextStyle? effectiveStyle(BuildContext context, TextStyle? style) {
+    final fa = isFarsi(context);
+    var effective = style;
+    final tokens = Theme.of(context).extension<RivuletTokens>();
+    if (!fa && tokens != null) {
+      // English display/title tracking -0.5% (Part 07 p01); Farsi stays 0 so letters join.
+      final base = effective ?? DefaultTextStyle.of(context).style;
+      final roles = tokens.typeStyles;
+      final size = base.fontSize;
+      if (size == roles.display.fontSize || size == roles.title.fontSize) {
+        effective = base.copyWith(letterSpacing: -0.005 * size!);
+      }
+    }
+    if (fa) {
+      final base = effective ?? DefaultTextStyle.of(context).style;
+      final height = _faHeight(RivuletTokens.of(context).typeStyles, base);
+      if (height != null) effective = base.copyWith(height: height);
+    }
+    return effective;
   }
 
   static double? _faHeight(RivuletTypeStyles roles, TextStyle style) {

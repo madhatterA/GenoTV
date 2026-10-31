@@ -12,7 +12,7 @@ import '../navigation/page_entry_focus.dart';
 import '../platform/adaptive_behavior.dart';
 import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
-import 'media_context_menu.dart';
+import 'media_actions.dart';
 import 'poster_card.dart';
 
 class MediaGrid extends StatefulWidget {
@@ -151,7 +151,7 @@ class MediaGridSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = RivuletTokens.of(context).colors;
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
     final still = tv || MediaQuery.disableAnimationsOf(context);
     return ExcludeFocus(
       child: Skeletonizer(
@@ -209,17 +209,16 @@ class _MediaGridView extends StatelessWidget {
   Widget build(BuildContext context) {
     final sizes = AdaptiveBehavior.sizesOf(context);
     final formFactor = sizes.formFactor;
-    final gutter = RivuletSpacing.gutter(formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final gap = RivuletSpacing.itemGap(formFactor);
     final captionHeight = PosterCard.captionBlockHeight(context);
-    final isTv = (AdaptiveBehavior.of(context).formFactor == FormFactor.tv);
+    final isTv = (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv);
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = sizes.columnsFor(constraints.maxWidth);
         // Cards share the line's spare width, so a poster is never narrower
         // than the row poster and keeps its 2:3 art.
-        final cellWidth =
-            (constraints.maxWidth - 2 * gutter - (columns - 1) * gap) / columns;
+        final cellWidth = sizes.gridCardWidth(constraints.maxWidth, columns);
         final cellHeight = cellWidth * 1.5 + captionHeight;
         final room = FocusableCard.focusRoom(cellHeight);
         return FocusTraversalGroup(
@@ -272,10 +271,11 @@ class _MediaGridView extends StatelessWidget {
                             onTap: () => onItemTap?.call(item),
                             onSecondaryTap: onItemTap == null
                                 ? null
-                                : (point) => showMediaDetailsMenu(
-                                    context: context,
+                                : (point) => showMediaActionsMenu(
+                                    context,
+                                    item,
+                                    onDetails: onItemTap,
                                     anchor: point,
-                                    onDetails: () => onItemTap!(item),
                                   ),
                             child: PosterCard(item: item),
                           ),

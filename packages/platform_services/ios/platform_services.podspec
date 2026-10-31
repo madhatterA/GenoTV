@@ -5,7 +5,7 @@ Pod::Spec.new do |s|
   s.description      = 'Native capability and lifecycle services for the video player.'
   s.license          = { :type => 'MIT' }
   s.source           = { :path => '.' }
-  s.source_files = 'platform_services/Sources/platform_services/**/*'
+  s.source_files = 'platform_services/Sources/**/*.{swift,c,h}'
   s.dependency 'Flutter'
   s.platform = :ios, '15.0'
 

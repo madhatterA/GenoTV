@@ -1,4 +1,6 @@
+import '../l10n/genre_labels.dart';
 import '../l10n_gen/app_strings.dart';
+import '../platform/app_haptics.dart';
 import '../l10n/formatters.dart';
 
 import 'package:intl/intl.dart';
@@ -14,6 +16,7 @@ import '../browse/hero_backdrop.dart';
 import '../components/ambient_background.dart';
 import '../components/app_button.dart';
 import '../components/app_icon_button.dart';
+import '../components/app_dialog.dart';
 import '../components/app_text_button.dart';
 import '../components/artwork.dart';
 import '../components/tinted_surface.dart';
@@ -54,10 +57,11 @@ class DetailHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final sizes = AdaptiveBehavior.sizesOf(context);
     final phone = sizes.formFactor == FormFactor.phone;
-    final gutter = RivuletSpacing.gutter(sizes.formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final item = presentation.item;
     final poster = phone ? null : presentation.poster;
     final text = _TextBlock(
+      phonePoster: phone ? presentation.poster : null,
       presentation: presentation,
       playFocusNode: playFocusNode,
       onPlay: onPlay,
@@ -106,7 +110,7 @@ class DetailHero extends StatelessWidget {
                 gutter,
                 pageTopInsetOf(context),
                 gutter,
-                RivuletSpacing.s24,
+                0,
               ),
               child: phone
                   ? SizedBox(width: double.infinity, child: text)
@@ -170,6 +174,7 @@ class _Poster extends StatelessWidget {
 
 class _TextBlock extends StatelessWidget {
   const _TextBlock({
+    required this.phonePoster,
     required this.presentation,
     required this.playFocusNode,
     required this.onPlay,
@@ -177,6 +182,8 @@ class _TextBlock extends StatelessWidget {
     required this.onLinkTap,
   });
 
+  /// Phone only: a small poster left of the title.
+  final Uri? phonePoster;
   final MovieDetailPresentation presentation;
   final FocusNode? playFocusNode;
   final VoidCallback? onPlay;
@@ -187,7 +194,7 @@ class _TextBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
     final styles = tokens.typeStyles;
-    final phone = AdaptiveBehavior.of(context).formFactor == FormFactor.phone;
+    final phone = AdaptiveBehavior.formFactorOf(context) == FormFactor.phone;
     final item = presentation.item;
     final kind = switch (item.kind) {
       MediaKind.movie => AppStrings.of(context).detail_kindMovie,
@@ -196,7 +203,7 @@ class _TextBlock extends StatelessWidget {
     };
     final genreLine = <String>[
       kind,
-      ...presentation.genres.take(2),
+      ...presentation.genres.take(2).map((g) => genreLabel(context, g)),
     ].where((part) => part.isNotEmpty).join(' · ');
     final overview = presentation.summary;
     final isTagline = overview == null || overview.isEmpty;
@@ -236,105 +243,149 @@ class _TextBlock extends StatelessWidget {
       if (presentation.tmdbRating case final tmdb? when tmdb.isNotEmpty)
         RatingMark(tmdb: tmdb, scale: 1, textStyle: strong),
     ];
+    final title = AppText.content(
+      item.title,
+      key: const ValueKey<String>('detail-hero-title'),
+      maxLines: 4,
+      overflow: TextOverflow.ellipsis,
+      style: phone ? styles.title : styles.display,
+    );
     final progress = presentation.progress;
     final resume = _resumeLabel(context, progress);
     final liked = FavouritesScope.maybeOf(context) != null;
+    final head = <Widget>[
+      title,
+      if (genreLine.isNotEmpty ||
+          (presentation.contentRating ?? '').isNotEmpty) ...<Widget>[
+        const SizedBox(height: RivuletSpacing.s8),
+        Wrap(
+          key: const ValueKey<String>('detail-hero-facts'),
+          spacing: RivuletSpacing.s8,
+          runSpacing: RivuletSpacing.s4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            if (genreLine.isNotEmpty) AppText(genreLine, style: styles.caption),
+            if (presentation.contentRating case final rating?
+                when rating.isNotEmpty)
+              _Badge(rating),
+          ],
+        ),
+      ],
+      if (facts.isNotEmpty) ...<Widget>[
+        const SizedBox(height: RivuletSpacing.s4),
+        Wrap(
+          key: const ValueKey<String>('detail-hero-badges'),
+          spacing: RivuletSpacing.s16,
+          runSpacing: RivuletSpacing.s4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            // A leading link button carries 8 px of padding; pull it back
+            // so its text lines up with the title.
+            for (var i = 0; i < facts.length; i++)
+              if (i == 0 && facts[i] is AppTextButton)
+                Transform.translate(
+                  offset: Offset(
+                    Directionality.of(context) == ui.TextDirection.rtl
+                        ? RivuletSpacing.s8
+                        : -RivuletSpacing.s8,
+                    0,
+                  ),
+                  child: facts[i],
+                )
+              else
+                facts[i],
+          ],
+        ),
+      ],
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        AppText.content(
-          item.title,
-          key: const ValueKey<String>('detail-hero-title'),
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-          style: phone ? styles.title : styles.display,
-        ),
-        if (genreLine.isNotEmpty ||
-            (presentation.contentRating ?? '').isNotEmpty) ...<Widget>[
-          const SizedBox(height: RivuletSpacing.s8),
-          Wrap(
-            key: const ValueKey<String>('detail-hero-facts'),
-            spacing: RivuletSpacing.s8,
-            runSpacing: RivuletSpacing.s4,
-            crossAxisAlignment: WrapCrossAlignment.center,
+        if (phonePoster case final poster?)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              if (genreLine.isNotEmpty)
-                AppText(genreLine, style: styles.caption),
-              if (presentation.contentRating case final rating?
-                  when rating.isNotEmpty)
-                _Badge(rating),
+              _Poster(
+                poster: poster,
+                kind: item.kind,
+                width: RivuletSizes.phoneDetailPoster,
+              ),
+              const SizedBox(width: RivuletSpacing.s16),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: head,
+                ),
+              ),
             ],
-          ),
-        ],
-        if (facts.isNotEmpty) ...<Widget>[
-          const SizedBox(height: RivuletSpacing.s4),
-          Wrap(
-            key: const ValueKey<String>('detail-hero-badges'),
-            spacing: RivuletSpacing.s16,
-            runSpacing: RivuletSpacing.s4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: <Widget>[
-              // A leading link button carries 8 px of padding; pull it back
-              // so its text lines up with the title.
-              for (var i = 0; i < facts.length; i++)
-                if (i == 0 && facts[i] is AppTextButton)
-                  Transform.translate(
-                    offset: Offset(
-                      Directionality.of(context) == ui.TextDirection.rtl
-                          ? RivuletSpacing.s8
-                          : -RivuletSpacing.s8,
-                      0,
-                    ),
-                    child: facts[i],
-                  )
-                else
-                  facts[i],
-            ],
-          ),
-        ],
+          )
+        else
+          ...head,
         if (description != null && description.isNotEmpty) ...<Widget>[
-          const SizedBox(height: RivuletSpacing.s8),
-          AppText.content(
-            description,
-            paragraph: true,
-            key: const ValueKey<String>('detail-hero-summary'),
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
+          const SizedBox(height: RivuletSpacing.s12),
+          _Summary(
+            text: description,
             style: styles.body.copyWith(
               color: tokens.colors.textSecondary,
               fontStyle: isTagline ? FontStyle.italic : FontStyle.normal,
             ),
           ),
         ],
-        const SizedBox(height: RivuletSpacing.s16),
-        Wrap(
-          key: const ValueKey<String>('detail-actions'),
-          spacing: RivuletSpacing.s12,
-          runSpacing: RivuletSpacing.s12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: <Widget>[
-            AppButton.primary(
-              key: const ValueKey<String>('detail-play-action'),
-              label: resume ?? AppStrings.of(context).common_play,
-              icon: PhosphorIconsFill.play,
-              focusNode: playFocusNode,
-              autofocus:
-                  (AdaptiveBehavior.of(context).formFactor == FormFactor.tv),
-              onActivate: onPlay,
-            ),
-            if (onTrailer != null)
-              AppButton.secondary(
-                key: const ValueKey<String>('detail-trailer'),
-                label: AppStrings.of(context).detail_trailer,
-                icon: PhosphorIconsRegular.play,
-                overMedia: true,
-                onActivate: onTrailer,
-              ),
-            if (liked) _LikeToggle(mediaId: item.id),
-          ],
-        ),
+        const SizedBox(height: RivuletSpacing.s24),
+        _actions(context, resume: resume, liked: liked),
       ],
+    );
+  }
+
+  /// Play/Resume (tier L; phone: fills the row left of the others), Trailer, Like.
+  Widget _actions(
+    BuildContext context, {
+    required String? resume,
+    required bool liked,
+  }) {
+    final ff = AdaptiveBehavior.formFactorOf(context);
+    final phone = ff == FormFactor.phone;
+    const gap = RivuletSpacing.s12;
+    final play = AppButton.primary(
+      key: const ValueKey<String>('detail-play-action'),
+      label: resume ?? AppStrings.of(context).common_play,
+      icon: PhosphorIconsFill.play,
+      size: RivuletControlSize.l,
+      minWidth: phone ? null : 4 * RivuletControlSize.l.height(ff),
+      expand: phone,
+      focusNode: playFocusNode,
+      autofocus: ff == FormFactor.tv,
+      onActivate: onPlay,
+    );
+    final others = <Widget>[
+      if (onTrailer != null)
+        AppButton.secondary(
+          key: const ValueKey<String>('detail-trailer'),
+          label: AppStrings.of(context).detail_trailer,
+          icon: PhosphorIconsRegular.play,
+          size: RivuletControlSize.l,
+          overMedia: true,
+          onActivate: onTrailer,
+        ),
+      if (liked) _LikeToggle(mediaId: presentation.item.id),
+    ];
+    if (phone) {
+      return Row(
+        key: const ValueKey<String>('detail-actions'),
+        children: <Widget>[
+          Expanded(child: play),
+          for (final w in others) ...<Widget>[const SizedBox(width: gap), w],
+        ],
+      );
+    }
+    return Wrap(
+      key: const ValueKey<String>('detail-actions'),
+      spacing: gap,
+      runSpacing: gap,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[play, ...others],
     );
   }
 
@@ -376,7 +427,7 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TintedSurface.overMedia(
-    radius: RivuletRadius.small,
+    radius: RivuletRadius.xs,
     padding: const EdgeInsets.symmetric(
       horizontal: RivuletSpacing.s8,
       vertical: RivuletSpacing.s4,
@@ -444,10 +495,20 @@ class _LikeToggleState extends State<_LikeToggle>
 
   Future<void> _toggle() async {
     final next = !_liked;
+    AppHaptics.selection(context);
     setState(() => _liked = next);
     _pulse.duration = effectiveDuration(context, RivuletMotion.press * 2);
     unawaited(_pulse.forward(from: 0));
-    await _repository!.setFavourite(widget.mediaId, next);
+    final ok = await setLikedWithFeedback(
+      context,
+      _repository!,
+      widget.mediaId,
+      next,
+      onChanged: (liked) {
+        if (mounted) setState(() => _liked = liked);
+      },
+    );
+    if (!ok && mounted) setState(() => _liked = !next);
   }
 
   @override
@@ -456,6 +517,7 @@ class _LikeToggleState extends State<_LikeToggle>
     child: AppIconButton(
       key: const ValueKey<String>('detail-like'),
       overMedia: true,
+      size: RivuletControlSize.l,
       icon: _liked ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
       semanticLabel: _liked
           ? AppStrings.of(context).detail_unlike
@@ -463,4 +525,62 @@ class _LikeToggleState extends State<_LikeToggle>
       onActivate: _toggle,
     ),
   );
+}
+
+/// The hero summary, cut at 4 lines. A focusable "More" opens the full text
+/// (scrollable) when it was cut, in every language and form factor.
+class _Summary extends StatelessWidget {
+  const _Summary({required this.text, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  static const int _maxLines = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = AppText.content(
+      text,
+      paragraph: true,
+      key: const ValueKey<String>('detail-hero-summary'),
+      maxLines: _maxLines,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: text,
+            style: AppText.effectiveStyle(context, style),
+          ),
+          textDirection: Bidi.detectRtlDirectionality(text)
+              ? ui.TextDirection.rtl
+              : ui.TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: _maxLines,
+        )..layout(maxWidth: constraints.maxWidth);
+        final cut = painter.didExceedMaxLines;
+        painter.dispose();
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            summary,
+            if (cut)
+              AppTextButton(
+                key: const ValueKey<String>('detail-summary-more'),
+                label: AppStrings.of(context).detail_more,
+                onActivate: () => showAppDialog<void>(
+                  context: context,
+                  builder: (_) => SingleChildScrollView(
+                    child: AppText.content(text, paragraph: true, style: style),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }

@@ -42,11 +42,9 @@ const Map<String, double> subtitleSizes = <String, double>{
 
 /// Stored keys of removed settings; dropped silently on load.
 const List<String> retiredSettingKeys = <String>[
-  'video.deinterlace',
   'video.sdrToHdr',
   'video.hwdecDevice',
   'performance.gpuContext',
-  'performance.maxDecoderResolution',
   'performance.mpvOverrides',
   'streaming.dns',
   'downloads.location',

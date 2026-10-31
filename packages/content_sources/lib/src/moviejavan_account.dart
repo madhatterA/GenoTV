@@ -18,7 +18,7 @@ class MovieJavanAccount {
     Uri? apiRoot,
   }) : sessionFile =
            sessionFile ??
-           File('${Platform.environment['HOME']}/.moviejavan-session.json'),
+           defaultSessionFile('moviejavan'),
        apiRoot =
            apiRoot ??
            Uri.parse(

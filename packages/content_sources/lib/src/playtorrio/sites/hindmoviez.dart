@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
+
 import '../pt_runtime.dart';
 import 'package:http/http.dart' as http;
 import '../stream_scraper.dart';
@@ -184,7 +186,12 @@ class HindMoviezScraper extends StreamScraper {
       final url = '$_baseUrl/wp-json/wp/v2/posts?search=${Uri.encodeComponent(query)}&per_page=100';
       final res = await http.get(Uri.parse(url), headers: _defaultHeaders).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
+        final body = res.body;
+        Future<Object?> decodeBody(String payload) =>
+            Isolate.run(() => jsonDecode(payload));
+        final decoded = body.length > 50 * 1024
+            ? await decodeBody(body)
+            : jsonDecode(body);
         if (decoded is List) {
           return decoded.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
         }

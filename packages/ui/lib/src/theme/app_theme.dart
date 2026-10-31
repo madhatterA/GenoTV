@@ -46,7 +46,7 @@ abstract final class AppTheme {
         // existing pre-phase value so this phase's token rewiring does not
         // silently reshape every default-styled Card in the app; screens
         // that need a cited Rivulet radius set it explicitly per phase.
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(RivuletRadius.medium)),
       ),
       focusColor: colors.accent,
     );

@@ -7,7 +7,6 @@ import '../focus/focusable_action.dart';
 import '../focus/tv_text_entry.dart';
 import '../l10n/app_text.dart';
 import '../platform/adaptive_behavior.dart';
-import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
 import 'tinted_surface.dart';
 
@@ -31,6 +30,7 @@ class AppTextField extends StatefulWidget {
     this.maxLines = 1,
     this.errorText,
     this.obscureText = false,
+    this.busy = false,
     super.key,
   });
 
@@ -51,6 +51,9 @@ class AppTextField extends StatefulWidget {
 
   /// Hides the typed text (passwords).
   final bool obscureText;
+
+  /// Shows a small spinner inside the field (a search is running).
+  final bool busy;
 
   @override
   State<AppTextField> createState() => _AppTextFieldState();
@@ -89,10 +92,17 @@ class _AppTextFieldState extends State<AppTextField> {
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
     final colors = tokens.colors;
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+    final ff = AdaptiveBehavior.formFactorOf(context);
+    final glyph = RivuletControlSize.m.glyph(ff);
     final multiline = widget.maxLines != 1;
     final radius = multiline ? RivuletRadius.medium : RivuletRadius.full;
-    final height = tv ? 60.0 : 52.0;
+    final height = RivuletControlSize.m.height(ff);
+    // Single line: the TextField itself spans the tier height (tap target).
+    final body = tokens.typeStyles.body;
+    final pad = ((height - body.fontSize! * (body.height ?? 1.2)) / 2).clamp(
+      0.0,
+      double.infinity,
+    );
     final field = TvTextEntry(
       builder: (_, tvReadOnly) => TextField(
         key: widget.fieldKey,
@@ -107,6 +117,7 @@ class _AppTextFieldState extends State<AppTextField> {
         onSubmitted: widget.onSubmitted,
         onTapOutside: widget.onTapOutside,
         style: tokens.typeStyles.body,
+        textAlignVertical: TextAlignVertical.center,
         cursorColor: colors.textPrimary,
         decoration: InputDecoration(
           hintText: widget.hint,
@@ -117,22 +128,43 @@ class _AppTextFieldState extends State<AppTextField> {
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          contentPadding: EdgeInsets.symmetric(
+            vertical: multiline ? RivuletSpacing.s16 : pad,
+          ),
         ),
       ),
     );
     final surface = TintedSurface(
       radius: radius,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: RivuletSpacing.s20),
       child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: height - 2),
+        constraints: BoxConstraints(minHeight: height),
         child: Row(
           children: <Widget>[
             if (widget.icon != null) ...<Widget>[
-              Icon(widget.icon, size: 20, color: colors.textSecondary),
+              Icon(widget.icon, size: glyph, color: colors.textSecondary),
               const SizedBox(width: RivuletSpacing.s12),
             ],
-            Expanded(child: field),
+            Expanded(
+              child: multiline
+                  ? field
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: height),
+                      child: field,
+                    ),
+            ),
+            if (widget.busy)
+              Padding(
+                padding: const EdgeInsets.only(right: RivuletSpacing.s8),
+                child: SizedBox.square(
+                  key: const ValueKey('field-spinner'),
+                  dimension: glyph - RivuletSpacing.s8,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colors.accent,
+                  ),
+                ),
+              ),
             if (widget.controller.text.isNotEmpty && !multiline)
               FocusableAction(
                 onActivate: _clear,
@@ -141,7 +173,7 @@ class _AppTextFieldState extends State<AppTextField> {
                 focusRadius: BorderRadius.circular(RivuletRadius.full),
                 child: Icon(
                   PhosphorIconsRegular.x,
-                  size: 20,
+                  size: glyph,
                   color: colors.textSecondary,
                 ),
               ),
@@ -151,7 +183,8 @@ class _AppTextFieldState extends State<AppTextField> {
     );
     final ring = CustomPaint(
       foregroundPainter: _node.hasFocus
-          ? FocusRingPainter(
+          ? FocusRingPainter.of(
+              context,
               radius: BorderRadius.circular(radius),
               color: colors.accent,
             )
@@ -164,7 +197,10 @@ class _AppTextFieldState extends State<AppTextField> {
       children: <Widget>[
         ring,
         Padding(
-          padding: const EdgeInsets.only(top: RivuletSpacing.s4, left: 20),
+          padding: const EdgeInsets.only(
+            top: RivuletSpacing.s4,
+            left: RivuletSpacing.s20,
+          ),
           child: AppText(
             widget.errorText!,
             style: tokens.typeStyles.caption.copyWith(color: colors.danger),

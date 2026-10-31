@@ -20,6 +20,7 @@ class EmptyView extends StatelessWidget {
     this.onSecondary,
     this.secondaryLabel,
     this.fullScreen = false,
+    this.autofocusPrimary = false,
     super.key,
   }) : assert(onPrimary == null || primaryLabel != null),
        assert(onSecondary == null || secondaryLabel != null);
@@ -33,6 +34,9 @@ class EmptyView extends StatelessWidget {
   final VoidCallback? onSecondary;
   final String? secondaryLabel;
   final bool fullScreen;
+
+  /// Puts focus on the primary button when the page opens.
+  final bool autofocusPrimary;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +52,7 @@ class EmptyView extends StatelessWidget {
             child: Icon(
               icon ?? PhosphorIconsRegular.filmSlate,
               size: 40,
-              color: opaque ? colors.textPrimary : colors.textTertiary,
+              color: opaque ? colors.textPrimary : colors.decorative,
             ),
           ),
           const SizedBox(height: RivuletSpacing.s16),
@@ -85,6 +89,7 @@ class EmptyView extends StatelessWidget {
                 if (onPrimary != null)
                   AppButton.primary(
                     label: primaryLabel!,
+                    autofocus: autofocusPrimary,
                     onActivate: onPrimary,
                   ),
                 if (onSecondary != null)

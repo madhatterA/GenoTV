@@ -1,17 +1,24 @@
+import 'dart:math' as math;
+
 import '../l10n_gen/app_strings.dart';
 
 import 'dart:async';
 
 import 'package:animations/animations.dart';
+import 'package:flutter/gestures.dart' show kBackMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../components/ambient_background.dart';
 import '../components/app_icon_button.dart';
+import '../components/app_toast.dart';
+import '../components/shader_warmup.dart';
+import '../components/shortcut_sheet.dart';
 import '../focus/focusable_action.dart';
 import '../focus/focusable_card.dart';
 import '../platform/adaptive_behavior.dart';
+import '../platform/desktop_menu_bar.dart';
 import '../platform/form_factor.dart';
 import '../theme/rivulet_tokens.dart';
 import 'app_destination.dart';
@@ -73,6 +80,8 @@ class AppShell extends StatefulWidget {
     required this.destinations,
     required this.activeId,
     this.onExitRequested,
+    this.exitOnRootBack = false,
+    this.sidebarMinWindow = RivuletSpacing.sidebarMinWindow,
   }) : assert(
          destinations.length > 0,
          'AppShell needs at least one destination',
@@ -88,6 +97,14 @@ class AppShell extends StatefulWidget {
   /// closed and the active destination's stack cannot pop.
   final VoidCallback? onExitRequested;
 
+  /// Back on the home tab's root (nothing open, no overlay) is left to the
+  /// system, which leaves the app (tvOS Menu returns to the Apple TV home).
+  final bool exitOnRootBack;
+
+  /// Desktop window width (logical px) from which the persistent sidebar
+  /// replaces the pill; `double.infinity` keeps the pill at any width.
+  final double sidebarMinWindow;
+
   @override
   State<AppShell> createState() => AppShellState();
 }
@@ -97,6 +114,9 @@ class AppShellState extends State<AppShell>
   late String _activeId = widget.activeId;
   String? _outgoingId;
   bool _menuOpen = false;
+  final GlobalKey<DesktopSidebarState> _sidebarKey =
+      GlobalKey<DesktopSidebarState>();
+  bool _wasWide = false;
 
   /// Drives the incoming destination's fade-through (DESIGN_SPEC §5.2).
   late final AnimationController _switch = AnimationController(
@@ -108,6 +128,10 @@ class AppShellState extends State<AppShell>
   /// Destinations whose primary vertical scroll is past 8 px; the top scrim
   /// shows for the active one (DESIGN_SPEC §7.2).
   final Set<String> _scrolled = <String>{};
+
+  /// Pings the top scrim alone when a page scrolls past the threshold, so the
+  /// pages (all tabs) are not rebuilt for an opacity change.
+  final ValueNotifier<int> _scrim = ValueNotifier<int>(0);
 
   static const double _scrimScrollThreshold = 8;
   static const double _topScrimHeight = 96;
@@ -131,6 +155,7 @@ class AppShellState extends State<AppShell>
   // Built once, never in build(): recreating a Navigator's GlobalKey on
   // every rebuild would tear down and rebuild that destination's whole
   // stack (phase-02-navigation.md's "Pitfalls").
+  final ValueNotifier<int> _ambientPages = ValueNotifier<int>(0);
   late final Map<String, GlobalKey<NavigatorState>> _navigatorKeys =
       <String, GlobalKey<NavigatorState>>{
         for (final destination in widget.destinations)
@@ -144,7 +169,7 @@ class AppShellState extends State<AppShell>
   bool get _hasBackButton => (_pushed[_activeId] ?? 0) > 0;
 
   bool _isTv(BuildContext context) =>
-      AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+      AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
 
   void _track(String id, int delta, Route<dynamic> route) =>
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -202,6 +227,7 @@ class AppShellState extends State<AppShell>
   void initState() {
     super.initState();
     FocusManager.instance.addListener(_onPrimaryFocusChanged);
+    _back.addListener(_backHandlersChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // TV opens in remote mode: the first page takes focus on its entry.
       if (mounted && _isTv(context) && _entryNode() != null) {
@@ -252,18 +278,102 @@ class AppShellState extends State<AppShell>
 
   @override
   void dispose() {
+    _back.removeListener(_backHandlersChanged);
     FocusManager.instance.removeListener(_onPrimaryFocusChanged);
     _edgeCatcherFocus.dispose();
     _pillFocus.dispose();
     _searchFocus.dispose();
+    _exitTimer?.cancel();
     _switch.dispose();
+    _scrim.dispose();
     super.dispose();
+  }
+
+  // Handlers (player overlay, text entry) register during builds.
+  void _backHandlersChanged() =>
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+
+  bool _backLeavesApp(BuildContext context) =>
+      widget.exitOnRootBack &&
+      !_menuOpen &&
+      !_back.hasHandlers &&
+      _activeId == widget.activeId &&
+      (_pushed[_activeId] ?? 0) == 0 &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
+
+  bool? _sentFrameworkHandlesBack;
+
+  /// Flutter only forwards "the framework handles Back" to the engine on
+  /// Android, but the tvOS engine reads the same message: send it ourselves.
+  /// False lets the system take Menu (the app leaves for the Apple TV home).
+  void _syncFrameworkBack(bool handles) {
+    if (!widget.exitOnRootBack || _sentFrameworkHandlesBack == handles) return;
+    _sentFrameworkHandlesBack = handles;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        SystemChannels.platform.invokeMethod<void>(
+          'SystemNavigator.setFrameworkHandlesBack',
+          handles,
+        ),
+      );
+    });
   }
 
   bool _typingInTextField() =>
       FocusManager.instance.primaryFocus?.context
           ?.findAncestorWidgetOfExactType<EditableText>() !=
       null;
+
+  /// Part 07 p11 desktop shortcuts; null when [key] is not one of them.
+  VoidCallback? _appShortcut(LogicalKeyboardKey key, String? character) {
+    final keyboard = HardwareKeyboard.instance;
+    if (AdaptiveBehavior.primaryModifierHeld()) {
+      if (keyboard.isAltPressed || keyboard.isShiftPressed) return null;
+      return switch (key) {
+        LogicalKeyboardKey.keyF => _openSearch,
+        LogicalKeyboardKey.comma => _openSettings,
+        LogicalKeyboardKey.keyR => _refreshPage,
+        _ => null,
+      };
+    }
+    if (keyboard.isControlPressed ||
+        keyboard.isMetaPressed ||
+        keyboard.isAltPressed) {
+      return null;
+    }
+    return switch (character) {
+      '/' => _openSearch,
+      '?' => () => showShortcutSheet(context),
+      _ => null,
+    };
+  }
+
+  /// A keyboard jump to a destination: the content keeps keyboard focus.
+  void _selectByKey(String id) {
+    if (!widget.destinations.any((d) => d.id == id)) return;
+    _select(id);
+    _restoreContentFocus(force: true);
+  }
+
+  void _openSearch() {
+    _selectByKey('search');
+  }
+
+  void _openSettings() {
+    _selectByKey('settings');
+  }
+
+  /// Rebuilds the current destination's root page (its data loads again).
+  /// A pushed page is left alone: only a root page is refreshed.
+  void _refreshPage() {
+    if (_hasBackButton) return;
+    final id = _activeId;
+    _routes.remove(id);
+    _navigatorKeys[id] = GlobalKey<NavigatorState>(debugLabel: 'nav-$id');
+    setState(() {});
+  }
 
   KeyEventResult _onKey(BuildContext context, KeyEvent event) {
     final key = event.logicalKey;
@@ -284,6 +394,13 @@ class AppShellState extends State<AppShell>
       return KeyEventResult.ignored;
     }
     final character = event.character;
+    if (!_isTv(context) && !_typingInTextField()) {
+      final shortcut = _appShortcut(key, character);
+      if (shortcut != null) {
+        shortcut();
+        return KeyEventResult.handled;
+      }
+    }
     final typeAhead = _routes[_activeId]?.lastOrNull is AppPageRoute
         ? (_routes[_activeId]!.last as AppPageRoute).entry.typeAhead
         : null;
@@ -297,9 +414,14 @@ class AppShellState extends State<AppShell>
       typeAhead(character);
       return KeyEventResult.handled;
     }
+    final back = HardwareKeyboard.instance.isAltPressed
+        ? key == LogicalKeyboardKey.arrowLeft
+        : HardwareKeyboard.instance.isMetaPressed &&
+              key == LogicalKeyboardKey.bracketLeft;
     if (!_isTv(context) &&
         !_typingInTextField() &&
-        (key == LogicalKeyboardKey.escape ||
+        (back ||
+            key == LogicalKeyboardKey.escape ||
             key == LogicalKeyboardKey.backspace)) {
       final navigator = _navigatorKeys[_activeId]?.currentState;
       if (navigator != null && navigator.canPop()) {
@@ -417,6 +539,14 @@ class AppShellState extends State<AppShell>
             editable.maxLines != 1)) {
       return KeyEventResult.ignored;
     }
+    if (_inSidebar(current)) {
+      if (direction == TraversalDirection.right) {
+        _focusPage();
+      } else if (direction != TraversalDirection.left) {
+        current.focusInDirection(direction);
+      }
+      return KeyEventResult.handled;
+    }
     final search = _searchFocus.context != null ? _searchFocus : null;
     final back = _backNode();
     FocusNode? target;
@@ -468,6 +598,10 @@ class AppShellState extends State<AppShell>
         _retraceTarget = null;
       });
       if (moved) return KeyEventResult.handled;
+      if (_wide(context) && direction == TraversalDirection.left) {
+        _sidebarKey.currentState?.focusActive();
+        return KeyEventResult.handled;
+      }
       if (direction == TraversalDirection.up) target = _pillFocus;
     }
     if (target != null && target.context != null && target.canRequestFocus) {
@@ -530,108 +664,218 @@ class AppShellState extends State<AppShell>
       (d) => d.id == _activeId,
       orElse: () => widget.destinations.first,
     );
-    final backSlot = menuBackSlotOf(context);
-    final pill = menuPillRect(context, active, _hasBackButton ? backSlot : 0);
+    final backSlot = menuPillShiftOf(context);
+    var pill = menuPillRect(context, active, _hasBackButton ? backSlot : 0);
+    // No pill beside the sidebar: pages keep its slot position, zero wide.
+    if (_wide(context)) {
+      pill = Rect.fromLTWH(pill.left, pill.top, 0, pill.height);
+    }
     final colors = RivuletTokens.of(context).colors;
-    final gutter = RivuletSpacing.gutter(profile.formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final controlsVisible = ModalRoute.isCurrentOf(context) ?? true;
+    final wide = _wide(context);
+    final windowSize = MediaQuery.sizeOf(context);
+    final available =
+        windowSize.width - (wide ? RivuletSpacing.sidebarWidth : 0);
+    // Ultra-wide desktop windows: content stays a readable width, centred.
+    // (Only beside the sidebar: the pill sits at the window edge.)
+    final capped = wide && available > RivuletSpacing.contentMaxWidth;
+    final contentWidth = capped ? RivuletSpacing.contentMaxWidth : available;
+    if (wide != _wasWide) {
+      // Resizing across the threshold: focus lost with the old chrome goes to
+      // the page; the current section is shell state and stays.
+      _wasWide = wide;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusEntryIfLost();
+      });
+    }
     final showSearch =
         controlsVisible &&
         !tv &&
+        !wide &&
         !_hasBackButton &&
         _activeId != 'search' &&
         widget.destinations.any((d) => d.id == 'search');
-    return AppShellScope(
-      backDispatcher: _back,
-      pillRect: pill,
-      select: _select,
-      child: PopScope<void>(
-        canPop: false,
-        onPopInvokedWithResult: (_, _) => _handleBack(),
-        child: Focus(
-          canRequestFocus: false,
-          onKeyEvent: (_, event) => _onKey(context, event),
-          child: Scaffold(
-            backgroundColor: colors.bgBase,
-            body: Stack(
-              children: <Widget>[
-                const Positioned.fill(
-                  child: AmbientBackground(child: SizedBox.expand()),
-                ),
-                _contentStack(),
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  height: _topScrimHeight,
-                  child: IgnorePointer(
-                    child: AnimatedOpacity(
-                      key: const ValueKey<String>('top-scrim'),
-                      duration: effectiveDuration(context, RivuletMotion.fast),
-                      opacity: _scrolled.contains(_activeId) ? 1 : 0,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(gradient: colors.scrimTopBar),
-                      ),
+    _syncFrameworkBack(!_backLeavesApp(context));
+    return DesktopMenuBar(
+      onSearch: _openSearch,
+      onSettings: _openSettings,
+      onRefresh: _refreshPage,
+      onShortcuts: () => showShortcutSheet(context),
+      child: ScrollConfiguration(
+        behavior: _ShellScrollBehavior(
+          desktopScrollbars: profile.formFactor == FormFactor.desktop,
+        ),
+        child: AppShellScope(
+          backDispatcher: _back,
+          pillRect: pill,
+          select: _select,
+          child: PopScope<void>(
+            canPop: false,
+            onPopInvokedWithResult: (_, _) => _handleBack(),
+            child: Listener(
+              onPointerDown: _onPointerDown,
+              child: Focus(
+                canRequestFocus: false,
+                onKeyEvent: (_, event) => _onKey(context, event),
+                child: Scaffold(
+                  backgroundColor: colors.bgBase,
+                  body: AmbientCoverage(
+                    pages: _ambientPages,
+                    child: Stack(
+                      children: <Widget>[
+                        const Positioned.fill(
+                          child: AmbientBackground(
+                            shell: true,
+                            child: SizedBox.expand(),
+                          ),
+                        ),
+                        if (_isTv(context))
+                          const Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: ShaderWarmup(),
+                          ),
+                        if (wide || capped)
+                          Positioned.fill(
+                            left: wide ? RivuletSpacing.sidebarWidth : 0,
+                            child: MediaQuery(
+                              data: MediaQuery.of(context).copyWith(
+                                size: Size(contentWidth, windowSize.height),
+                              ),
+                              child: capped
+                                  ? Center(
+                                      child: SizedBox(
+                                        width: contentWidth,
+                                        height: double.infinity,
+                                        child: _contentStack(),
+                                      ),
+                                    )
+                                  : _contentStack(),
+                            ),
+                          )
+                        else
+                          _contentStack(),
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          right: 0,
+                          height: _topScrimHeight,
+                          child: IgnorePointer(
+                            child: ValueListenableBuilder<int>(
+                              valueListenable: _scrim,
+                              // The gradient's own alpha is animated, not an
+                              // opacity layer (its first show cost ~40 ms of raster
+                              // on the TV; `ShaderWarmup` pre-compiles the gradient).
+                              builder: (_, _, _) =>
+                                  TweenAnimationBuilder<double>(
+                                    key: const ValueKey<String>('top-scrim'),
+                                    duration: effectiveDuration(
+                                      context,
+                                      RivuletMotion.fast,
+                                    ),
+                                    tween: Tween<double>(
+                                      end: _scrolled.contains(_activeId)
+                                          ? 1
+                                          : 0,
+                                    ),
+                                    // TV: never fully clear (1/255 of black is
+                                    // invisible), so the gradient is already compiled
+                                    // when the first scroll shows it.
+                                    builder: (_, opacity, _) =>
+                                        opacity == 0 && !tv
+                                        ? const SizedBox.shrink()
+                                        : DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              gradient: colors.scrimTopBar
+                                                  .scale(
+                                                    tv
+                                                        ? math.max(
+                                                            opacity,
+                                                            0.01,
+                                                          )
+                                                        : opacity,
+                                                  ),
+                                            ),
+                                          ),
+                                  ),
+                            ),
+                          ),
+                        ),
+                        if (showSearch)
+                          Positioned(
+                            right: gutter,
+                            top: pill.top,
+                            height: pill.height
+                                .clamp(
+                                  AdaptiveBehavior.hitTargetOf(context),
+                                  double.infinity,
+                                )
+                                .toDouble(),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              widthFactor: 1,
+                              child: AppIconButton(
+                                key: const ValueKey<String>('top-search'),
+                                focusNode: _searchFocus,
+                                glass: true,
+                                icon: PhosphorIconsRegular.magnifyingGlass,
+                                semanticLabel: AppStrings.of(context)
+                                    .common_search,
+                                onActivate: () => _select('search'),
+                              ),
+                            ),
+                          ),
+                        // Edge catcher (TV): a Left/focus move out of content lands
+                        // here and opens the panel.
+                        if (tv)
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: 2,
+                            child: Focus(
+                              focusNode: _edgeCatcherFocus,
+                              onFocusChange: (hasFocus) {
+                                if (hasFocus && !_menuOpen) _openMenu();
+                              },
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        if (wide && controlsVisible)
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: DesktopSidebar(
+                              key: _sidebarKey,
+                              destinations: widget.destinations,
+                              activeId: _activeId,
+                              onSelect: _select,
+                            ),
+                          ),
+                        Positioned.fill(
+                          child: Visibility(
+                            visible: controlsVisible && !wide,
+                            maintainState: true,
+                            child: AppSidebar(
+                              key: const ValueKey<String>('app-sidebar-widget'),
+                              destinations: widget.destinations,
+                              activeId: _activeId,
+                              pillFocusNode: _pillFocus,
+                              pillShift: _hasBackButton ? backSlot : 0,
+                              expanded: _menuOpen,
+                              onSelect: _selectAndClose,
+                              onCollapse: _closeMenu,
+                              onExpand: _openMenu,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                if (showSearch)
-                  Positioned(
-                    right: gutter,
-                    top: pill.top,
-                    height: pill.height
-                        .clamp(
-                          AdaptiveBehavior.hitTargetOf(context),
-                          double.infinity,
-                        )
-                        .toDouble(),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      widthFactor: 1,
-                      child: AppIconButton(
-                        key: const ValueKey<String>('top-search'),
-                        focusNode: _searchFocus,
-                        glass: true,
-                        icon: PhosphorIconsRegular.magnifyingGlass,
-                        semanticLabel: AppStrings.of(context).common_search,
-                        onActivate: () => _select('search'),
-                      ),
-                    ),
-                  ),
-                // Edge catcher (TV): a Left/focus move out of content lands
-                // here and opens the panel.
-                if (tv)
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: 2,
-                    child: Focus(
-                      focusNode: _edgeCatcherFocus,
-                      onFocusChange: (hasFocus) {
-                        if (hasFocus && !_menuOpen) _openMenu();
-                      },
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                Positioned.fill(
-                  child: Visibility(
-                    visible: controlsVisible,
-                    maintainState: true,
-                    child: AppSidebar(
-                      key: const ValueKey<String>('app-sidebar-widget'),
-                      destinations: widget.destinations,
-                      activeId: _activeId,
-                      pillFocusNode: _pillFocus,
-                      pillShift: _hasBackButton ? backSlot : 0,
-                      expanded: _menuOpen,
-                      onSelect: _selectAndClose,
-                      onCollapse: _closeMenu,
-                      onExpand: _openMenu,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -717,13 +961,12 @@ class AppShellState extends State<AppShell>
     }
     final scrolled = notification.metrics.pixels > _scrimScrollThreshold;
     if (scrolled == _scrolled.contains(_activeId)) return;
-    setState(() {
-      if (scrolled) {
-        _scrolled.add(_activeId);
-      } else {
-        _scrolled.remove(_activeId);
-      }
-    });
+    if (scrolled) {
+      _scrolled.add(_activeId);
+    } else {
+      _scrolled.remove(_activeId);
+    }
+    _scrim.value++;
   }
 
   void _select(String id) {
@@ -753,8 +996,34 @@ class AppShellState extends State<AppShell>
     _restoreContentFocus();
   }
 
+  /// Desktop window wide enough for the persistent sidebar (no pill, no panel).
+  bool _wide(BuildContext context) =>
+      AdaptiveBehavior.formFactorOf(context) == FormFactor.desktop &&
+      MediaQuery.sizeOf(context).width >= widget.sidebarMinWindow;
+
+  bool _inSidebar(FocusNode? node) =>
+      node?.context?.findAncestorStateOfType<DesktopSidebarState>() != null;
+
+  /// Right from the sidebar: the page's remembered focus, else its entry.
+  void _focusPage() {
+    final scope = _navigatorKeys[_activeId]?.currentState?.focusNode;
+    final remembered = scope?.nearestScope?.focusedChild;
+    if (remembered != null &&
+        remembered is! FocusScopeNode &&
+        remembered.context != null &&
+        scope!.descendants.contains(remembered)) {
+      remembered.requestFocus();
+    } else {
+      _entryNode()?.requestFocus();
+    }
+  }
+
   void _openMenu() {
     if (_menuOpen) return;
+    if (_wide(context)) {
+      _sidebarKey.currentState?.focusActive();
+      return;
+    }
     final focus = FocusManager.instance.primaryFocus;
     _restoreFocus =
         focus == null || focus is FocusScopeNode || focus == _edgeCatcherFocus
@@ -857,7 +1126,7 @@ class AppShellState extends State<AppShell>
   /// After a destination is chosen (or focus is lost) put focus on the active
   /// page's primary element; touch input has no visible focus, so it is left
   /// alone there.
-  void _restoreContentFocus() {
+  void _restoreContentFocus({bool force = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _menuOpen) return;
       if (_isTv(context)) {
@@ -886,7 +1155,10 @@ class AppShellState extends State<AppShell>
         }
         return;
       }
-      if (!focusRingVisibleFor(AdaptiveBehavior.of(context).inputMode)) return;
+      if (!force &&
+          !focusRingVisibleFor(AdaptiveBehavior.of(context).inputMode)) {
+        return;
+      }
       final entry = _entryNode();
       if (entry != null) {
         entry.requestFocus();
@@ -911,7 +1183,36 @@ class AppShellState extends State<AppShell>
       navigator.pop();
       return;
     }
+    if (_activeId != widget.activeId) {
+      _select(widget.activeId);
+      _restoreContentFocus();
+      return;
+    }
+    // Android phone and TV: a second Back within 2 s leaves the app.
+    if (!widget.exitOnRootBack &&
+        Theme.of(context).platform == TargetPlatform.android) {
+      if (_exitTimer == null) {
+        _exitTimer = Timer(_exitWindow, () => _exitTimer = null);
+        showAppToast(
+          context,
+          PhosphorIconsRegular.signOut,
+          AppStrings.of(context).back_pressAgainToExit,
+          duration: _exitWindow,
+        );
+        return;
+      }
+    }
     widget.onExitRequested?.call();
+  }
+
+  static const Duration _exitWindow = RivuletMotion.backExit;
+  Timer? _exitTimer;
+
+  /// Mouse back button pops the active tab's pushed page (desktop).
+  void _onPointerDown(PointerDownEvent event) {
+    if (event.buttons & kBackMouseButton == 0 || _isTv(context)) return;
+    final navigator = _navigatorKeys[_activeId]?.currentState;
+    if (navigator != null && navigator.canPop()) navigator.pop();
   }
 }
 
@@ -940,4 +1241,32 @@ class _DepthObserver extends NavigatorObserver {
     _stack(route, false);
     _report(-1, route);
   }
+}
+
+/// Desktop gets a thin auto-hiding vertical scrollbar; phone and TV none.
+class _ShellScrollBehavior extends MaterialScrollBehavior {
+  const _ShellScrollBehavior({required this.desktopScrollbars});
+
+  final bool desktopScrollbars;
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    if (!desktopScrollbars ||
+        axisDirectionToAxis(details.direction) != Axis.vertical) {
+      return child;
+    }
+    return Scrollbar(
+      controller: details.controller,
+      thickness: RivuletSpacing.scrollbarThickness,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldNotify(_ShellScrollBehavior oldDelegate) =>
+      oldDelegate.desktopScrollbars != desktopScrollbars;
 }

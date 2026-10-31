@@ -1,0 +1,62 @@
+diff --git a/common/av_common.c b/common/av_common.c
+index 5d07349..81d3163 100644
+--- a/common/av_common.c
++++ b/common/av_common.c
+@@ -20,6 +20,7 @@
+ #include <limits.h>
+ 
+ #include <libavutil/common.h>
++#include <libavutil/dovi_meta.h>
+ #include <libavutil/log.h>
+ #include <libavutil/dict.h>
+ #include <libavutil/opt.h>
+@@ -122,6 +123,23 @@ int mp_set_avctx_codec_headers(AVCodecContext *avctx, const struct mp_codec_para
+     int r = avcodec_parameters_to_context(avctx, avp) < 0 ? -1 : 0;
+     avcodec_parameters_free(&avp);
+ 
++    if (r == 0 && c->dovi_profile) {
++        AVPacketSideData *sd = av_mallocz(sizeof(*sd));
++        AVDOVIDecoderConfigurationRecord *cfg = av_mallocz(sizeof(*cfg));
++        if (!sd || !cfg) {
++            av_free(sd);
++            av_free(cfg);
++            return -1;
++        }
++        cfg->dv_profile = c->dovi_profile;
++        cfg->dv_level = c->dovi_level;
++        sd->type = AV_PKT_DATA_DOVI_CONF;
++        sd->data = (uint8_t *) cfg;
++        sd->size = sizeof(*cfg);
++        avctx->coded_side_data = sd;
++        avctx->nb_coded_side_data = 1;
++    }
++
+     if (avctx->codec_type != AVMEDIA_TYPE_UNKNOWN)
+         avctx->codec_type = codec_type;
+     if (avctx->codec_id != AV_CODEC_ID_NONE)
+diff --git a/demux/demux_lavf.c b/demux/demux_lavf.c
+index 347763b..a712e06 100644
+--- a/demux/demux_lavf.c
++++ b/demux/demux_lavf.c
+@@ -762,6 +762,8 @@ static void handle_new_stream(demuxer_t *demuxer, int i)
+             const AVDOVIDecoderConfigurationRecord *cfg = (void *) sd;
+             MP_VERBOSE(demuxer, "Found Dolby Vision config record: profile "
+                        "%d level %d\n", cfg->dv_profile, cfg->dv_level);
++            sh->codec->dovi_profile = cfg->dv_profile;
++            sh->codec->dovi_level = cfg->dv_level;
+             av_format_inject_global_side_data(avfc);
+         }
+ 
+diff --git a/demux/stheader.h b/demux/stheader.h
+index 1bc036d..0359706 100644
+--- a/demux/stheader.h
++++ b/demux/stheader.h
+@@ -81,6 +81,8 @@ struct mp_codec_params {
+     // Codec specific header data (set by demux_lavf.c only)
+     struct AVCodecParameters *lav_codecpar;
+ 
++    int dovi_profile, dovi_level;
++
+     // Timestamp granularity for converting double<->rational timestamps.
+     int native_tb_num, native_tb_den;
+ 

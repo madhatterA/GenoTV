@@ -1,5 +1,7 @@
 import '../pt_runtime.dart';
 import 'dart:convert';
+import 'dart:isolate';
+
 import 'package:http/http.dart' as http;
 import '../stream_scraper.dart';
 import '../models/stream_model.dart';
@@ -38,7 +40,12 @@ class XDownloaderScraper extends StreamScraper {
 
       if (searchResponse.statusCode != 200) return sources;
 
-      final searchJson = jsonDecode(searchResponse.body);
+      final searchBody = searchResponse.body;
+      Future<Object?> decodeSearchBody(String payload) =>
+          Isolate.run(() => jsonDecode(payload));
+      final searchJson = searchBody.length > 50 * 1024
+          ? await decodeSearchBody(searchBody)
+          : jsonDecode(searchBody);
       final resultsObj = searchJson['results'];
       if (resultsObj == null) return sources;
 
@@ -82,7 +89,12 @@ class XDownloaderScraper extends StreamScraper {
 
       if (detailsResponse.statusCode != 200) return sources;
 
-      final detailsJson = jsonDecode(detailsResponse.body);
+      final detailsBody = detailsResponse.body;
+      Future<Object?> decodeDetailsBody(String payload) =>
+          Isolate.run(() => jsonDecode(payload));
+      final detailsJson = detailsBody.length > 50 * 1024
+          ? await decodeDetailsBody(detailsBody)
+          : jsonDecode(detailsBody);
       final data = detailsJson['data'];
       if (data == null) return sources;
 

@@ -13,6 +13,7 @@ class HomeRow {
     this.titleOf,
     required this.items,
     this.query,
+    this.isContinue = false,
   });
 
   final String title;
@@ -21,6 +22,9 @@ class HomeRow {
       titleOf?.call(AppStrings.of(context)) ?? title;
   final List<MediaItem> items;
   final TitleQuery? query;
+
+  /// The Continue Watching row: landscape cards and a Remove action.
+  final bool isContinue;
 }
 
 /// Overall home-surface load state. Mirrors the four states the Phase's
@@ -67,6 +71,10 @@ class HomeViewModel extends ChangeNotifier {
 
   MediaItem? _focusedItem;
 
+  /// Bumped when row contents change in place ([upgradeItem]), so the screen
+  /// knows its cached shelves are stale.
+  int rowsRevision = 0;
+
   /// Curated hero candidates: the first row, capped at [heroItemCap]. A
   /// stable list — its identity/content doesn't change on focus changes,
   /// only on an explicit [upgradeItem] call, so shelves and hero focus
@@ -101,6 +109,7 @@ class HomeViewModel extends ChangeNotifier {
       if (index == -1) continue;
       row.items[index] = updated;
       if (_focusedItem?.id == updated.id) _focusedItem = updated;
+      rowsRevision++;
       notifyListeners();
       return;
     }
@@ -116,6 +125,7 @@ class HomeViewModel extends ChangeNotifier {
           titleOf: row.titleOf,
           items: List<MediaItem>.of(row.items),
           query: row.query,
+          isContinue: row.isContinue,
         ),
       ),
     );

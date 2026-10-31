@@ -53,8 +53,8 @@ class _AppSwitchState extends State<AppSwitch>
             : RivuletMotion.fast,
         curve: RivuletMotion.easeOut,
         width: 44,
-        height: 26,
-        padding: const EdgeInsets.all(3),
+        height: 28,
+        padding: const EdgeInsets.all(RivuletSpacing.s4),
         decoration: BoxDecoration(
           color: widget.value ? colors.accent : colors.tintFillHover,
           borderRadius: BorderRadius.circular(RivuletRadius.full),

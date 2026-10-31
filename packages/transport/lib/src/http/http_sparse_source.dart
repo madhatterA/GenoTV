@@ -37,6 +37,7 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
   Timer? _poller;
   StreamSubscription<RangeSet>? _availabilityEvents;
   Object? _failure;
+  TransportFailure? _stall;
   bool _disposed = false;
   CacheGovernor? _governor;
   FsNative? _fs;
@@ -49,6 +50,10 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
   @override
   RangeSet get available => _available;
   Object? get failure => _failure;
+
+  /// The origin is unreachable and the backend is retrying; null while bytes
+  /// flow.
+  TransportFailure? get stall => _stall;
   void startMonitoring() {
     if (_poller != null || backend == null || jobId == null) return;
     _availabilityEvents = backend!
@@ -75,10 +80,6 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
       evict: _evict,
       limitAhead: _limitAhead,
       logger: logger,
-      onFailure: (error) {
-        _failure = error;
-        if (!_changed.isClosed) _changed.add(null);
-      },
     );
   }
 
@@ -147,8 +148,14 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
     );
   }
 
+  // One status poll at a time: with a slow disk a poll (it copies the window
+  // into the file) outlasts the 500 ms timer, and stacked polls would queue
+  // every seek's window change behind minutes of status work.
+  bool _polling = false;
+
   Future<void> _poll() async {
-    if (_disposed || backend == null || jobId == null) return;
+    if (_polling || _disposed || backend == null || jobId == null) return;
+    _polling = true;
     try {
       final status = await backend!.status(jobId!);
       final complete =
@@ -169,11 +176,17 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
         _failure = status.error;
         changed = true;
       }
+      if (status.stall?.code != _stall?.code) {
+        _stall = status.stall;
+        changed = true;
+      }
       if (changed && !_changed.isClosed) _changed.add(null);
       _governor?.poke();
     } catch (error) {
       _failure = error;
       if (!_changed.isClosed) _changed.add(null);
+    } finally {
+      _polling = false;
     }
   }
 
@@ -197,6 +210,30 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
   final List<_Wait> _waiters = [];
   int _waitOrder = 0;
 
+  /// Where the last seek landed. Until a read arrives near it (or 15 s pass),
+  /// a read for missing bytes far from it is a leftover of the old position:
+  /// the player's demuxer is parked on it and cannot run its seek until it
+  /// returns, so it is refused instead of steering the window back.
+  int? _hintOffset;
+  final Stopwatch _hintAge = Stopwatch();
+  static const _hintBehind = 48 * 1024 * 1024;
+  static const _hintAhead = 64 * 1024 * 1024;
+  static const _hintLife = Duration(seconds: 15);
+
+  bool _superseded(ByteRange range) {
+    final hint = _hintOffset;
+    if (hint == null) return false;
+    if (_hintAge.elapsed > _hintLife) {
+      _hintOffset = null;
+      return false;
+    }
+    if (range.start >= hint - _hintBehind && range.start <= hint + _hintAhead) {
+      _hintOffset = null;
+      return false;
+    }
+    return !_available.containsRange(range);
+  }
+
   @override
   Future<void> waitFor(
     ByteRange range, {
@@ -212,6 +249,7 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
       while (!_available.containsRange(range)) {
         if (_failure != null) throw _failure!;
         if (_disposed) throw const SparseSourceDisposed();
+        if (_superseded(range)) throw const SparseSourceSuperseded();
         final newest = _waiters.reduce((a, b) => b.order > a.order ? b : a);
         final mine = identical(newest, me);
         if (mine && !steering && backend != null && jobId != null) {
@@ -279,11 +317,21 @@ class HttpSparseSource implements SparseSource, TransportStatsProvider {
   Future<void> seekHint(int offset) async {
     _check();
     final size = totalBytes;
-    if (size == null || size <= 0 || backend == null || jobId == null) return;
+    if (size == null || size <= 0) return;
     final start = offset.clamp(0, size - 1);
-    await _governor?.seekTo(start);
+    _hintOffset = start;
+    _hintAge
+      ..reset()
+      ..start();
+    if (!_changed.isClosed) _changed.add(null);
+    if (backend == null || jobId == null) return;
     final end = (start + 64 * 1024 * 1024 - 1).clamp(start, size - 1);
-    await backend!.changeWindow(jobId!, ByteRange(start, end));
+    // The window change goes first: the governor's evaluation can sit behind
+    // a long status copy, and the seek must not wait for it.
+    await Future.wait([
+      backend!.changeWindow(jobId!, ByteRange(start, end)),
+      if (_governor != null) _governor!.seekTo(start),
+    ]);
   }
 
   Future<void> dispose() async {

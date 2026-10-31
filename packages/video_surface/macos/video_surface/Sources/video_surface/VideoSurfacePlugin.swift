@@ -47,22 +47,44 @@ public class VideoSurfacePlugin: NSObject, FlutterPlugin {
       guard let id = args["id"] as? Int, let inst = instances.removeValue(forKey: id) else {
         return result(FlutterError(code: "unknown_surface", message: "no such surface", details: nil))
       }
-      inst.dispose()
-      result(nil)
+      do {
+        try inst.dispose()
+        result(nil)
+      } catch {
+        result(FlutterError(code: "dispose_failed", message: "\(error)", details: nil))
+      }
     case "source":
       guard let id = args["id"] as? Int, let inst = instances[id], let hdr = args["hdr"] as? Bool else {
         return result(FlutterError(code: "bad_args", message: "id and hdr required", details: nil))
       }
-      inst.setHdrSource(hdr)
-      result(nil)
+      do {
+        try inst.setHdrSource(hdr)
+        result(nil)
+      } catch {
+        result(FlutterError(code: "source_failed", message: "\(error)", details: nil))
+      }
     case "probe":
       guard let id = args["id"] as? Int, let inst = instances[id] else {
         return result(FlutterError(code: "unknown_surface", message: "no such surface", details: nil))
       }
       var s = screen(id, inst)
-      s["peak"] = inst.peakValue()
+      let t = inst.target
       s["frames"] = inst.frames
+      s["rendererStatus"] = inst.rendererStatus
       s["layerEdr"] = inst.view.metalLayer.wantsExtendedDynamicRangeContent
+      s["layerClass"] = String(describing: type(of: inst.view.layer!))
+      s["colorspace"] = inst.view.metalLayer.colorspace?.name as String? ?? ""
+      s["pixelFormat"] = inst.view.metalLayer.pixelFormat == .rgba16Float ? "rgba16Float" : "\(inst.view.metalLayer.pixelFormat.rawValue)"
+      s["drawableW"] = t.width
+      s["drawableH"] = t.height
+      s["hwdec"] = t.hwdec
+      s["copyPath"] = "Vulkan direct"
+      s["cpuReadback"] = false
+      s["readbackBytes"] = 0
+      let subtitle = inst.subtitle
+      s["subtitleText"] = subtitle.text
+      s["subtitleVisible"] = subtitle.visible
+      s["inWindow"] = inst.view.window != nil
       result(s)
     case "screenEdr":
       let s = NSScreen.main
@@ -71,7 +93,11 @@ public class VideoSurfacePlugin: NSObject, FlutterPlugin {
         "potential": Double(s?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1),
       ])
     case "counters":
-      result(SurfaceCounters.snapshot)
+      do {
+        result(SurfaceCounters.snapshot.merging(["rendererContexts": Int(try MpvRenderApi().liveCount())]) { _, new in new })
+      } catch {
+        result(FlutterError(code: "probe_failed", message: "\(error)", details: nil))
+      }
     default:
       result(FlutterMethodNotImplemented)
     }

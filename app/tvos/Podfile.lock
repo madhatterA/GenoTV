@@ -1,0 +1,56 @@
+PODS:
+  - cast (0.0.1)
+  - media_kit_libs_tvos_video (1.0.0)
+  - media_kit_video (0.0.1)
+  - package_info_plus_tvos (0.0.1)
+  - platform_services (0.0.1)
+  - playback (0.0.1)
+  - transport (0.0.1)
+  - video_surface (0.0.1)
+  - wakelock_plus_tvos (0.0.1)
+
+DEPENDENCIES:
+  - cast (from `../../packages/cast/tvos`)
+  - media_kit_libs_tvos_video (from `../../packages/media_kit_libs_tvos_video/tvos`)
+  - media_kit_video (from `../../packages/media_kit_video/tvos`)
+  - package_info_plus_tvos (from `~/.pub-cache/hosted/pub.dev/package_info_plus_tvos-0.0.1/tvos`)
+  - platform_services (from `../../packages/platform_services/tvos`)
+  - playback (from `../../packages/playback/tvos`)
+  - transport (from `../../packages/transport/tvos`)
+  - video_surface (from `../../packages/video_surface/tvos`)
+  - wakelock_plus_tvos (from `~/.pub-cache/hosted/pub.dev/wakelock_plus_tvos-0.0.1/tvos`)
+
+EXTERNAL SOURCES:
+  cast:
+    :path: "../../packages/cast/tvos"
+  media_kit_libs_tvos_video:
+    :path: "../../packages/media_kit_libs_tvos_video/tvos"
+  media_kit_video:
+    :path: "../../packages/media_kit_video/tvos"
+  package_info_plus_tvos:
+    :path: "~/.pub-cache/hosted/pub.dev/package_info_plus_tvos-0.0.1/tvos"
+  platform_services:
+    :path: "../../packages/platform_services/tvos"
+  playback:
+    :path: "../../packages/playback/tvos"
+  transport:
+    :path: "../../packages/transport/tvos"
+  video_surface:
+    :path: "../../packages/video_surface/tvos"
+  wakelock_plus_tvos:
+    :path: "~/.pub-cache/hosted/pub.dev/wakelock_plus_tvos-0.0.1/tvos"
+
+SPEC CHECKSUMS:
+  cast: 53d427851bfaeb130cf3c0892e24b9476777be2e
+  media_kit_libs_tvos_video: a540ffba1ad7b19d6bcf4d0983fc9cda91c49ff3
+  media_kit_video: 8c70f35a09c44416a0746962aa5ac9e91521325a
+  package_info_plus_tvos: 073cd723f2962bcdef16e93e53f001b8f4967c8b
+  platform_services: 0ff948d1b698a76580755d4fc1372d3b127a590f
+  playback: 8b5be260900b57c9eb19b090cda08d636b4425d3
+  transport: 556e46db32ff5e7f42f238824b23e0a39b527dca
+  video_surface: 2dc336db58b99dc008fb634bea303ceddbf27efc
+  wakelock_plus_tvos: 0f67f6936faa0d7548e9bb2d950154a84cf601a3
+
+PODFILE CHECKSUM: 3684f9b6d19fa2cdda4fa4ec9869c9d7c247a1ce
+
+COCOAPODS: 1.17.0

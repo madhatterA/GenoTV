@@ -70,7 +70,7 @@ class _TvTextEntryState extends State<TvTextEntry> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final tv = (AdaptiveBehavior.of(context).formFactor == FormFactor.tv);
+    final tv = (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv);
     if (!tv) return widget.builder(context, false);
     return Focus(
       canRequestFocus: false,

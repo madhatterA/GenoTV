@@ -1,7 +1,10 @@
 // Ported from PlayTorrioV3 lib/services/scraper/sites/knaben.dart,
-// commit 39b736f. GPL-3.0; see root README.md (Credits) and LICENSE.
+// commit 39b736f. GPL-3.0; see root NOTICE.md.
+import 'dart:isolate';
+
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as parser;
 
 import '../content_source_failure.dart';
@@ -32,7 +35,9 @@ class KnabenSearch {
     );
     // Non-200 and network errors throw from ProviderHttp (not returned as []).
     final body = await http.getText(url, headers: {'User-Agent': _userAgent});
-    final document = parser.parse(body);
+    Future<dom.Document> parseBody(String payload) =>
+        Isolate.run(() => parser.parse(payload));
+    final document = await parseBody(body!);
     if (document.querySelector('table') == null) {
       throw const ContentSourceFailure.invalidResponse(
         'Knaben page has no results table',

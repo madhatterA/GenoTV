@@ -7,6 +7,9 @@ import 'piece_mapper.dart';
 const int criticalWindowBytes = 5 * 1024 * 1024;
 const int lookAheadWindowBytes = 30 * 1024 * 1024;
 
+/// Media time the look-ahead window covers once the bitrate is known.
+const int lookAheadSeconds = 120;
+
 /// Upper bound for a piece deadline. Deadlines are a scheduling hint, and the
 /// native FFI parameter is Int32 -- an unclamped value computed from a very low
 /// observed download rate overflows it and is rejected by the shim's `ms < 0`
@@ -40,6 +43,7 @@ class PieceSchedule {
     required void Function() clear,
     required void Function(int piece, int priority) prioritize,
     required void Function(int piece, int deadlineMs) deadline,
+    Iterable<int> demandedPieces = const [],
   }) {
     if (clearDeadlines) clear();
     for (final piece in demotePieces) {
@@ -49,6 +53,11 @@ class PieceSchedule {
       prioritize(operation.piece, operation.priority);
       final milliseconds = operation.deadlineMs;
       if (milliseconds != null) deadline(operation.piece, milliseconds);
+    }
+    // A probe can change the play head while another response still needs bytes.
+    for (final piece in demandedPieces) {
+      prioritize(piece, 7);
+      deadline(piece, 0);
     }
   }
 }
@@ -69,17 +78,19 @@ class PieceScheduler {
       playHead.clamp(0, mapper.fileLength - 1),
     );
     final criticalPieces = (criticalWindowBytes / mapper.pieceLength).ceil();
-    // The cache limit may leave less room ahead than the default window.
+    final rate = bitrateBytesPerSecond == null || bitrateBytesPerSecond <= 0
+        ? 1 * 1024 * 1024
+        : bitrateBytesPerSecond;
+    // ~2 minutes of media ahead (never below the 30 MB floor); the cache
+    // limit may leave less room ahead than that.
+    final wanted = math.max(lookAheadWindowBytes, lookAheadSeconds * rate);
     final lookAheadBytes = maxLookAheadBytes == null
-        ? lookAheadWindowBytes
-        : math.min(lookAheadWindowBytes, maxLookAheadBytes);
+        ? wanted
+        : math.min(wanted, maxLookAheadBytes);
     final lookAheadPieces = math.max(
       1,
       (lookAheadBytes / mapper.pieceLength).ceil(),
     );
-    final rate = bitrateBytesPerSecond == null || bitrateBytesPerSecond <= 0
-        ? 1 * 1024 * 1024
-        : bitrateBytesPerSecond;
     final desired = <int, PieceOperation>{};
     final windowEnd = (current + lookAheadPieces - 1).clamp(
       current,

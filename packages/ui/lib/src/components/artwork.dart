@@ -130,7 +130,7 @@ class _ArtworkViewState extends State<ArtworkView> {
                 child: Icon(
                   _fallbackIcon,
                   size: 32,
-                  color: colors.textTertiary,
+                  color: colors.decorative,
                   semanticLabel: AppStrings.of(context).artwork_unavailable,
                 ),
               )
@@ -150,7 +150,7 @@ class _ArtworkViewState extends State<ArtworkView> {
   Widget build(BuildContext context) {
     final colors = RivuletTokens.of(context).colors;
     final provider = widget.provider;
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
     final fade = effectiveDuration(
       context,
       tv ? Duration.zero : const Duration(milliseconds: 180),

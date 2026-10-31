@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:contracts/contracts.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/rivulet_tokens.dart';
 import 'panel_row.dart';
@@ -200,7 +201,7 @@ class _TrackPanelState extends State<TrackPanel> {
               autofocus: _selection.audio == TrackChoice.specific(track.id),
               onTap: () => _select(track.id, isAudio: true),
             ),
-        if (widget.type == null) const SizedBox(height: 12),
+        if (widget.type == null) const SizedBox(height: RivuletSpacing.s12),
         if (widget.type != TrackType.audio && widget.showHeadings)
           _SectionHeader(
             label: AppStrings.of(context).player_subtitles,
@@ -218,7 +219,7 @@ class _TrackPanelState extends State<TrackPanel> {
                 SizedBox(
                   width: 28,
                   child: Icon(
-                    Icons.add,
+                    PhosphorIconsRegular.plus,
                     size: 22,
                     color: PanelRow.foregroundColor(tokens, selected: false),
                   ),
@@ -237,7 +238,7 @@ class _TrackPanelState extends State<TrackPanel> {
           ),
         if (_failure case final message?)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.only(top: RivuletSpacing.s12),
             child: Semantics(
               liveRegion: true,
               child: AppText(
@@ -282,24 +283,12 @@ class _TrackPanelState extends State<TrackPanel> {
     });
     try {
       final files = await widget.onAddSubtitleFiles!();
-      final known = {
-        for (final t in widget.controller.currentState.tracks.subtitle) t.id,
-      };
-      for (final file in files) {
-        await widget.controller.addExternalSubtitle(file.uri, title: file.name);
-      }
       if (files.isEmpty || !mounted) return;
-      final added = widget.controller.currentState.tracks.subtitle
-          .where((t) => !known.contains(t.id))
-          .firstOrNull;
-      if (added == null) throw StateError(strings.player_subtitleNotAdded);
-      final current = widget.controller.currentState.selected;
-      final selection = TrackSelection(
-        video: current.video,
-        audio: current.audio,
-        subtitle: TrackChoice.specific(added.id),
+      final selection = await addAndSelectSubtitles(
+        widget.controller,
+        files,
+        strings,
       );
-      await widget.controller.selectTrack(selection);
       if (mounted) setState(() => _selection = selection);
     } catch (error) {
       if (mounted) {
@@ -377,7 +366,7 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
+    padding: const EdgeInsets.symmetric(vertical: RivuletSpacing.s8),
     child: AppText(label, style: tokens.typeStyles.label),
   );
 }
@@ -411,7 +400,7 @@ class _SubtitleOffRow extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             width: 28,
-            child: selected ? Icon(Icons.check, color: fg, size: 22) : null,
+            child: selected ? Icon(PhosphorIconsRegular.check, color: fg, size: 22) : null,
           ),
           Expanded(
             child: AppText(
@@ -465,7 +454,7 @@ class _TrackRow extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             width: 28,
-            child: selected ? Icon(Icons.check, color: fg, size: 22) : null,
+            child: selected ? Icon(PhosphorIconsRegular.check, color: fg, size: 22) : null,
           ),
           Expanded(
             child: Column(
@@ -492,7 +481,7 @@ class _TrackRow extends StatelessWidget {
           ),
           if (track.isDefault)
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: RivuletSpacing.s8),
               child: _Badge(
                 label: AppStrings.of(context).player_defaultBadge,
                 tokens: tokens,
@@ -520,10 +509,10 @@ class _Badge extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       border: Border.all(color: foreground.withValues(alpha: 0.5)),
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(RivuletRadius.xs),
     ),
     child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: RivuletSpacing.s8, vertical: RivuletSpacing.s4),
       child: AppText(
         label,
         style: tokens.typeStyles.caption.copyWith(
@@ -532,4 +521,29 @@ class _Badge extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Adds every file as an external subtitle; the first one added becomes the
+/// active subtitle (later ones are only listed). Returns the new selection.
+Future<TrackSelection> addAndSelectSubtitles(
+  PlaybackController controller,
+  List<({String name, Uri uri})> files,
+  AppStrings strings,
+) async {
+  final known = {for (final t in controller.currentState.tracks.subtitle) t.id};
+  for (final file in files) {
+    await controller.addExternalSubtitle(file.uri, title: file.name);
+  }
+  final added = controller.currentState.tracks.subtitle
+      .where((t) => !known.contains(t.id))
+      .firstOrNull;
+  if (added == null) throw StateError(strings.player_subtitleNotAdded);
+  final current = controller.currentState.selected;
+  final selection = TrackSelection(
+    video: current.video,
+    audio: current.audio,
+    subtitle: TrackChoice.specific(added.id),
+  );
+  await controller.selectTrack(selection);
+  return selection;
 }

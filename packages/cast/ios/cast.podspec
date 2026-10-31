@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   s.version = '0.0.1'
   s.summary = 'In-process stream-copy remux framework.'
   s.description = 'Pinned FFmpeg remuxing; local playback remains libmpv.'
-  s.homepage = 'https://github.com/madhatterA/GenoTV'
+  s.homepage = 'https://github.com/genotv/video-player'
   s.author = { 'video player' => 'noreply@example.invalid' }
   s.license = { :type => 'MIT' }
   s.source = { :path => '.' }

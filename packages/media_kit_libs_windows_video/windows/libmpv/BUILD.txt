@@ -10,22 +10,44 @@ dav1d 676a864a11af2c0522e1f992e770589543894686
 libxml2 f507d167f1755b7eaea09fb1a44d29aab828b6d1
 libiconv 8f74213b56238c85a50a5329f77e06198771e70dd9a739779f4c02f65d971313
 zlib 51b7f2abdade71cd9bb0e7a373ef2610ec6f9daf
-8fad5f253bcda7a17523dbfcbfcfd60b3db23783dcdb65998005cddc7c7776c3 *packages/playback/native/windows/ffmpeg-binutils-shifts.patch
-4a743739fc71601116f71caf070eef8cdbb5951dcacfd8eec69a27c444adbafb *packages/playback/native/windows/mpv-wasapi-mmreg.patch
-c2b69612b9613dc317fe05d709ce0b3786a89278a32250e79cb227fe7396a02a *downloads/dav1d.tgz
-aacce24d5bb6c67fbf1e3343bc15a6977ad700cdb4f43c8551f6544fa54ab7ec *downloads/ffmpeg.tgz
-14791d34053acf30394912a8b963277bee60b35fbb3038795d86555ba0415a44 *downloads/freetype.tgz
-7920b7d33f1e3945134745a8c665ca5bc748b9d907b3a03b1a6d481a77c0ae7f *downloads/fribidi.tgz
-54c5e3a665810c02413ec003cd0462cb1d662cca0c5722c0f219839137251974 *downloads/harfbuzz.tgz
-ce22a60e5abd265106e854ac5f4346d449c7943c519560bd128d763de1fb3a76 *downloads/libass.tgz
-f652b492c4107e3c887d78ae8bc1295dfecca53e932bac92f053fcd4b9a1ffa7 *downloads/libiconv.tgz
-8f74213b56238c85a50a5329f77e06198771e70dd9a739779f4c02f65d971313 *downloads/libiconv-release.tgz
-14764b2e0fa82153400e63fb031806a583b28cfe8cf96da51e75b5e684d5f377 *downloads/libxml2.tgz
-e639db55558ce853d4ad916c0ec89f04263f36da4be582a6bb7e1f22a59d7216 *downloads/mbedtls.tgz
-678889728708141e97d283b2a7ef9953aa3102127a4c2aacefaf1adcb211915d *downloads/mpv.tgz
-d9e270d46252734aa49770fbc544125391617956266f220bd63216c834f3a522 *downloads/zlib.tgz
-14d57130c63f94a548e914eed54008a255406d7a8591d437a96c49181033f6b4 *packages/media_kit_libs_windows_video/windows/libmpv/libmpv-2.dll
-eda6c3384ec3baa241484b7fad01183cc78348b64c3014ac99df13ed4b157938 *packages/media_kit_libs_windows_video/windows/libmpv/libmpv.dll.a
+libplacebo 64c1954570f1cd57f8570a57e51fb0249b57bb90
+glad d08b1aa01f8fe57498f04d47b5fa8c48725be877
+jinja b08cd4bc64bb980df86ed2876978ae5735572280
+markupsafe c0254f0cfe51720ecc9e72e8896022af29af5b44
+vulkanheaders d732b2de303ce505169011d438178191136bfb00
+fastfloat 2b2395f9ac836ffca6404424bcc252bff7aa80e4
+shaderc caa54d9779d5605aca4e1a0c0c962a3d8f4aeb31
+glslang a0995c49ebcaca2c6d3b03efbabf74f3843decdb
+spirvheaders 3f17b2af6784bfa2c5aa5dbb8e0e74a607dd8b3b
+spirvtools 4d2f0b40bfe290dea6c6904dafdf7fd8328ba346
+spirvcross 65d7393430f6c7bb0c20b6d53250fe04847cc2ae
+f914fd899f31c68b2df408c4f40b5de6e977ece5ff9dab3a3289588ad3d9feb2 *packages/playback/native/windows/ffmpeg-binutils-shifts.patch
+3b4e4ca83ef62dd44a7510d48c58f981d270c2100eab69cdfc528390e4346dc8 *packages/playback/native/windows/mpv-wasapi-mmreg.patch
+c2b69612b9613dc317fe05d709ce0b3786a89278a32250e79cb227fe7396a02a *build/dav1d.tgz
+230d20e4e4ac1f6a9df92c4d746c6ec536cdb0c085bc8635d4b88cead5dc22cb *build/fastfloat.tgz
+aacce24d5bb6c67fbf1e3343bc15a6977ad700cdb4f43c8551f6544fa54ab7ec *build/ffmpeg.tgz
+14791d34053acf30394912a8b963277bee60b35fbb3038795d86555ba0415a44 *build/freetype.tgz
+7920b7d33f1e3945134745a8c665ca5bc748b9d907b3a03b1a6d481a77c0ae7f *build/fribidi.tgz
+7a5fb3299a20e8088a504f3bb2b7247d85c4207706754180a1b4a4840a8728e4 *build/glad.tgz
+84160d535e6889796bb8f106378d16b5667984e642b461b9c2a912da18bacda1 *build/glslang.tgz
+54c5e3a665810c02413ec003cd0462cb1d662cca0c5722c0f219839137251974 *build/harfbuzz.tgz
+9a20bab550a760ccb9b38a45d4fe76be92649206ee04633c646d0935a1872b0e *build/jinja.tgz
+ce22a60e5abd265106e854ac5f4346d449c7943c519560bd128d763de1fb3a76 *build/libass.tgz
+f652b492c4107e3c887d78ae8bc1295dfecca53e932bac92f053fcd4b9a1ffa7 *build/libiconv.tgz
+8f74213b56238c85a50a5329f77e06198771e70dd9a739779f4c02f65d971313 *build/libiconv-release.tgz
+3144bb66bc9e286da37f17f71886d65a6d1baf9e45e4efa5ac8bd61ffa935487 *build/libplacebo.tgz
+14764b2e0fa82153400e63fb031806a583b28cfe8cf96da51e75b5e684d5f377 *build/libxml2.tgz
+1826c5d89cc1aa0b3088f538726d339e0c5cd69fbe03f7b8f9a3f880474d1120 *build/markupsafe.tgz
+e639db55558ce853d4ad916c0ec89f04263f36da4be582a6bb7e1f22a59d7216 *build/mbedtls.tgz
+678889728708141e97d283b2a7ef9953aa3102127a4c2aacefaf1adcb211915d *build/mpv.tgz
+993feb745b8970ae0b9abbaaae77ba780d7db25a519f77f3d40fb5bc24068684 *build/shaderc.tgz
+03b517a3d089aee034d5e1ab2d6064e5c2cdb72d250287998892526e2a390055 *build/spirvcross.tgz
+2301e11e5c77213258d6863bf4e6c607a8c6431fa8336e98ac6a2131bd6284f8 *build/spirvheaders.tgz
+41481a45441d92b2404aa06bdecbb0302f22636335be4e19023632c83fa89aa1 *build/spirvtools.tgz
+570f9ae1e65466dbaf5fcab667abd079dd0a61c4ab86cf535efd492bf70a5b74 *build/vulkanheaders.tgz
+d9e270d46252734aa49770fbc544125391617956266f220bd63216c834f3a522 *build/zlib.tgz
+8a8880cd620efc0eb39067edf98a0c6829d5249e4b0a331cd50b36e8ec4b7017 *packages/media_kit_libs_windows_video/windows/libmpv/libmpv-2.dll
+30d35e40fed5c57e09b032f1a542cbc248a06ec1e87830136a2288f05b76e94c *packages/media_kit_libs_windows_video/windows/libmpv/libmpv.dll.a
 gcc.exe (Rev4, Built by MSYS2 project) 16.2.0
 Copyright (C) 2026 Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
@@ -39,13 +61,13 @@ NASM version 3.02 compiled on Jul  4 2026
 
 #pragma once
 
-#define CONFIGURATION "-Dbuildtype=release -Dprefix=C:/libmpv-build/prefix -Dlibdir=lib -Ddefault_library=shared -Dlibmpv=true -Dcplayer=false -Dgpl=false -Dlua=disabled -Dlibplacebo=disabled -Dwasapi=enabled -Dd3d11=disabled -Dgl=enabled -Dgl-win32=enabled -Dplain-gl=enabled -Degl-angle=enabled -Degl-angle-win32=enabled -Degl-angle-lib=disabled -Dd3d-hwaccel=enabled -Dd3d9-hwaccel=enabled -Dtests=false"
+#define CONFIGURATION "-Dbuildtype=release -Dprefix=C:vp-libmpv-build/prefix -Dlibdir=lib -Ddefault_library=shared -Dlibmpv=true -Dcplayer=false -Dgpl=false -Dlua=disabled -Dlibplacebo=enabled -Dshaderc=enabled -Dspirv-cross=enabled -Dvulkan=disabled -Dwasapi=enabled -Dd3d11=enabled -Dgl=enabled -Dgl-win32=enabled -Dplain-gl=enabled -Degl-angle=enabled -Degl-angle-win32=enabled -Degl-angle-lib=disabled -Dd3d-hwaccel=enabled -Dd3d9-hwaccel=enabled -Dtests=false"
 
 #define DEFAULT_CDROM_DEVICE "D:"
 
 #define DEFAULT_DVD_DEVICE "D:"
 
-#define FULLCONFIG "av-channel-layout avif-muxer build-date cplugins d3d-hwaccel d3d9-hwaccel dos-paths egl-angle egl-angle-win32 egl-helpers ffmpeg gl gl-dxinterop gl-dxinterop-d3d9 gl-win32 glob glob-win32 iconv jpegxl lavu-uuid libass libavdevice libm noexecstack stdatomic threads vector wasapi win32 win32-desktop win32-internal-pthreads zlib"
+#define FULLCONFIG "av-channel-layout avif-muxer build-date cplugins d3d-hwaccel d3d11 d3d9-hwaccel dos-paths egl-angle egl-angle-win32 egl-helpers ffmpeg gl gl-dxinterop gl-dxinterop-d3d9 gl-win32 glob glob-win32 iconv jpegxl lavu-uuid libass libavdevice libm libplacebo noexecstack shaderc spirv-cross stdatomic threads vector wasapi win32 win32-desktop win32-internal-pthreads zlib"
 
 #define HAVE_ALSA 0
 
@@ -81,7 +103,7 @@ NASM version 3.02 compiled on Jul  4 2026
 
 #define HAVE_CUDA_INTEROP 0
 
-#define HAVE_D3D11 0
+#define HAVE_D3D11 1
 
 #define HAVE_D3D9_HWACCEL 1
 
@@ -183,7 +205,7 @@ NASM version 3.02 compiled on Jul  4 2026
 
 #define HAVE_LIBM 1
 
-#define HAVE_LIBPLACEBO 0
+#define HAVE_LIBPLACEBO 1
 
 #define HAVE_LIBRT 0
 
@@ -241,7 +263,7 @@ NASM version 3.02 compiled on Jul  4 2026
 
 #define HAVE_SDL2_VIDEO 0
 
-#define HAVE_SHADERC 0
+#define HAVE_SHADERC 1
 
 #define HAVE_SIXEL 0
 
@@ -249,7 +271,7 @@ NASM version 3.02 compiled on Jul  4 2026
 
 #define HAVE_SNDIO_1_9 0
 
-#define HAVE_SPIRV_CROSS 0
+#define HAVE_SPIRV_CROSS 1
 
 #define HAVE_STDATOMIC 1
 
@@ -313,13 +335,13 @@ NASM version 3.02 compiled on Jul  4 2026
 
 #define HAVE_ZLIB 1
 
-#define MPV_CONFDIR "C:/libmpv-build/prefix/etc/mpv"
+#define MPV_CONFDIR "C:vp-libmpv-build/prefix/etc/mpv"
 
 #define PLATFORM "windows"
 
 ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
 built with gcc 16.2.0 (Rev4, Built by MSYS2 project)
-configuration: --prefix='C:/libmpv-build/prefix' --target-os=mingw32 --arch=x86_64 --disable-autodetect --pkg-config-flags=--static --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-ffmpeg --enable-version3 --enable-mbedtls --enable-libdav1d --enable-libxml2 --enable-d3d11va --enable-dxva2 --extra-cflags='-IC:/libmpv-build/prefix/include -O2 -Wno-error=incompatible-pointer-types' --extra-ldflags='-LC:/libmpv-build/prefix/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic'
+configuration: --prefix='C:vp-libmpv-build/prefix' --target-os=mingw32 --arch=x86_64 --disable-autodetect --pkg-config-flags=--static --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-ffmpeg --enable-version3 --enable-mbedtls --enable-libdav1d --enable-libxml2 --enable-d3d11va --enable-dxva2 --extra-cflags='-IC:vp-libmpv-build/prefix/include -O2 -Wno-error=incompatible-pointer-types' --extra-ldflags='-LC:vp-libmpv-build/prefix/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic'
 libavutil      58.  2.100 / 58.  2.100
 libavcodec     60.  3.100 / 60.  3.100
 libavformat    60.  3.100 / 60.  3.100
@@ -329,7 +351,7 @@ libswscale      7.  1.100 /  7.  1.100
 libswresample   4. 10.100 /  4. 10.100
 ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
   built with gcc 16.2.0 (Rev4, Built by MSYS2 project)
-  configuration: --prefix='C:/libmpv-build/prefix' --target-os=mingw32 --arch=x86_64 --disable-autodetect --pkg-config-flags=--static --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-ffmpeg --enable-version3 --enable-mbedtls --enable-libdav1d --enable-libxml2 --enable-d3d11va --enable-dxva2 --extra-cflags='-IC:/libmpv-build/prefix/include -O2 -Wno-error=incompatible-pointer-types' --extra-ldflags='-LC:/libmpv-build/prefix/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic'
+  configuration: --prefix='C:vp-libmpv-build/prefix' --target-os=mingw32 --arch=x86_64 --disable-autodetect --pkg-config-flags=--static --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-ffmpeg --enable-version3 --enable-mbedtls --enable-libdav1d --enable-libxml2 --enable-d3d11va --enable-dxva2 --extra-cflags='-IC:vp-libmpv-build/prefix/include -O2 -Wno-error=incompatible-pointer-types' --extra-ldflags='-LC:vp-libmpv-build/prefix/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic'
   libavutil      58.  2.100 / 58.  2.100
   libavcodec     60.  3.100 / 60.  3.100
   libavformat    60.  3.100 / 60.  3.100
@@ -785,7 +807,7 @@ Filters:
  ... buffersink        V->|       Buffer video frames, and make them available to the end of the filter graph.
 ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers
   built with gcc 16.2.0 (Rev4, Built by MSYS2 project)
-  configuration: --prefix='C:/libmpv-build/prefix' --target-os=mingw32 --arch=x86_64 --disable-autodetect --pkg-config-flags=--static --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-ffmpeg --enable-version3 --enable-mbedtls --enable-libdav1d --enable-libxml2 --enable-d3d11va --enable-dxva2 --extra-cflags='-IC:/libmpv-build/prefix/include -O2 -Wno-error=incompatible-pointer-types' --extra-ldflags='-LC:/libmpv-build/prefix/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic'
+  configuration: --prefix='C:vp-libmpv-build/prefix' --target-os=mingw32 --arch=x86_64 --disable-autodetect --pkg-config-flags=--static --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-ffprobe --enable-ffmpeg --enable-version3 --enable-mbedtls --enable-libdav1d --enable-libxml2 --enable-d3d11va --enable-dxva2 --extra-cflags='-IC:vp-libmpv-build/prefix/include -O2 -Wno-error=incompatible-pointer-types' --extra-ldflags='-LC:vp-libmpv-build/prefix/lib -static-libgcc -static-libstdc++ -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic'
   libavutil      58.  2.100 / 58.  2.100
   libavcodec     60.  3.100 / 60.  3.100
   libavformat    60.  3.100 / 60.  3.100
@@ -981,6 +1003,7 @@ Encoders:
 	DLL Name: OPENGL32.dll
 	DLL Name: SHELL32.dll
 	DLL Name: UxTheme.dll
+	DLL Name: VERSION.dll
 	DLL Name: WINMM.dll
 	DLL Name: bcrypt.dll
 	DLL Name: GDI32.dll

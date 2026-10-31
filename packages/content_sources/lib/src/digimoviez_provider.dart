@@ -15,17 +15,26 @@ class DigiMoviezProvider implements SourceProvider {
     File? sessionFile,
     Uri? siteRoot,
     Uri? apiRoot,
+    this.domain,
   }) : sessionFile =
            sessionFile ??
-           File('${Platform.environment['HOME']}/.digimoviez-session.json'),
-       siteRoot = siteRoot ?? Uri.parse('https://digimoviez.com'),
-       apiRoot = apiRoot ?? Uri.parse('https://digimoviez.com/api/app/v1');
+           defaultSessionFile('digimoviez'),
+       _siteRoot = siteRoot ?? Uri.parse('https://digimoviez.com'),
+       _apiRoot = apiRoot ?? Uri.parse('https://digimoviez.com/api/app/v1');
 
   final ProviderHttp http;
   final AppLogger logger;
   final File sessionFile;
-  final Uri siteRoot;
-  final Uri apiRoot;
+  final Uri _siteRoot;
+  final Uri _apiRoot;
+
+  /// The user's Providers domain, read on every request (phase 14).
+  final Uri? Function()? domain;
+
+  Uri get siteRoot =>
+      rebase(_siteRoot, Uri.parse(_siteRoot.origin), domain?.call());
+  Uri get apiRoot =>
+      rebase(_apiRoot, Uri.parse(_apiRoot.origin), domain?.call());
   @override
   String get id => 'digimoviez';
   @override

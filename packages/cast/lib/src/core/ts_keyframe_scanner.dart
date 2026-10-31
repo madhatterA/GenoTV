@@ -15,12 +15,12 @@ class TsKeyframeScanner {
   /// 2. H.264 IDR NAL unit type 5 in PES payloads (reliable fallback)
   ///
   /// Always includes offset 0 (start of file) in the result.
-  static List<int> findKeyframeOffsets(File file) {
+  static Future<List<int>> findKeyframeOffsets(File file) async {
     final offsets = <int>[0];
-    final fileLength = file.lengthSync();
+    final fileLength = await file.length();
     if (fileLength < 188) return offsets;
 
-    final raf = file.openSync();
+    final raf = await file.open();
     try {
       // Read in large chunks for performance
       const chunkSize = 188 * 1024; // ~192KB chunks
@@ -28,19 +28,14 @@ class TsKeyframeScanner {
       int fileOffset = 0;
 
       // Find initial sync byte
-      final syncBuf = Uint8List(1);
-      while (fileOffset < fileLength) {
-        raf.readIntoSync(syncBuf);
-        if (syncBuf[0] == 0x47) break;
-        fileOffset++;
-      }
+      fileOffset = await _findSync(raf, fileLength);
       if (fileOffset >= fileLength) return offsets;
-      raf.setPositionSync(fileOffset);
+      await raf.setPosition(fileOffset);
 
       while (fileOffset < fileLength) {
         final remaining = fileLength - fileOffset;
         final toRead = remaining < chunkSize ? remaining : chunkSize;
-        final bytesRead = raf.readIntoSync(chunk, 0, toRead);
+        final bytesRead = await raf.readInto(chunk, 0, toRead);
         if (bytesRead < 188) break;
 
         // Process each TS packet in the chunk
@@ -117,7 +112,7 @@ class TsKeyframeScanner {
         fileOffset += bytesRead;
       }
     } finally {
-      raf.closeSync();
+      await raf.close();
     }
 
     // Deduplicate (a packet might match both methods)
@@ -142,31 +137,28 @@ class TsKeyframeScanner {
   /// Returns a list of [KeyframeInfo] containing both the byte offset and
   /// PTS value (in 90kHz clock units) for each keyframe. Returns null if
   /// PTS extraction fails or no keyframes with PTS are found.
-  static List<KeyframeInfo>? findKeyframeOffsetsWithPts(File file) {
-    final fileLength = file.lengthSync();
+  static Future<List<KeyframeInfo>?> findKeyframeOffsetsWithPts(
+    File file,
+  ) async {
+    final fileLength = await file.length();
     if (fileLength < 188) return null;
 
     final results = <KeyframeInfo>[];
-    final raf = file.openSync();
+    final raf = await file.open();
     try {
       const chunkSize = 188 * 1024; // ~192KB chunks
       final chunk = Uint8List(chunkSize);
       int fileOffset = 0;
 
       // Find initial sync byte
-      final syncBuf = Uint8List(1);
-      while (fileOffset < fileLength) {
-        raf.readIntoSync(syncBuf);
-        if (syncBuf[0] == 0x47) break;
-        fileOffset++;
-      }
+      fileOffset = await _findSync(raf, fileLength);
       if (fileOffset >= fileLength) return null;
-      raf.setPositionSync(fileOffset);
+      await raf.setPosition(fileOffset);
 
       while (fileOffset < fileLength) {
         final remaining = fileLength - fileOffset;
         final toRead = remaining < chunkSize ? remaining : chunkSize;
-        final bytesRead = raf.readIntoSync(chunk, 0, toRead);
+        final bytesRead = await raf.readInto(chunk, 0, toRead);
         if (bytesRead < 188) break;
 
         for (int pos = 0; pos + 188 <= bytesRead; pos += 188) {
@@ -288,7 +280,7 @@ class TsKeyframeScanner {
         fileOffset += bytesRead;
       }
     } finally {
-      raf.closeSync();
+      await raf.close();
     }
 
     if (results.isEmpty) return null;
@@ -322,16 +314,16 @@ class TsKeyframeScanner {
   /// a non-zero starting PTS. When serving TS segments via HLS to
   /// Chromecast, the player uses this PTS for its timeline, causing
   /// subtitle desync and wrong segment selection if not accounted for.
-  static int? readFirstVideoPts(File file) {
-    final fileLength = file.lengthSync();
+  static Future<int?> readFirstVideoPts(File file) async {
+    final fileLength = await file.length();
     if (fileLength < 188) return null;
 
-    final raf = file.openSync();
+    final raf = await file.open();
     try {
       const chunkSize = 188 * 1024;
       final chunk = Uint8List(chunkSize);
       final toRead = fileLength < chunkSize ? fileLength : chunkSize;
-      final bytesRead = raf.readIntoSync(chunk, 0, toRead);
+      final bytesRead = await raf.readInto(chunk, 0, toRead);
 
       for (int pos = 0; pos + 188 <= bytesRead; pos += 188) {
         if (chunk[pos] != 0x47) continue;
@@ -382,7 +374,7 @@ class TsKeyframeScanner {
         return pts;
       }
     } finally {
-      raf.closeSync();
+      await raf.close();
     }
 
     return null;
@@ -399,17 +391,17 @@ class TsKeyframeScanner {
   /// Returns the concatenated PAT+PMT packets (typically 376 bytes for
   /// one PAT + one PMT), or null if not found. These bytes should be
   /// prepended to every virtual segment response.
-  static Uint8List? extractPatPmt(File file) {
-    final fileLength = file.lengthSync();
+  static Future<Uint8List?> extractPatPmt(File file) async {
+    final fileLength = await file.length();
     if (fileLength < 188) return null;
 
-    final raf = file.openSync();
+    final raf = await file.open();
     try {
       // Read first 64KB — PAT/PMT are always near the start
       const readSize = 188 * 340; // ~64KB
       final toRead = fileLength < readSize ? fileLength : readSize;
       final buf = Uint8List(toRead);
-      raf.readIntoSync(buf, 0, toRead);
+      await raf.readInto(buf, 0, toRead);
 
       Uint8List? patPacket;
       Uint8List? pmtPacket;
@@ -480,8 +472,24 @@ class TsKeyframeScanner {
         return patPacket;
       }
     } finally {
-      raf.closeSync();
+      await raf.close();
     }
+  }
+
+  /// Offset of the first 0x47 sync byte, or [fileLength] when none (block reads:
+  /// a per-byte async read of a large non-TS file would take minutes).
+  static Future<int> _findSync(RandomAccessFile raf, int fileLength) async {
+    final buf = Uint8List(64 * 1024);
+    var base = 0;
+    await raf.setPosition(0);
+    while (base < fileLength) {
+      final n = await raf.readInto(buf);
+      if (n <= 0) break;
+      final i = buf.indexOf(0x47);
+      if (i >= 0 && i < n) return base + i;
+      base += n;
+    }
+    return fileLength;
   }
 }
 

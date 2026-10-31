@@ -1,4 +1,5 @@
 import '../../l10n_gen/app_strings.dart';
+import '../../l10n_gen/app_strings_en.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -18,6 +19,7 @@ String statsLabel(String label, AppStrings strings) => switch (label) {
   'TLS' => strings.player_stats_TLS,
   'Connections' => strings.player_stats_Connections,
   'Network' => strings.player_stats_Network,
+  'Status' => strings.diagnostics_Status,
   'Speed' => strings.player_stats_Speed,
   'Speed down' => strings.player_stats_Speed_down,
   'Speed up' => strings.player_stats_Speed_up,
@@ -94,12 +96,14 @@ class PlayerStatsSource {
 class PlayerStatsSnapshot {
   const PlayerStatsSnapshot({
     this.transport,
+    this.sourceStatus,
     this.engine = const <String, String>{},
     this.downHistory = const <double>[],
     this.upHistory = const <double>[],
   });
 
   final TransportStats? transport;
+  final SourceStatus? sourceStatus;
   final Map<String, String> engine;
 
   /// The last 30 one-second download (and upload) speeds, oldest first.
@@ -110,7 +114,10 @@ class PlayerStatsSnapshot {
 /// Reads the stats once a second, only between [start] and [stop] — nothing
 /// runs while the popover and overlay are both closed.
 class PlayerStatsController extends ChangeNotifier {
-  PlayerStatsController(this.source);
+  PlayerStatsController(this.source, {this.readSourceStatus});
+
+  final SourceStatus? Function()? readSourceStatus;
+  List<double> _downloadReadings = const [];
 
   final PlayerStatsSource source;
   static const int historyLength = 30;
@@ -157,13 +164,31 @@ class PlayerStatsController extends ChangeNotifier {
                   : history,
               value,
             ];
+      if (transport != null) {
+        _downloadReadings = [
+          ..._downloadReadings.length == 5
+              ? _downloadReadings.skip(1)
+              : _downloadReadings,
+          transport.downloadBytesPerSecond,
+        ];
+      }
+      final averageSpeed = _downloadReadings.isEmpty
+          ? null
+          : _downloadReadings.reduce((a, b) => a + b) /
+                _downloadReadings.length;
       _snapshot = PlayerStatsSnapshot(
-        transport: transport,
+        sourceStatus: readSourceStatus?.call(),
+        transport: transport == null
+            ? null
+            : TransportStats(
+                downloadBytesPerSecond: averageSpeed!,
+                downloadedBytes: transport.downloadedBytes,
+                totalBytes: transport.totalBytes,
+                connections: transport.connections,
+                torrent: transport.torrent,
+              ),
         engine: engine ?? _snapshot.engine,
-        downHistory: push(
-          _snapshot.downHistory,
-          transport?.downloadBytesPerSecond,
-        ),
+        downHistory: push(_snapshot.downHistory, averageSpeed),
         upHistory: push(
           _snapshot.upHistory,
           transport?.torrent?.uploadBytesPerSecond,
@@ -211,8 +236,10 @@ class StatsGroup {
 /// Every group of the "Stats for nerds" overlay, from one reading.
 List<StatsGroup> buildStatsGroups(
   PlayerStatsSource source,
-  PlayerStatsSnapshot snap,
-) {
+  PlayerStatsSnapshot snap, {
+  AppStrings? strings,
+}) {
+  final s = strings ?? AppStringsEn();
   final e = snap.engine;
   final t = snap.transport;
   final scheme = source.uri?.scheme;
@@ -263,6 +290,28 @@ List<StatsGroup> buildStatsGroups(
   if (t != null) {
     groups.add(
       StatsGroup('Network', [
+        StatsRow('Status', switch (snap.sourceStatus?.state) {
+          SourceState.failed => s.player_stats_Failed(
+            snap.sourceStatus!.failure!.message,
+          ),
+          SourceState.resolving => s.player_connecting,
+          SourceState.metadata => s.player_fetchingMetadata,
+          _ when t.totalBytes != null && t.downloadedBytes >= t.totalBytes! =>
+            s.player_stats_Complete,
+          SourceState.stalled =>
+            source.isTorrent &&
+                    snap.sourceStatus!.failure!.code ==
+                        const TransportFailure.torrentNoPeers().code
+                ? s.player_stats_Finding_peers
+                : s.player_sourceStalled,
+          SourceState.buffering ||
+          SourceState.ready => s.player_stats_Downloading,
+          _ => statsUnknown,
+        }),
+        StatsRow(
+          'Buffered ahead',
+          number('demuxer-cache-duration', (v) => '${v.round()} s'),
+        ),
         if (torrent == null)
           StatsRow(
             'Speed',

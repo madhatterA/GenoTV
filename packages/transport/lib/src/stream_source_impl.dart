@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
+import 'package:flutter/widgets.dart';
 
 import 'cache/cache_budget.dart';
 import 'cache/fs_native.dart';
@@ -12,6 +13,7 @@ import 'http/aria2_backend.dart';
 import 'direct/direct_url_handle.dart';
 import 'http/http_backend_factory.dart';
 import 'http/http_sparse_source.dart';
+import 'http/aria2_window.dart' show OriginRateLimited;
 import 'http/range_support_probe.dart';
 import 'local/local_file_handle.dart';
 import 'server/range_server.dart';
@@ -26,6 +28,8 @@ import 'torrent/torrent_sparse_source.dart';
 
 /// `TRANSPORT_LT_ALERT_TRACKER_ERROR` in lt_shim.h.
 const int _ltAlertTrackerError = 5;
+
+const String dhtStateFileName = 'dht_state.bin';
 
 const Duration torrentMetadataTimeout = Duration(seconds: 60);
 const Duration _seedDuration = Duration(minutes: 30);
@@ -123,6 +127,10 @@ class StreamSourceImpl implements StreamSource {
   final Map<String, Future<void> Function()> _seeding = {};
   TransportOptions? _latestOptions;
   TorrentSessionAdapter? _torrentSession;
+  // Open torrents by source key: their resume data is saved when the app is
+  // paused (Android TV kills paused apps) as well as when playback ends.
+  final Map<String, TorrentHandleAdapter> _liveTorrents = {};
+  _PauseObserver? _pauseObserver;
   bool _disposed = false;
 
   @override
@@ -139,7 +147,11 @@ class StreamSourceImpl implements StreamSource {
       return (await opening).acquire();
     } catch (error) {
       if (identical(_opens[spec], opening)) unawaited(_opens.remove(spec));
-      if (spec.kind == SourceKind.httpUrl && error is TransportFailure) {
+      // A busy origin is not a reason to hand the raw URL to the player: it
+      // would be refused the same way and report a format error.
+      if (spec.kind == SourceKind.httpUrl &&
+          error is TransportFailure &&
+          error.cause is! OriginRateLimited) {
         final failed = _SharedOpen(
           _FailedHandle(spec.uri, error),
           onClose: () => _remove(spec),
@@ -148,6 +160,32 @@ class StreamSourceImpl implements StreamSource {
         return failed.acquire();
       }
       rethrow;
+    }
+  }
+
+  /// A rate-limited or briefly failing origin is waited out (its Retry-After,
+  /// capped at 60 s) instead of failing the open; the last answer is final.
+  Future<RangeProbeResult> _probeOrWait(
+    SourceSpec spec,
+    TransportOptions options,
+  ) async {
+    const attempts = 5;
+    final started = Stopwatch()..start();
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await RangeSupportProbe(options: options).probe(spec);
+      } on OriginRateLimited catch (error) {
+        final wait = error.retryAfter ?? Duration(seconds: 2 * attempt);
+        if (attempt >= attempts ||
+            started.elapsed + wait > const Duration(minutes: 2)) {
+          throw TransportFailure.httpUnreachable(cause: error);
+        }
+        _logger.warn(
+          'origin busy at open, waiting ${wait.inSeconds}s (attempt $attempt)',
+          error: error,
+        );
+        await Future<void>.delayed(wait);
+      }
     }
   }
 
@@ -187,7 +225,7 @@ class StreamSourceImpl implements StreamSource {
             validator: previous.validator,
             supported: true,
           )
-        : await RangeSupportProbe(options: options).probe(spec);
+        : await _probeOrWait(spec, options);
     if (previous?.validator != null &&
         probe.validator != null &&
         previous!.validator != probe.validator) {
@@ -199,7 +237,11 @@ class StreamSourceImpl implements StreamSource {
     // file name: use a 64-bit FNV-1a hash of it. A stored path with an over-long name (written by a
     // build that used the raw key) is ignored.
     final stored = previous?.filePath;
-    final path = stored != null && stored.split('/').last.length <= 200
+    // A stored path from another app container (every reinstall on Apple
+    // devices gets a new container UUID) points at a directory that is gone.
+    final path = stored != null &&
+            stored.startsWith('${cacheDir.path}/') &&
+            stored.split('/').last.length <= 200
         ? stored
         : '${cacheDir.path}/${_fnv1a(key).toRadixString(16)}.partial';
     final backend = _httpBackend ??= createHttpBackend(logger: _logger);
@@ -208,12 +250,13 @@ class StreamSourceImpl implements StreamSource {
     }
     _openFiles[spec] = path;
     final total = probe.totalBytes;
-    final initialAhead = total != null && total + budget.openUsed <= budget.limit
+    final openUsed = await budget.openUsed;
+    final initialAhead = total != null && total + openUsed <= budget.limit
         ? total
         : (budget.limit -
                   budget.backWindow -
                   budget.batchFor(16 * 1024 * 1024) -
-                  budget.openUsed)
+                  openUsed)
               .clamp(0, budget.limit);
     final jobId = await backend.addDownload(
       spec,
@@ -298,6 +341,9 @@ class StreamSourceImpl implements StreamSource {
     try {
       resume = await _state?.torrentResumeData(key);
       if (resume != null && resume.isEmpty) resume = null;
+      // The repository write is debounced and may not survive a kill; the
+      // sidecar file lets a fully cached magnet reopen with no network.
+      resume ??= await _readResumeFile(key);
     } catch (error, stack) {
       throw TransportFailure.engineUnavailable(
         cause: 'torrent resume repository failed: $error',
@@ -351,6 +397,7 @@ class StreamSourceImpl implements StreamSource {
                 .listen((a) {
                   trackerFailures++;
                   lastTrackerFailure = a.message;
+                  _logger.debug('tracker announce failed: ${a.message}');
                 })
           : null;
       try {
@@ -392,7 +439,7 @@ class StreamSourceImpl implements StreamSource {
       );
       source = torrent.createSource(fileIndex: fileIndex, mapper: mapper);
       if (source is _NativeTorrentSourceAdapter) {
-        source.enableCacheLimit(
+        await source.enableCacheLimit(
           budget: budget,
           logger: _logger,
           filePath: filePath,
@@ -420,10 +467,13 @@ class StreamSourceImpl implements StreamSource {
           onDispose: () async {
             _logger.info('torrent stream released: playback session ended');
             server!.unregister(registeredUri);
+            _liveTorrents.remove(key);
             try {
+              final resumeBytes = torrent.saveResume();
+              await _writeResumeFile(key, resumeBytes);
               final state = _state;
               if (state != null) {
-                await state.putTorrentResumeData(key, torrent.saveResume());
+                await state.putTorrentResumeData(key, resumeBytes);
                 await _save(
                   spec,
                   path: filePath,
@@ -445,6 +495,7 @@ class StreamSourceImpl implements StreamSource {
         ),
         onClose: () => _remove(spec),
       );
+      _liveTorrents[key] = torrent;
       transferred = true;
       return handle;
     } finally {
@@ -530,10 +581,43 @@ class StreamSourceImpl implements StreamSource {
     try {
       final session = await _torrentSessionFactory(cacheDir.path);
       await session.start();
+      if (session is _NativeTorrentSessionAdapter) {
+        final warning = session.stateWarning;
+        if (warning != null) {
+          _logger.info(warning);
+        } else {
+          _logger.info(
+            session.loadedStateBytes > 0
+                ? 'dht state loaded (${session.loadedStateBytes} bytes)'
+                : 'no saved dht state',
+          );
+        }
+      }
+      _pauseObserver ??= _PauseObserver(_persistOnPause)..register();
       return session;
     } catch (error, stack) {
       throw TransportFailure.engineUnavailable(cause: error, stack: stack);
     }
+  }
+
+  // Unique temp names: a pause save and a dispose save can overlap.
+  int _resumeWrites = 0;
+
+  File _resumeFile(String key) =>
+      File('${cacheDir.path}/${resumeFileName(key)}');
+
+  Future<Uint8List?> _readResumeFile(String key) async {
+    final file = _resumeFile(key);
+    if (!await file.exists()) return null;
+    final bytes = await file.readAsBytes();
+    return bytes.isEmpty ? null : bytes;
+  }
+
+  /// Written to a temp name and renamed, so a kill never leaves half a file.
+  Future<void> _writeResumeFile(String key, Uint8List bytes) async {
+    final tmp = File('${_resumeFile(key).path}.${_resumeWrites++}.tmp');
+    await tmp.writeAsBytes(bytes, flush: true);
+    await tmp.rename(_resumeFile(key).path);
   }
 
   Future<void> _save(
@@ -660,8 +744,12 @@ class StreamSourceImpl implements StreamSource {
       budget.fs.freeBytes(cacheDir.path),
     );
     await budget.makeRoom(force: true);
+    await budget.requireFreeSpace();
     return budget;
   }
+
+  /// Bytes the media cache holds now (Settings shows it next to the cap).
+  Future<int> cacheUsedBytes() => _budgetObject().usedBytes();
 
   Future<void> dispose() async {
     if (_disposed) return;
@@ -686,18 +774,97 @@ class StreamSourceImpl implements StreamSource {
     _server = null;
     await _httpBackend?.stop();
     _httpBackend = null;
+    _pauseObserver?.unregister();
+    _pauseObserver = null;
+    await _saveDhtState();
     await _torrentSession?.dispose();
     _torrentSession = null;
+  }
+
+  /// App paused or detached: keep every open torrent's resume data and the
+  /// DHT routing table. Failures are logged, never thrown into playback.
+  Future<void> _persistOnPause() async {
+    final state = _state;
+    for (final entry in _liveTorrents.entries.toList()) {
+      try {
+        final bytes = entry.value.saveResume();
+        await state?.putTorrentResumeData(entry.key, bytes);
+        await _writeResumeFile(entry.key, bytes);
+      } catch (error, stack) {
+        _logger.error(
+          'Saving torrent resume data on pause failed',
+          error: error,
+          stack: stack,
+        );
+      }
+    }
+    await _saveDhtState();
+  }
+
+  Future<void> _saveDhtState() async {
+    final session = _torrentSession;
+    if (session is! _NativeTorrentSessionAdapter) return;
+    try {
+      await session.saveDhtState();
+    } catch (error, stack) {
+      _logger.error('Saving DHT state failed', error: error, stack: stack);
+    }
+  }
+}
+
+/// Calls [onPause] when the app goes to the background or is torn down.
+final class _PauseObserver with WidgetsBindingObserver {
+  _PauseObserver(this.onPause);
+  final Future<void> Function() onPause;
+
+  void register() =>
+      WidgetsFlutterBinding.ensureInitialized().addObserver(this);
+
+  void unregister() => WidgetsBinding.instance.removeObserver(this);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(onPause());
+    }
   }
 }
 
 Future<TorrentSessionAdapter> _nativeTorrentSessionFactory(
   String savePath,
-) async => _NativeTorrentSessionAdapter(TorrentSession(savePath: savePath));
+) async {
+  final file = File('$savePath/$dhtStateFileName');
+  final state = await file.exists() ? await file.readAsBytes() : null;
+  return _NativeTorrentSessionAdapter(
+    TorrentSession(savePath: savePath, state: state),
+    file,
+    state?.length ?? 0,
+  );
+}
 
 final class _NativeTorrentSessionAdapter implements TorrentSessionAdapter {
-  _NativeTorrentSessionAdapter(this._session);
+  _NativeTorrentSessionAdapter(
+    this._session,
+    this._stateFile,
+    this.loadedStateBytes,
+  ) : stateWarning = _session.native.error.isEmpty
+          ? null
+          : _session.native.error;
   final TorrentSession _session;
+  final File _stateFile;
+  final int loadedStateBytes;
+
+  /// Set when the saved DHT state could not be read (the session started
+  /// without it).
+  final String? stateWarning;
+
+  /// Writes the DHT routing table to [_stateFile] (the native call returns
+  /// before the file is touched, so no session lock is held while writing).
+  Future<void> saveDhtState() async {
+    if (_session.native.isDisposed) return;
+    await _stateFile.writeAsBytes(_session.native.saveState(), flush: true);
+  }
 
   @override
   Future<void> start() => _session.start();
@@ -818,7 +985,7 @@ final class _NativeTorrentSourceAdapter
   @override
   int get totalBytes => _source.totalBytes;
 
-  void enableCacheLimit({
+  Future<void> enableCacheLimit({
     required CacheBudget budget,
     required AppLogger logger,
     required String filePath,
@@ -985,15 +1152,7 @@ class _RemoteHandle implements StreamHandle, TransportStatsProvider {
     required this.onSeek,
     required this.onDispose,
     this.statusProvider,
-  }) {
-    _statusTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      final next = _currentStatus;
-      if (_lastStatus == null || !_sameStatus(_lastStatus!, next)) {
-        _lastStatus = next;
-        if (!_events.isClosed) _events.add(next);
-      }
-    });
-  }
+  });
   final Uri _uri;
   final SparseSource _source;
   final Future<void> Function(int) onSeek;
@@ -1003,7 +1162,17 @@ class _RemoteHandle implements StreamHandle, TransportStatsProvider {
       StreamController<SourceStatus>.broadcast();
   SourceStatus? _lastStatus;
   Timer? _statusTimer;
+  int _listeners = 0;
   bool _disposed = false;
+
+  /// Status is polled at 2 Hz only while someone listens (THRESHOLDS).
+  void _pollStatus(Timer _) {
+    final next = _currentStatus;
+    if (_lastStatus == null || !_sameStatus(_lastStatus!, next)) {
+      _lastStatus = next;
+      if (!_events.isClosed) _events.add(next);
+    }
+  }
 
   @override
   Uri get playbackUri {
@@ -1021,9 +1190,25 @@ class _RemoteHandle implements StreamHandle, TransportStatsProvider {
   Stream<SourceStatus> get status {
     _check();
     return Stream<SourceStatus>.multi((multi) {
-      multi.add(_lastStatus ??= _currentStatus);
+      // The timer is off with no listener, so a cached status may be stale.
+      final fresh = _currentStatus;
+      final last = _lastStatus;
+      multi.add(
+        last != null && _sameStatus(last, fresh) ? last : _lastStatus = fresh,
+      );
       final sub = _events.stream.listen(multi.add);
-      multi.onCancel = sub.cancel;
+      _listeners++;
+      _statusTimer ??= Timer.periodic(
+        const Duration(milliseconds: 500),
+        _pollStatus,
+      );
+      multi.onCancel = () {
+        if (--_listeners == 0) {
+          _statusTimer?.cancel();
+          _statusTimer = null;
+        }
+        return sub.cancel();
+      };
     }, isBroadcast: true);
   }
 
@@ -1036,9 +1221,12 @@ class _RemoteHandle implements StreamHandle, TransportStatsProvider {
         : failure == null
         ? null
         : TransportFailure.engineUnavailable(cause: failure);
+    final stall = _source is HttpSparseSource ? _source.stall : null;
     return SourceStatus(
       state: typedFailure != null
           ? SourceState.failed
+          : stall != null
+          ? SourceState.stalled
           : (_source.available.ranges.isEmpty
                 ? SourceState.buffering
                 : SourceState.ready),
@@ -1046,7 +1234,7 @@ class _RemoteHandle implements StreamHandle, TransportStatsProvider {
       totalBytes: _source.totalBytes,
       bytesPerSecond: 0,
       peersOrConnections: 0,
-      failure: typedFailure,
+      failure: typedFailure ?? stall,
     );
   }
 

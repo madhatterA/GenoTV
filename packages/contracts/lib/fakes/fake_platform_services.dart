@@ -50,13 +50,17 @@ class FakeDisplayModeService implements DisplayModeService {
   /// The lease handed out by the most recent [matchFor] call, if any.
   FakeDisplayModeLease? lastLease;
 
+  /// The dynamic-range hint of the most recent [matchFor] call.
+  String? lastDynamicRange;
+
   void setModes(List<DisplayMode> modes) => _modes = modes;
 
   @override
   Future<List<DisplayMode>> availableModes() async => List.unmodifiable(_modes);
 
   @override
-  Future<DisplayModeLease?> matchFor({required double contentFps, int? width, int? height}) async {
+  Future<DisplayModeLease?> matchFor({required double contentFps, int? width, int? height, String? dynamicRange}) async {
+    lastDynamicRange = dynamicRange;
     if (_modes.isEmpty) return null;
     final lease = FakeDisplayModeLease();
     lastLease = lease;

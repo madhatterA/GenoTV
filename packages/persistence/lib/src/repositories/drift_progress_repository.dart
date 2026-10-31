@@ -184,5 +184,7 @@ class DriftProgressRepository implements ProgressRepository {
   }
 }
 
-ProgressRepository createProgressRepository(AppDatabase db, AppLogger logger) =>
-    DriftProgressRepository(db, logger);
+DriftProgressRepository createProgressRepository(
+  AppDatabase db,
+  AppLogger logger,
+) => DriftProgressRepository(db, logger);

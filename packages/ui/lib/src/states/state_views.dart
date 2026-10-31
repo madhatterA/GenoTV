@@ -36,7 +36,7 @@ class StateSkeleton extends StatelessWidget {
     final colors = RivuletTokens.of(context).colors;
     final opaque = UiAccessibility.opaqueOf(context);
     final still =
-        AdaptiveBehavior.of(context).formFactor == FormFactor.tv ||
+        AdaptiveBehavior.formFactorOf(context) == FormFactor.tv ||
         MediaQuery.disableAnimationsOf(context);
     return Semantics(
       container: true,
@@ -58,7 +58,7 @@ class StateSkeleton extends StatelessWidget {
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
-                  color: opaque ? colors.textTertiary : colors.tintFill,
+                  color: opaque ? colors.decorative : colors.tintFill,
                   borderRadius: BorderRadius.circular(RivuletRadius.medium),
                   border: opaque ? Border.all(color: colors.textPrimary) : null,
                 ),
@@ -154,7 +154,7 @@ class PartialStateBanner extends StatelessWidget {
         ?.labels;
     final tokens = RivuletTokens.of(context);
     return TintedSurface(
-      radius: RivuletRadius.small,
+      radius: RivuletRadius.large,
       padding: const EdgeInsets.all(RivuletSpacing.s16),
       child: Row(
         children: [

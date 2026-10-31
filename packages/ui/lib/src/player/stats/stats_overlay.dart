@@ -1,8 +1,10 @@
+import '../../theme/rivulet_tokens.dart';
 import '../../l10n_gen/app_strings.dart';
 import '../../l10n/app_text.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../theme/stats_colors.dart';
 import 'player_stats.dart';
@@ -71,16 +73,20 @@ class _StatsOverlayState extends State<StatsOverlay> {
     builder: (context, _) {
       final source = widget.controller.source;
       final snap = widget.controller.snapshot;
-      final groups = buildStatsGroups(source, snap);
+      final groups = buildStatsGroups(
+        source,
+        snap,
+        strings: AppStrings.of(context),
+      );
       final maxHeight = MediaQuery.sizeOf(context).height - 64 - 16;
       return Container(
         key: const ValueKey<String>('stats-overlay'),
         width: 380,
         constraints: BoxConstraints(maxHeight: maxHeight),
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 10),
+        padding: const EdgeInsets.fromLTRB(RivuletSpacing.s12, RivuletSpacing.s8, RivuletSpacing.s8, RivuletSpacing.s8),
         decoration: BoxDecoration(
           color: StatsColors.panel,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(RivuletRadius.large),
         ),
         child: DefaultTextStyle(
           style: _mono,
@@ -105,7 +111,7 @@ class _StatsOverlayState extends State<StatsOverlay> {
                     onPressed: () => Clipboard.setData(
                       ClipboardData(text: statsAsText(groups)),
                     ),
-                    icon: const Icon(Icons.copy_rounded),
+                    icon: const Icon(PhosphorIconsRegular.copy),
                   ),
                   IconButton(
                     key: const ValueKey<String>('stats-close'),
@@ -114,7 +120,7 @@ class _StatsOverlayState extends State<StatsOverlay> {
                     iconSize: 18,
                     color: StatsColors.text,
                     onPressed: widget.onClose,
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(PhosphorIconsRegular.x),
                   ),
                 ],
               ),
@@ -125,7 +131,7 @@ class _StatsOverlayState extends State<StatsOverlay> {
                       StatsColors.heading,
                     ),
                     thickness: WidgetStatePropertyAll<double>(3),
-                    radius: Radius.circular(2),
+                    radius: Radius.circular(RivuletRadius.xs),
                   ),
                   child: Scrollbar(
                     controller: _scroll,
@@ -136,7 +142,7 @@ class _StatsOverlayState extends State<StatsOverlay> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
                           for (final group in groups) ...<Widget>[
-                            const SizedBox(height: 6),
+                            const SizedBox(height: RivuletSpacing.s8),
                             AppText(
                               statsLabel(
                                 group.title,
@@ -184,8 +190,8 @@ class _StatsOverlayState extends State<StatsOverlay> {
                               if (row.speedGraph ?? false)
                                 Padding(
                                   padding: const EdgeInsets.only(
-                                    top: 2,
-                                    bottom: 2,
+                                    top: RivuletSpacing.s4,
+                                    bottom: RivuletSpacing.s4,
                                   ),
                                   child: SpeedSparkline(
                                     values: snap.downHistory,

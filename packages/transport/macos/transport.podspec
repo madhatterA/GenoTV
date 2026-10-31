@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.version          = '0.0.1'
   s.summary          = 'Native transport engine bindings.'
   s.description      = 'Native transport engine bindings for macOS.'
-  s.homepage         = 'https://github.com/madhatterA/GenoTV'
+  s.homepage         = 'https://github.com/genotv/video-player'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Transport maintainers' => 'maintainers@example.invalid' }
 

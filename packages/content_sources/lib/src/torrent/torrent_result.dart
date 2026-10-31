@@ -1,6 +1,6 @@
 // Ported from PlayTorrioV3 lib/services/scraper/sites/knaben.dart and
 // lib/models/stream/stream_model.dart, commit 39b736f.
-// GPL-3.0; see root README.md (Credits) and LICENSE.
+// GPL-3.0; see root NOTICE.md.
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
 

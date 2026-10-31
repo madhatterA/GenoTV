@@ -54,3 +54,6 @@ graphify-out/
 
 # research/ ignored for now (owner 2026-10-10)
 research/
+
+# Golden-test failure output
+packages/ui/test/failures/

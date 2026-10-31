@@ -10,6 +10,7 @@ import 'package:platform_services/platform_services.dart';
 
 import 'cast_bridge.dart';
 import 'subtitle_import.dart';
+import 'subtitle_online.dart';
 import 'playback_insight.dart';
 import 'playback_session.dart';
 
@@ -58,8 +59,20 @@ final class PlaybackRouteView extends StatefulWidget {
     this.createCast,
     this.mediaSession,
     this.pickSubtitles,
+    this.onlineSubtitles,
+    this.onStarted,
+    this.onChangeSource,
     super.key,
   });
+
+  /// "Try another source": closes the player and reopens the source list.
+  final VoidCallback? onChangeSource;
+
+  /// Called once when playback has actually started (first frame shown).
+  final VoidCallback? onStarted;
+
+  /// Online subtitle search/download; null hides the Download list.
+  final OnlineSubtitles? onlineSubtitles;
 
   /// The "Add subtitle file…" picker (injected so tests need no file dialog).
   final Future<List<({String name, Uri uri})>> Function()? pickSubtitles;
@@ -111,6 +124,7 @@ final class _PlaybackRouteViewState extends State<PlaybackRouteView> {
     unawaited(_updates?.cancel());
     unawaited(_cast?.dispose());
     unawaited(_clearMediaSession());
+    unawaited(clearStagedSubtitles());
     if (_error == null || _started) unawaited(_session.dispose());
     super.dispose();
   }
@@ -126,16 +140,24 @@ final class _PlaybackRouteViewState extends State<PlaybackRouteView> {
     final controller = _started ? _session.controller : null;
     // Latched: once the first frame has shown, later buffering or a failure
     // is the player's business, not the opening screen's.
+    final wasOpened = _opened;
     _opened =
         _opened ||
         (failure == null &&
             controller != null &&
             StreamOpeningStatus.isReady(_session.snapshot.playback));
+    if (_opened && !wasOpened) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => widget.onStarted?.call(),
+      );
+    }
     if (failure != null && _opened) {
       return ErrorView(
         failure: failure,
         logger: widget.logger,
         fullScreen: true,
+        onRetry: () => unawaited(_retry()),
+        onBack: () => unawaited(Navigator.of(context).maybePop()),
       );
     }
     final media = widget.media;
@@ -193,10 +215,26 @@ final class _PlaybackRouteViewState extends State<PlaybackRouteView> {
           videoSurface: widget.createVideoSurface(),
           audioOutput: _session.audioOutput,
           stats: _statsSource(),
+          sourceStatus: _session.snapshot.source,
           cast: _cast,
           onAddSubtitleFiles:
               widget.pickSubtitles ??
               () => pickSubtitleFiles(strings: AppStrings.of(context)),
+          onSearchSubtitles: widget.onlineSubtitles == null
+              ? null
+              : () => widget.onlineSubtitles!.find(
+                  widget.media,
+                  fileName: _playingFileName(),
+                ),
+          onFetchSubtitle: widget.onlineSubtitles == null
+              ? null
+              : (r) => widget.onlineSubtitles!.fetch(r, widget.media),
+          onChangeSource: widget.onChangeSource == null
+              ? null
+              : () {
+                  Navigator.of(context).pop();
+                  widget.onChangeSource!();
+                },
           markers: widget.markers,
           defaultSubtitleScale: widget.defaultSubtitleScale,
           setSystemUiMode: widget.setSystemUiMode,
@@ -341,8 +379,33 @@ final class _PlaybackRouteViewState extends State<PlaybackRouteView> {
       _error = null;
       _stack = null;
       _started = false;
+      _opened = false;
     });
     await _start();
+  }
+
+  String _playingFileName() {
+    final segments = widget.source.uri.pathSegments;
+    return segments.isEmpty ? '' : Uri.decodeComponent(segments.last);
+  }
+
+  /// Re-applies the subtitle the viewer chose for this title before; a failure
+  /// is logged and never blocks playback.
+  Future<void> _applyRememberedSubtitle() async {
+    final online = widget.onlineSubtitles;
+    final controller = _session.controller;
+    if (online == null || controller == null) return;
+    try {
+      final files = await online.remembered(widget.media);
+      if (files.isEmpty || !mounted) return;
+      await addAndSelectSubtitles(controller, files, AppStrings.of(context));
+    } on Object catch (error, stack) {
+      widget.logger.error(
+        'remembered subtitle failed',
+        error: error,
+        stack: stack,
+      );
+    }
   }
 
   Future<void> _start() async {
@@ -354,6 +417,7 @@ final class _PlaybackRouteViewState extends State<PlaybackRouteView> {
       _started = true;
       // The engine opens paused; picking a stream means "play it".
       await _session.controller!.play();
+      unawaited(_applyRememberedSubtitle());
       await _publishMediaSession();
       if (mounted) setState(() {});
     } catch (error, stack) {
@@ -381,9 +445,15 @@ final class ComposedPlayerRoute extends StatelessWidget {
     this.setSystemUiMode = SystemChrome.setEnabledSystemUIMode,
     this.createCast,
     this.mediaSession,
+    this.onlineSubtitles,
+    this.onStarted,
+    this.onChangeSource,
     super.key,
   });
 
+  final VoidCallback? onChangeSource;
+  final VoidCallback? onStarted;
+  final OnlineSubtitles? onlineSubtitles;
   final CastBridge Function(PlaybackSession session)? createCast;
   final MediaSessionService? mediaSession;
   final double defaultSubtitleScale;
@@ -406,6 +476,9 @@ final class ComposedPlayerRoute extends StatelessWidget {
     setSystemUiMode: setSystemUiMode,
     createCast: createCast,
     mediaSession: mediaSession,
+    onlineSubtitles: onlineSubtitles,
+    onStarted: onStarted,
+    onChangeSource: onChangeSource,
   );
 }
 
@@ -432,8 +505,9 @@ Set<SettingCapability> availableSettingCapabilities(
   if (os == 'macos' || os == 'windows') SettingCapability.audioDeviceSelection,
   if (os == 'macos' || os == 'windows') SettingCapability.exclusiveAudio,
   if (os == 'macos' || os == 'windows') SettingCapability.desktopWindow,
-  // iOS: GLES via EAGL only; Windows: Direct3D 11 only (Kodi 3.1).
-  if (os != 'ios' && os != 'windows') SettingCapability.gpuBackend,
+  // iOS/tvOS: Metal only; Windows: Direct3D 11 only (Kodi 3.1).
+  if (os != 'ios' && os != 'tvos' && os != 'windows')
+    SettingCapability.gpuBackend,
 };
 
 /// The app's Settings destination: the [SettingsScreen] with the app's real
@@ -446,15 +520,20 @@ final class SettingsDestination extends StatefulWidget {
     this.audioDevices,
     this.displayScreens,
     this.clearCache,
+    this.cacheUsedBytes,
     this.insight,
     this.logDirectory,
+    this.crashLog,
     this.providersPage,
+    this.titleApiPage,
     super.key,
   });
 
   /// Settings → Providers page.
   final WidgetBuilder? providersPage;
+  final WidgetBuilder? titleApiPage;
   final String? logDirectory;
+  final CrashLog? crashLog;
   final PlaybackInsight? insight;
   final AppSettings settings;
   final Future<CapabilityReport> Function() probe;
@@ -464,6 +543,9 @@ final class SettingsDestination extends StatefulWidget {
 
   /// Clears the stream cache; see `StreamSource.clearCache`.
   final Future<int> Function()? clearCache;
+
+  /// Bytes the stream cache holds now; see `StreamSourceImpl.cacheUsedBytes`.
+  final Future<int> Function()? cacheUsedBytes;
   final AppLogger logger;
 
   @override
@@ -596,6 +678,8 @@ final class _SettingsDestinationState extends State<SettingsDestination> {
           final insight = widget.insight;
           Widget screen(String? customNote) => SettingsScreen(
             logDirectory: widget.logDirectory,
+            previousCrash: widget.crashLog?.previousCrash ?? false,
+            crashLogText: widget.crashLog?.readLogs,
             settingNotes: {'advanced.customMpvOptions': ?customNote},
             liveDiagnostics: insight?.rows,
             settings: widget.settings,
@@ -604,7 +688,9 @@ final class _SettingsDestinationState extends State<SettingsDestination> {
             displayChoices: _screens?.choices ?? const {},
             displayChoicesListenable: _displayChoices,
             onClearCache: widget.clearCache,
+            onCacheUsed: widget.cacheUsedBytes,
             providersPage: widget.providersPage,
+            titleApiPage: widget.titleApiPage,
             available: availableSettingCapabilities(
               report,
               os: report.diagnostics['os'] ?? Platform.operatingSystem,

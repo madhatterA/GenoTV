@@ -32,6 +32,21 @@ final class SurfaceOutput {
   Future<void> _prepare() async {
     try {
       nativeSurface = await attach();
+    } on native.AndroidSurfaceException catch (error, stack) {
+      logger.error(
+        'Android native overlay creation failed',
+        error: error,
+        stack: stack,
+      );
+      onError(error, stack);
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'playback',
+        ),
+      );
+      rethrow;
     } catch (error, stack) {
       logger.warn('native surface creation failed', error: error, stack: stack);
       await _fallBack('native surface creation failed: $error');
@@ -39,6 +54,7 @@ final class SurfaceOutput {
     }
     final surface = nativeSurface!;
     surface.state.addListener(_changed);
+    surface.failure.addListener(_nativeFailed);
     if (surface.state.value.mode == native.SurfaceMode.texture) {
       await _fallBack(surface.state.value.reason);
     } else {
@@ -58,6 +74,14 @@ final class SurfaceOutput {
     } else if (_fallback == null) {
       _publish(state);
     }
+  }
+
+  void _nativeFailed() {
+    final error = nativeSurface?.failure.value;
+    if (error == null || _disposed) return;
+    final stack = StackTrace.current;
+    logger.error('Android subtitle overlay failed', error: error, stack: stack);
+    onError(error, stack);
   }
 
   void _publish(native.SurfaceState state) {
@@ -88,18 +112,21 @@ final class SurfaceOutput {
     logger.warn('video surface texture: $reason');
   }
 
-  Future<void> dispose() async {
-    if (_disposed) return;
+  Future<void> dispose({bool engineDisposed = false}) async {
+    if (_disposed && nativeSurface == null) return;
     _disposed = true;
     try {
-      await _preparation;
-      await _fallback;
+      if (!engineDisposed) {
+        await _preparation;
+        await _fallback;
+      }
     } finally {
       final surface = nativeSurface;
-      nativeSurface = null;
       if (surface != null) {
         surface.state.removeListener(_changed);
-        await surface.dispose();
+        surface.failure.removeListener(_nativeFailed);
+        await surface.dispose(engineDisposed: engineDisposed);
+        nativeSurface = null;
       }
       mode.dispose();
     }

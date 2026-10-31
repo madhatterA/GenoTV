@@ -47,10 +47,13 @@ cmake --build "$lt_build" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
 cmake --install "$lt_build" >/dev/null
 
 shim_build="$WORK/shim-build-$ABI"
+# Only the portable C ABI is public; weak C++ implementation exports vary by ABI.
+printf '{ global: transport_lt_*; local: *; };\n' > "$WORK/android-shim.exports"
 cmake -S "$ROOT/packages/transport/src/lt_shim" -B "$shim_build" -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$toolchain" -DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$API" \
   -DCMAKE_BUILD_TYPE=Release -DLibtorrentRasterbar_DIR="$lt_prefix/lib/cmake/LibtorrentRasterbar" \
   -DBoost_INCLUDE_DIR="$BOOST_INCLUDE" -DBOOST_INCLUDEDIR="$BOOST_INCLUDE" -DBoost_NO_BOOST_CMAKE=ON \
+  -DCMAKE_SHARED_LINKER_FLAGS="-Wl,--version-script=$WORK/android-shim.exports" \
   -DTRANSPORT_LT_LIBRARY_TYPE=SHARED -DTRANSPORT_LIBTORRENT_VERSION=2.1.1 \
   -DTRANSPORT_LIBTORRENT_ROOT="$lt_prefix"
 cmake --build "$shim_build" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
@@ -61,4 +64,5 @@ cp "$shim_build/libtransport_lt_shim.so" "$OUT/libtransport_lt_shim.so"
 "${LLVM_READ_ELF%llvm-readelf}llvm-strip" --strip-debug "$OUT/libtorrent-rasterbar.so" "$OUT/libtransport_lt_shim.so"
 "$LLVM_READ_ELF" -h "$OUT/libtransport_lt_shim.so" | grep -E 'Class:|Machine:'
 "$LLVM_READ_ELF" -d "$OUT/libtransport_lt_shim.so" | grep 'libtorrent-rasterbar.so'
+bash "$ROOT/packages/transport/tool/check_lt_abi.sh" "$OUT/libtransport_lt_shim.so" "${LLVM_READ_ELF%llvm-readelf}llvm-nm"
 shasum -a 256 "$OUT"/*.so

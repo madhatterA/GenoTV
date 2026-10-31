@@ -37,7 +37,8 @@ typedef struct transport_aria2_download_status {
   int32_t bitfield_length;
 } transport_aria2_download_status;
 
-transport_aria2_session transport_aria2_create(void);
+/* verify_certificate=0 sets aria2's session-level check-certificate=false. */
+transport_aria2_session transport_aria2_create(int32_t verify_certificate);
 void transport_aria2_destroy(transport_aria2_session session);
 int32_t transport_aria2_last_error(
     transport_aria2_session session, char* out, int32_t capacity);

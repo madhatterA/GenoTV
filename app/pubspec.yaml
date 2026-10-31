@@ -1,7 +1,7 @@
 name: video_player
 description: Runner app and composition root. Owned by Part 07.
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ^3.13.3
@@ -9,6 +9,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # tvOS implementations of plugins the app already uses (fluttertv.dev, owner
+  # approved 2026-10-29); other platforms ignore them.
+  # 1.8.x declares tvos but ships only an ios/ folder, which flutter-tvos cannot
+  # link; 1.7.x has no tvos entry, so wakelock_plus_tvos provides it.
+  wakelock_plus: '>=1.7.0 <1.8.0'
+  wakelock_plus_tvos: ^0.0.1
+  package_info_plus_tvos: ^0.0.1
+  path_provider_tvos: ^0.0.3
 
   core:
     path: ../packages/core
@@ -30,6 +39,8 @@ dependencies:
     path: ../packages/cast
   file_selector: ^1.0.3
   media_kit: ^1.2.6
+  media_kit_libs_tvos_video:
+    path: ../packages/media_kit_libs_tvos_video
   url_launcher: ^6.3.3
 
 dev_dependencies:
@@ -39,6 +50,8 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  video_surface:
+    path: ../packages/video_surface
 
 flutter:
   uses-material-design: true
@@ -54,6 +67,7 @@ dependency_overrides:
     path: ../packages/media_kit_libs_android_video
   media_kit_libs_ios_video:
     path: ../packages/media_kit_libs_ios_video
-
+  media_kit_libs_macos_video:
+    path: ../packages/media_kit_libs_macos_video
   media_kit_libs_windows_video:
     path: ../packages/media_kit_libs_windows_video

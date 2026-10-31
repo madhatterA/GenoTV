@@ -66,7 +66,7 @@ class HeroBackdrop extends StatelessWidget {
     final formFactor = sizes.formFactor;
     final tv = formFactor == FormFactor.tv;
     final phone = formFactor == FormFactor.phone;
-    final gutter = RivuletSpacing.gutter(formFactor);
+    final gutter = RivuletSpacing.gutterOf(context);
     final artwork = artworkOverride ?? item?.artwork;
     final slide = item;
     final fade = effectiveDuration(
@@ -225,7 +225,7 @@ class _HeroText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final styles = RivuletTokens.of(context).typeStyles;
-    final phone = AdaptiveBehavior.of(context).formFactor == FormFactor.phone;
+    final phone = AdaptiveBehavior.formFactorOf(context) == FormFactor.phone;
     final duration = item.duration;
     final meta = duration == null || duration.inMinutes < 1
         ? ''
@@ -295,7 +295,7 @@ class _HeroActionsState extends State<_HeroActions> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (widget.onNext == null ||
-        !(AdaptiveBehavior.of(context).formFactor == FormFactor.tv) ||
+        !(AdaptiveBehavior.formFactorOf(context) == FormFactor.tv) ||
         !_details.hasFocus ||
         event.logicalKey != LogicalKeyboardKey.arrowRight) {
       return KeyEventResult.ignored;
@@ -327,7 +327,7 @@ class _HeroActionsState extends State<_HeroActions> {
           label: AppStrings.of(context).common_play,
           icon: PhosphorIconsFill.play,
           focusNode: _play,
-          autofocus: (AdaptiveBehavior.of(context).formFactor == FormFactor.tv),
+          autofocus: (AdaptiveBehavior.formFactorOf(context) == FormFactor.tv),
           onActivate: widget.onPlay,
         ),
         const SizedBox(width: RivuletSpacing.s12),

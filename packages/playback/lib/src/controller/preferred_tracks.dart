@@ -320,8 +320,29 @@ Future<void> _applyPreferredTracks(
       savedSubtitleTrackId == null) {
     return;
   }
+  // The track list is known once any track exists: a file without audio
+  // (video only) must not wait for an audio or subtitle track.
   bool hasTracks(PlaybackState s) =>
-      s.tracks.audio.isNotEmpty || s.tracks.subtitle.isNotEmpty;
+      s.tracks.video.isNotEmpty ||
+      s.tracks.audio.isNotEmpty ||
+      s.tracks.subtitle.isNotEmpty;
+  // An explicit pick made before this pass ran wins over the defaults.
+  Future<void> select(TrackSelection s) {
+    final now = controller.currentState.selected;
+    final keepAudio =
+        controller is MediaKitPlaybackController && controller.userPickedAudio;
+    final keepSubtitle = controller is MediaKitPlaybackController &&
+        controller.userPickedSubtitle;
+    final merged = TrackSelection(
+      video: s.video,
+      audio: keepAudio ? now.audio : s.audio,
+      subtitle: keepSubtitle ? now.subtitle : s.subtitle,
+    );
+    return controller is MediaKitPlaybackController
+        ? controller.selectDefaultTracks(merged)
+        : controller.selectTrack(merged);
+  }
+
   final state = hasTracks(controller.currentState)
       ? controller.currentState
       : await controller.state.firstWhere(
@@ -332,7 +353,7 @@ Future<void> _applyPreferredTracks(
     final metadata = controller is MediaKitPlaybackController
         ? await controller.trackMetadata()
         : <String, Map<String, dynamic>>{};
-    await controller.selectTrack(
+    await select(
       rules.select(
         state,
         metadata,
@@ -405,7 +426,7 @@ Future<void> _applyPreferredTracks(
     savedSubtitleTrackId,
   );
   if (audioTrack == null && subtitleTrack == null) return;
-  await controller.selectTrack(
+  await select(
     TrackSelection(
       video: state.selected.video,
       audio: audioTrack == null

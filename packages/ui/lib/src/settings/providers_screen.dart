@@ -7,6 +7,8 @@ import '../platform/adaptive_behavior.dart';
 
 import 'dart:async';
 
+import 'domain_editor.dart';
+
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -27,6 +29,9 @@ enum UiProviderLogin {
   /// Username and password.
   credentials,
 
+  /// A single personal API key.
+  apiKey,
+
   /// Scan a code with a device already signed in.
   qr,
 
@@ -41,6 +46,8 @@ class UiProviderAccount {
     this.login = UiProviderLogin.none,
     this.buyUrl,
     this.loggedIn = false,
+    this.domain,
+    this.domainCustom = false,
   });
 
   final String id;
@@ -50,6 +57,10 @@ class UiProviderAccount {
   /// The provider's own page for buying an account.
   final Uri? buyUrl;
   final bool loggedIn;
+
+  /// The provider's main API domain in use (null: this provider has none).
+  final String? domain;
+  final bool domainCustom;
 
   bool get free => login == UiProviderLogin.none;
 }
@@ -73,8 +84,14 @@ class ProvidersScreen extends StatefulWidget {
     required this.onPollQr,
     required this.onLogout,
     required this.onBuy,
+    this.buyAsQr = false,
+    this.onDomain,
     super.key,
   });
+
+  /// Saves a provider's domain (null/empty = built-in); returns an error
+  /// message, or null when saved.
+  final Future<String?> Function(String id, String? raw)? onDomain;
 
   final Future<List<UiProviderAccount>> Function() load;
 
@@ -87,6 +104,9 @@ class ProvidersScreen extends StatefulWidget {
   final Future<bool> Function(String id, UiQrLogin login) onPollQr;
   final Future<void> Function(String id) onLogout;
   final Future<void> Function(Uri url) onBuy;
+
+  /// No browser on this platform (tvOS): Buy shows the link as a QR code and short URL instead.
+  final bool buyAsQr;
 
   @override
   State<ProvidersScreen> createState() => _ProvidersScreenState();
@@ -113,11 +133,22 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
             context: context,
             builder: (_) => _CredentialsDialog(
               name: account.name,
+              keyOnly: account.login == UiProviderLogin.apiKey,
               submit: (user, password) =>
                   widget.onCredentials(account.id, user, password),
             ),
           );
     if (done == true && mounted) _reload();
+  }
+
+  Future<void> _domain(UiProviderAccount account) async {
+    final saved = await showDomainDialog(
+      context,
+      title: '${account.name} - ${AppStrings.of(context).domain_label}',
+      current: account.domain ?? '',
+      save: (raw) => widget.onDomain!(account.id, raw),
+    );
+    if (saved == true && mounted) _reload();
   }
 
   Future<void> _logout(UiProviderAccount account) async {
@@ -128,9 +159,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
   @override
   Widget build(BuildContext context) {
     final sizes = AdaptiveBehavior.sizesOf(context);
-    final gutter = RivuletSpacing.gutter(
-      AdaptiveBehavior.of(context).formFactor,
-    );
+    final gutter = RivuletSpacing.gutterOf(context);
     return AmbientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -146,7 +175,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
               ),
               children: [
                 Align(
-                  alignment: Alignment.topCenter,
+                  alignment: Alignment.topLeft,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: sizes.settingsContentMaxWidth,
@@ -160,7 +189,7 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                         ),
                         SizedBox(
                           height: RivuletSpacing.rowGap(
-                            AdaptiveBehavior.of(context).formFactor,
+                            AdaptiveBehavior.formFactorOf(context),
                           ),
                         ),
                         FutureBuilder<List<UiProviderAccount>>(
@@ -197,8 +226,19 @@ class _ProvidersScreenState extends State<ProvidersScreen> {
                                       account: account,
                                       onLogin: () => _login(account),
                                       onLogout: () => _logout(account),
+                                      onDomain:
+                                          account.domain == null ||
+                                              widget.onDomain == null
+                                          ? null
+                                          : () => _domain(account),
                                       onBuy: account.buyUrl == null
                                           ? null
+                                          : widget.buyAsQr
+                                          ? () => showAppDialog<void>(
+                                              context: context,
+                                              builder: (_) =>
+                                                  _LinkQrDialog(name: account.name, url: account.buyUrl!),
+                                            )
                                           : () => widget.onBuy(account.buyUrl!),
                                     ),
                                   ),
@@ -226,8 +266,10 @@ class _ProviderCard extends StatelessWidget {
     required this.onLogin,
     required this.onLogout,
     required this.onBuy,
+    required this.onDomain,
   });
 
+  final VoidCallback? onDomain;
   final UiProviderAccount account;
   final VoidCallback onLogin;
   final VoidCallback onLogout;
@@ -261,7 +303,7 @@ class _ProviderCard extends StatelessWidget {
                 const SizedBox(width: RivuletSpacing.s8),
                 TintedSurface(
                   key: ValueKey<String>('provider-free-${account.id}'),
-                  radius: RivuletRadius.small,
+                  radius: RivuletRadius.xs,
                   padding: const EdgeInsets.symmetric(
                     horizontal: RivuletSpacing.s8,
                     vertical: RivuletSpacing.s4,
@@ -279,6 +321,27 @@ class _ProviderCard extends StatelessWidget {
           ),
           const SizedBox(height: RivuletSpacing.s4),
           AppText(status, style: styles.caption),
+          if (account.domain != null) ...<Widget>[
+            const SizedBox(height: RivuletSpacing.s8),
+            Row(
+              key: ValueKey<String>('provider-domain-${account.id}'),
+              children: <Widget>[
+                Expanded(
+                  child: AppText(
+                    '${AppStrings.of(context).domain_label}: ${account.domain}',
+                    style: styles.caption,
+                  ),
+                ),
+                if (onDomain != null)
+                  AppChip(
+                    key: ValueKey<String>('provider-domain-edit-${account.id}'),
+                    icon: PhosphorIconsRegular.globe,
+                    label: AppStrings.of(context).domain_change,
+                    onActivate: onDomain,
+                  ),
+              ],
+            ),
+          ],
           if (!account.free) ...<Widget>[
             const SizedBox(height: RivuletSpacing.s16),
             Wrap(
@@ -286,6 +349,7 @@ class _ProviderCard extends StatelessWidget {
               runSpacing: RivuletSpacing.s8,
               children: <Widget>[
                 if (account.login == UiProviderLogin.credentials ||
+                    account.login == UiProviderLogin.apiKey ||
                     account.login == UiProviderLogin.qr)
                   account.loggedIn
                       ? AppChip(
@@ -323,9 +387,14 @@ class _ProviderCard extends StatelessWidget {
 }
 
 class _CredentialsDialog extends StatefulWidget {
-  const _CredentialsDialog({required this.name, required this.submit});
+  const _CredentialsDialog({
+    required this.name,
+    required this.submit,
+    this.keyOnly = false,
+  });
 
   final String name;
+  final bool keyOnly;
   final Future<String?> Function(String user, String password) submit;
 
   @override
@@ -380,27 +449,43 @@ class _CredentialsDialogState extends State<_CredentialsDialog> {
           style: styles.title,
         ),
         const SizedBox(height: RivuletSpacing.s24),
-        AppText(AppStrings.of(context).providers_username, style: styles.label),
+        AppText(
+          widget.keyOnly
+              ? AppStrings.of(context).providers_apiKey
+              : AppStrings.of(context).providers_username,
+          style: styles.label,
+        ),
         const SizedBox(height: RivuletSpacing.s8),
         AppTextField(
           key: const ValueKey<String>('provider-user'),
           controller: _user,
-          hint: AppStrings.of(context).providers_username,
-          icon: PhosphorIconsRegular.user,
+          hint: widget.keyOnly
+              ? AppStrings.of(context).providers_apiKey
+              : AppStrings.of(context).providers_username,
+          icon: widget.keyOnly
+              ? PhosphorIconsRegular.key
+              : PhosphorIconsRegular.user,
           autofocus: true,
+          errorText: widget.keyOnly ? _error : null,
+          onSubmitted: widget.keyOnly ? (_) => _submit() : null,
         ),
-        const SizedBox(height: RivuletSpacing.s16),
-        AppText(AppStrings.of(context).providers_password, style: styles.label),
-        const SizedBox(height: RivuletSpacing.s8),
-        AppTextField(
-          key: const ValueKey<String>('provider-password'),
-          controller: _password,
-          hint: AppStrings.of(context).providers_password,
-          icon: PhosphorIconsRegular.lock,
-          obscureText: true,
-          errorText: _error,
-          onSubmitted: (_) => _submit(),
-        ),
+        if (!widget.keyOnly) ...[
+          const SizedBox(height: RivuletSpacing.s16),
+          AppText(
+            AppStrings.of(context).providers_password,
+            style: styles.label,
+          ),
+          const SizedBox(height: RivuletSpacing.s8),
+          AppTextField(
+            key: const ValueKey<String>('provider-password'),
+            controller: _password,
+            hint: AppStrings.of(context).providers_password,
+            icon: PhosphorIconsRegular.lock,
+            obscureText: true,
+            errorText: _error,
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
         const SizedBox(height: RivuletSpacing.s24),
         if (_busy) ...[
           const Center(child: OrbLoader.small()),
@@ -565,6 +650,55 @@ class _QrDialogState extends State<_QrDialog> {
                 onActivate: _begin,
               ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A link shown as a QR code and a short URL, for platforms that cannot open a browser.
+class _LinkQrDialog extends StatelessWidget {
+  const _LinkQrDialog({required this.name, required this.url});
+
+  final String name;
+  final Uri url;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = RivuletTokens.of(context);
+    final styles = tokens.typeStyles;
+    final short = '${url.host}${url.path == '/' ? '' : url.path}';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppText('${AppStrings.of(context).providers_buy}: $name', style: styles.title),
+        const SizedBox(height: RivuletSpacing.s24),
+        Center(
+          child: QrImageView(
+            key: const ValueKey<String>('link-qr'),
+            data: url.toString(),
+            size: 240,
+            backgroundColor: tokens.colors.textPrimary,
+            eyeStyle: QrEyeStyle(color: tokens.colors.onAccent),
+            dataModuleStyle: QrDataModuleStyle(color: tokens.colors.onAccent),
+          ),
+        ),
+        const SizedBox(height: RivuletSpacing.s16),
+        AppText(
+          short,
+          key: const ValueKey<String>('link-short-url'),
+          style: styles.headline,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: RivuletSpacing.s24),
+        Align(
+          alignment: Alignment.centerRight,
+          child: AppButton.primary(
+            label: AppStrings.of(context).common_cancel,
+            autofocus: true,
+            onActivate: () => Navigator.pop(context),
+          ),
         ),
       ],
     );

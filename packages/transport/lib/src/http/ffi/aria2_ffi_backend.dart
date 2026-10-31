@@ -2,6 +2,7 @@ import 'dart:ffi';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:contracts/contracts.dart';
 import 'package:core/core.dart';
@@ -25,6 +26,10 @@ final class Aria2FfiBackend implements Aria2Backend {
   final AppLogger? _logger;
   final Map<String, _Job> _jobs = <String, _Job>{};
   Aria2FfiSession? _session;
+  // Session with check-certificate=false for unknown-size sources the user
+  // chose not to verify; created on first need. Its main gids are tracked.
+  Aria2FfiSession? _insecure;
+  final Set<int> _insecureGids = <int>{};
   bool started = false;
   int _nextJob = 0;
   @override
@@ -101,27 +106,22 @@ final class Aria2FfiBackend implements Aria2Backend {
       await _saveCoverage(job);
       final jobId = 'bounded-${_nextJob++}';
       _jobs[jobId] = job;
+      unawaited(_prefetchTail(job));
       await job.run(() => _queueBounded(job));
       return jobId;
     }
-    if (!options.verifyTls) {
-      // aria2 reads check-certificate once, when its session is created.
-      throw TransportFailure.engineUnavailable(
-        cause:
-            'certificate checking cannot be switched off for a download of '
-            'unknown size',
-      );
-    }
-    final session = _requireSession();
+    final session = options.verifyTls ? _requireSession() : _requireInsecure();
+    final uri = await httpsFirstUri(spec.uri);
     final gid = await _retryBusy(
       () => session.addUri(
-        spec.uri,
+        uri,
         directory: output.parent.path,
         output: output.uri.pathSegments.last,
         headers: originHeaders(spec, options),
         options: {...aria2StreamingOptions, ...aria2OriginOptions(options)},
       ),
     );
+    if (!options.verifyTls) _insecureGids.add(gid);
     final jobId = '$gid';
     _jobs[jobId] = _Job(spec, output, options);
     return jobId;
@@ -139,7 +139,7 @@ final class Aria2FfiBackend implements Aria2Backend {
         if (gid == null) return;
         await _retryBusy(
           () =>
-              _requireSession().changeOption(gid, 'max-download-limit', limit),
+              _sessionFor(gid).changeOption(gid, 'max-download-limit', limit),
         );
       });
     }
@@ -151,7 +151,7 @@ final class Aria2FfiBackend implements Aria2Backend {
     final job = _jobs[jobId];
     if (job == null) throw StateError('unknown download $jobId');
     final gid = job.window?.gid ?? int.parse(jobId);
-    return _retryBusy(() => _requireSession().option(gid, name));
+    return _retryBusy(() => _sessionFor(gid).option(gid, name));
   }
 
   @override
@@ -170,7 +170,7 @@ final class Aria2FfiBackend implements Aria2Backend {
       );
     }
     try {
-      final main = await _retryBusy(() => _requireSession().status(gid));
+      final main = await _retryBusy(() => _sessionFor(gid).status(gid));
       final window = job.window;
       Aria2FfiStatus? targeted;
       if (window != null) {
@@ -197,7 +197,7 @@ final class Aria2FfiBackend implements Aria2Backend {
           job.window = null;
           if (main.state != _stateComplete) {
             await _retryBusy(
-              () => _requireSession().setPaused(gid, paused: false),
+              () => _sessionFor(gid).setPaused(gid, paused: false),
             );
           }
         }
@@ -244,6 +244,8 @@ final class Aria2FfiBackend implements Aria2Backend {
   }
 
   static const int _farAheadSlack = 32 * 1024 * 1024;
+  static const int _recoveryWindow = 2 * 1024 * 1024;
+  static const int _firstWindow = 256 * 1024;
 
   @override
   Future<void> changeWindow(
@@ -256,6 +258,17 @@ final class Aria2FfiBackend implements Aria2Backend {
     if (job != null && updateAhead) job.copyAll = copyAll;
     if (job != null && job.totalBytes != null && !updateAhead) {
       job.demand = range;
+      // A slow disk can leave minutes of status copying queued; when this
+      // demand moves the window far (a seek), the copy in progress yields so the move runs
+      // next. A demand inside the running window must not interrupt it.
+      final active = job.window?.range;
+      if (active != null &&
+          !job.copied.containsRange(range) &&
+          (range.start < active.start - _farAheadSlack ||
+              range.start > active.endInclusive ||
+              _farAhead(job, active, range))) {
+        job.seekEpoch++;
+      }
     }
     if (job != null && job.totalBytes != null) {
       return job.run(() async {
@@ -304,7 +317,7 @@ final class Aria2FfiBackend implements Aria2Backend {
       return Future.error(StateError('unknown download $jobId'));
     }
     return job.run(() async {
-      var main = await _retryBusy(() => _requireSession().status(gid));
+      var main = await _retryBusy(() => _sessionFor(gid).status(gid));
       if (main.failure != null) {
         throw TransportFailure.httpUnreachable(cause: main.failure);
       }
@@ -330,7 +343,7 @@ final class Aria2FfiBackend implements Aria2Backend {
       if (main.state != _statePaused && main.state != _stateComplete) {
         try {
           await _retryBusy(
-            () => _requireSession().setPaused(gid, paused: true),
+            () => _sessionFor(gid).setPaused(gid, paused: true),
           );
         } on Aria2FfiException {
           // The job may have finished or paused itself meanwhile; the wait
@@ -389,10 +402,10 @@ final class Aria2FfiBackend implements Aria2Backend {
     }
     return job.run(() async {
       if (job.window != null) return;
-      final main = await _retryBusy(() => _requireSession().status(gid));
+      final main = await _retryBusy(() => _sessionFor(gid).status(gid));
       if (main.state == _stateComplete || main.state == _stateRemoved) return;
       if (paused == (main.state == _statePaused)) return;
-      await _retryBusy(() => _requireSession().setPaused(gid, paused: paused));
+      await _retryBusy(() => _sessionFor(gid).setPaused(gid, paused: paused));
     });
   }
 
@@ -442,15 +455,25 @@ final class Aria2FfiBackend implements Aria2Backend {
 
   Future<BackendStatus> _statusBounded(_Job job, {bool queue = true}) async {
     final window = job.window;
+    final epoch = job.seekEpoch;
+    final slice = Stopwatch()..start();
     Aria2FfiStatus? current;
     if (window != null) {
       final snapshot = await _retryBusy(
         () => _requireSession().status(window.gid!),
       );
       current = snapshot;
-      if (window.failure != null || snapshot.failure != null) {
-        throw TransportFailure.httpUnreachable(
-          cause: window.failure ?? snapshot.failure,
+      final broken = window.failure ?? snapshot.failure;
+      if (broken != null) {
+        // The origin rejecting the request for good (no range support, a
+        // changed file) is final; anything else is the network, retried.
+        if (broken is TransportFailure) throw broken;
+        await _stallWindow(job, broken);
+        return BackendStatus(
+          totalBytes: job.totalBytes,
+          available: job.copied,
+          paused: false,
+          stall: job.outage,
         );
       }
       var wanted = RangeSet.empty();
@@ -473,6 +496,9 @@ final class Aria2FfiBackend implements Aria2Backend {
         wanted,
         job.file,
         releaseCopied: true,
+        shouldStop: () =>
+            job.seekEpoch != epoch ||
+            slice.elapsedMilliseconds > _copySlice.inMilliseconds,
         onCopied: (range) {
           final copied = ByteRange(
             range.start + window.range.start,
@@ -480,6 +506,8 @@ final class Aria2FfiBackend implements Aria2Backend {
           );
           job.copied = job.copied.add(copied);
           job.evicted = subtractRange(job.evicted, copied);
+          job.failures = 0;
+          job.outage = null;
           job.changes.add(job.copied);
         },
       );
@@ -492,22 +520,127 @@ final class Aria2FfiBackend implements Aria2Backend {
     return BackendStatus(
       totalBytes: job.totalBytes,
       available: job.copied,
-      paused: job.window == null,
+      paused: job.window == null && job.outage == null,
       bytesPerSecond: current?.downloadRate.toDouble() ?? 0,
       peersOrConnections: current?.connections ?? 0,
+      stall: job.outage,
+    );
+  }
+
+  /// One status call copies for at most this long: the queue is first come,
+  /// first served, and a fast origin leaves a backlog that took 10 s to copy
+  /// while the seek waited behind it. The next poll continues the copy.
+  static const _copySlice = Duration(milliseconds: 400);
+
+  static const int _tailPrefetch = 1024 * 1024;
+
+  /// The index of a movie (mp4/mov moov, mkv cues) often sits at its end, and
+  /// the player's first seek there otherwise waits for the head download to
+  /// finish. Fetch the last MiB beside the head so that seek is already on disk.
+  /// Best effort: a failure is logged and the normal window path serves the seek.
+  Future<void> _prefetchTail(_Job job) async {
+    final total = job.totalBytes!;
+    if (total < 4 * _tailPrefetch) return;
+    final range = ByteRange(total - _tailPrefetch, total - 1);
+    final client = configureOriginClient(
+      HttpClient()..autoUncompress = false,
+      job.options,
+    );
+    try {
+      if (job.copied.containsRange(range)) return;
+      final request = await client.getUrl(job.spec.uri);
+      for (final entry in originHeaders(job.spec, job.options).entries) {
+        request.headers.set(entry.key, entry.value);
+      }
+      request.headers
+        ..set(HttpHeaders.acceptEncodingHeader, 'identity')
+        ..set(
+          HttpHeaders.rangeHeader,
+          'bytes=${range.start}-${range.endInclusive}',
+        );
+      final response = await request.close().timeout(Aria2Window.idleTimeout);
+      if (response.statusCode != HttpStatus.partialContent) {
+        await response.drain<void>();
+        _logger?.warn(
+          'tail prefetch skipped: origin returned ${response.statusCode}',
+        );
+        return;
+      }
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in response.timeout(Aria2Window.idleTimeout)) {
+        bytes.add(chunk);
+      }
+      if (bytes.length != range.length) {
+        _logger?.warn(
+          'tail prefetch skipped: got ${bytes.length} of ${range.length} bytes',
+        );
+        return;
+      }
+      await job.run(() async {
+        if (!_jobs.containsValue(job)) return;
+        final out = await job.file.open(mode: FileMode.writeOnlyAppend);
+        try {
+          await out.setPosition(range.start);
+          await out.writeFrom(bytes.takeBytes());
+          await out.flush();
+        } finally {
+          await out.close();
+        }
+        job.copied = job.copied.add(range);
+        job.evicted = subtractRange(job.evicted, range);
+        job.changes.add(job.copied);
+        await _saveCoverage(job);
+      });
+    } catch (error, stack) {
+      _logger?.warn('tail prefetch failed', error: error, stack: stack);
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// The origin went away under the running window: drop it and queue a new
+  /// one after a backoff (0.5, 1, then 2 s), for as long as the job lives.
+  /// [_statusBounded] reports the outage until bytes flow again.
+  Future<void> _stallWindow(_Job job, Object cause) async {
+    await _cancelWindow(job);
+    job.outage = TransportFailure.httpUnreachable(cause: cause);
+    // A rate-limited origin said how long to wait; honor it (capped).
+    job.retryAt = DateTime.now().add(
+      (cause is OriginRateLimited ? cause.retryAfter : null) ??
+          Duration(milliseconds: 500 << job.failures.clamp(0, 2)),
+    );
+    job.failures++;
+    _logger?.warn(
+      'origin unreachable, retrying (attempt ${job.failures})',
+      error: cause,
     );
   }
 
   Future<void> _queueBounded(_Job job) async {
     if (job.window != null) return;
+    final retryAt = job.retryAt;
+    if (retryAt != null && DateTime.now().isBefore(retryAt)) return;
     final desired = job.desired;
     if (desired == null) return;
     final gap = job.copied.firstGapFrom(desired.start);
     if (gap.start > desired.endInclusive) return;
     final gapEnd = gap.endInclusive;
-    final end = gapEnd != null && gapEnd < desired.endInclusive
+    var end = gapEnd != null && gapEnd < desired.endInclusive
         ? gapEnd
         : desired.endInclusive;
+    // After an outage the player is starved: a small first window keeps all
+    // the bandwidth on the bytes it waits for instead of striping it over
+    // eight pieces far ahead.
+    if (job.outage != null && end > gap.start + _recoveryWindow - 1) {
+      end = gap.start + _recoveryWindow - 1;
+    }
+    // aria2 reports a piece only when it is whole. The first window is small so
+    // the player's first read (container probe) does not wait for a full 1 MiB
+    // piece on a slow link; the next window continues from the gap.
+    if (!job.firstWindowOpened && end > gap.start + _firstWindow - 1) {
+      end = gap.start + _firstWindow - 1;
+    }
+    job.firstWindowOpened = true;
     final window = await Aria2Window.open(
       job.spec,
       ByteRange(gap.start, end),
@@ -540,7 +673,7 @@ final class Aria2FfiBackend implements Aria2Backend {
   };
 
   Future<void> _resume(int gid) =>
-      _retryBusy(() => _requireSession().setPaused(gid, paused: false));
+      _retryBusy(() => _sessionFor(gid).setPaused(gid, paused: false));
   Future<Aria2FfiStatus> _waitFor(
     int gid,
     bool Function(Aria2FfiStatus) ready, {
@@ -550,7 +683,7 @@ final class Aria2FfiBackend implements Aria2Backend {
     // 50 ms for 5 s. Replace with a native event if the shim grows one.
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (true) {
-      final status = await _retryBusy(() => _requireSession().status(gid));
+      final status = await _retryBusy(() => _sessionFor(gid).status(gid));
       if (ready(status)) return status;
       if (status.failure != null || status.state == _stateRemoved) {
         throw TransportFailure.httpUnreachable(
@@ -566,13 +699,32 @@ final class Aria2FfiBackend implements Aria2Backend {
     }
   }
 
+  /// `remove` only queues the removal: the engine thread may still write the
+  /// download's files until its state leaves active/waiting/paused (0..2) or
+  /// the handle is gone. The window directory may be deleted after that.
+  Future<void> _awaitStopped(int gid) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        if (_sessionFor(gid).status(gid).state > 2) return;
+      } on Aria2FfiException catch (error) {
+        if (error.code != -3) return; // handle gone
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+    throw TransportFailure.httpUnreachable(
+      cause: 'aria2 window $gid did not stop',
+    );
+  }
+
   Future<void> _cancelWindow(_Job job) async {
     final window = job.window;
     if (window == null) return;
     final gid = window.gid;
     if (gid != null) {
       try {
-        await _retryBusy(() => _requireSession().remove(gid));
+        await _retryBusy(() => _sessionFor(gid).remove(gid));
+        await _awaitStopped(gid);
       } on Aria2FfiException catch (error, stack) {
         _logger?.warn(
           'libaria2 window remove failed',
@@ -605,7 +757,7 @@ final class Aria2FfiBackend implements Aria2Backend {
     await job.run(() async {
       await _cancelWindow(job);
       try {
-        await _retryBusy(() => _requireSession().remove(gid));
+        await _retryBusy(() => _sessionFor(gid).remove(gid));
       } on Aria2FfiException catch (error, stack) {
         _logger?.warn('libaria2 remove failed', error: error, stack: stack);
       } finally {
@@ -621,6 +773,9 @@ final class Aria2FfiBackend implements Aria2Backend {
     _session = null;
     started = false;
     session?.dispose();
+    _insecure?.dispose();
+    _insecure = null;
+    _insecureGids.clear();
     for (final job in _jobs.values.toList()) {
       await job.run(() async {
         await job.window?.close();
@@ -628,6 +783,29 @@ final class Aria2FfiBackend implements Aria2Backend {
       });
     }
     _jobs.clear();
+  }
+
+  Aria2FfiSession _sessionFor(int gid) =>
+      _insecureGids.contains(gid) ? _insecure! : _requireSession();
+
+  Aria2FfiSession _requireInsecure() {
+    _requireSession();
+    var session = _insecure;
+    if (session == null) {
+      session = Aria2FfiSession(
+        library ?? openAria2Library(),
+        verifyCertificate: false,
+      );
+      final startupError = session.error;
+      if (startupError.isNotEmpty) {
+        session.dispose();
+        throw TransportFailure.engineUnavailable(
+          cause: Aria2FfiException('create session', startupError),
+        );
+      }
+      _insecure = session;
+    }
+    return session;
   }
 
   Aria2FfiSession _requireSession() {
@@ -664,11 +842,21 @@ class _Job {
 
   /// Every downloaded byte moves into the file, not only demanded ones.
   bool copyAll = false;
+
+  /// Bumped by each demand window change; lets a running copy yield to it.
+  int seekEpoch = 0;
   final changes = StreamController<RangeSet>.broadcast();
   RangeSet copied = RangeSet.empty();
   // Ranges punched out of the file: aria2 still believes it has them.
   RangeSet evicted = RangeSet.empty();
   Aria2Window? window;
+
+  /// Network outage state of a bounded job: consecutive failed windows, the
+  /// earliest time the next one may start, and the failure to report.
+  int failures = 0;
+  bool firstWindowOpened = false;
+  DateTime? retryAt;
+  TransportFailure? outage;
   Future<void> _tail = Future.value();
   Future<void> close() async {
     await changes.close();

@@ -1,0 +1,28 @@
+diff --git a/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm b/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm
+index 0b11d4d..6948929 100644
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKDevice.mm
+@@ -1368,0 +1369 @@
++        colorSpaces.push_back(VK_COLOR_SPACE_DISPLAY_P3_LINEAR_EXT);
+diff --git a/MoltenVK/MoltenVK/Utility/MVKSmallVector.h b/MoltenVK/MoltenVK/Utility/MVKSmallVector.h
+index 6294f91..a4e3cd5 100755
+--- a/MoltenVK/MoltenVK/Utility/MVKSmallVector.h
++++ b/MoltenVK/MoltenVK/Utility/MVKSmallVector.h
+@@ -90 +90 @@ public:
+-    Type &operator*()  { return  vector->alc.ptr[index]; }
++    Type &operator*() const { return  vector->alc.ptr[index]; }
+@@ -101 +101 @@ public:
+-    iterator operator+ (const diff_type n)   { return iterator( index + n, *vector ); }
++    iterator operator+ (const diff_type n) const { return iterator( index + n, *vector ); }
+@@ -103 +103 @@ public:
+-    iterator operator- (const diff_type n)   { return iterator( index - n, *vector ); }
++    iterator operator- (const diff_type n) const { return iterator( index - n, *vector ); }
+@@ -553 +553 @@ public:
+-    Type *&operator*() { return vector->alc[index]; }
++    Type *&operator*() const { return vector->alc[index]; }
+@@ -563 +563 @@ public:
+-    iterator operator+ (const diff_type n)   { return iterator( index + n, *vector ); }
++    iterator operator+ (const diff_type n) const { return iterator( index + n, *vector ); }
+@@ -565 +565 @@ public:
+-    iterator operator- (const diff_type n)   { return iterator( index - n, *vector ); }
++    iterator operator- (const diff_type n) const { return iterator( index - n, *vector ); }

@@ -1,5 +1,7 @@
 import '../pt_runtime.dart';
 import 'dart:convert';
+import 'dart:isolate';
+
 import 'package:http/http.dart' as http;
 
 class TmdbHelper {
@@ -50,8 +52,15 @@ class TmdbHelper {
           final uri = Uri.parse('$_tmdbDirect/find/$cleanId?external_source=imdb_id');
           final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 7));
           if (res.statusCode == 200) {
-            final data = jsonDecode(res.body);
-            final results = isTv ? (data['tv_results'] as List?) : (data['movie_results'] as List?);
+            final body = res.body;
+            Future<Object?> decodeBody(String payload) =>
+                Isolate.run(() => jsonDecode(payload));
+            final data = body.length > 50 * 1024
+                ? await decodeBody(body)
+                : jsonDecode(body);
+            final results = isTv
+                ? (data['tv_results'] as List?)
+                : (data['movie_results'] as List?);
             if (results != null && results.isNotEmpty) {
               final id = results.first['id'] as int?;
               if (id != null) {
@@ -67,8 +76,15 @@ class TmdbHelper {
           final uri = Uri.parse('$_tmdbProxy/find/$cleanId?external_source=imdb_id');
           final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 6));
           if (res.statusCode == 200) {
-            final data = jsonDecode(res.body);
-            final results = isTv ? (data['tv_results'] as List?) : (data['movie_results'] as List?);
+            final body = res.body;
+            Future<Object?> decodeBody(String payload) =>
+                Isolate.run(() => jsonDecode(payload));
+            final data = body.length > 50 * 1024
+                ? await decodeBody(body)
+                : jsonDecode(body);
+            final results = isTv
+                ? (data['tv_results'] as List?)
+                : (data['movie_results'] as List?);
             if (results != null && results.isNotEmpty) {
               final id = results.first['id'] as int?;
               if (id != null) {
@@ -90,7 +106,12 @@ class TmdbHelper {
         final uri = Uri.parse('$_tmdbDirect/search/$endpoint?query=${Uri.encodeComponent(title)}');
         final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 7));
         if (res.statusCode == 200) {
-          final data = jsonDecode(res.body);
+          final body = res.body;
+          Future<Object?> decodeBody(String payload) =>
+              Isolate.run(() => jsonDecode(payload));
+          final data = body.length > 50 * 1024
+              ? await decodeBody(body)
+              : jsonDecode(body);
           final results = data['results'] as List?;
           if (results != null && results.isNotEmpty) {
             int? bestMatchId;
@@ -140,7 +161,12 @@ class TmdbHelper {
         final uri = Uri.parse('$_tmdbProxy/search/$endpoint?query=${Uri.encodeComponent(title)}');
         final res = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 6));
         if (res.statusCode == 200) {
-          final data = jsonDecode(res.body);
+          final body = res.body;
+          Future<Object?> decodeBody(String payload) =>
+              Isolate.run(() => jsonDecode(payload));
+          final data = body.length > 50 * 1024
+              ? await decodeBody(body)
+              : jsonDecode(body);
           final results = data['results'] as List?;
           if (results != null && results.isNotEmpty) {
             for (final item in results) {

@@ -64,7 +64,7 @@ class ProgressOverlay extends StatelessWidget {
       return Align(
         alignment: Alignment.topRight,
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(RivuletSpacing.s8),
           child: Semantics(
             label: AppStrings.of(context).badge_unwatchedEpisodes(
               unwatched,
@@ -72,10 +72,10 @@ class ProgressOverlay extends StatelessWidget {
             ),
             excludeSemantics: true,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: RivuletSpacing.s8, vertical: RivuletSpacing.s4),
               decoration: BoxDecoration(
                 color: colors.accent,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(RivuletRadius.xs),
               ),
               child: AppText(
                 formatCount(context, unwatched),
@@ -95,7 +95,7 @@ class ProgressOverlay extends StatelessWidget {
       return Align(
         alignment: Alignment.bottomLeft,
         child: Padding(
-          padding: const EdgeInsets.only(left: 16, bottom: 15),
+          padding: const EdgeInsets.only(left: RivuletSpacing.s16, bottom: RivuletSpacing.s16),
           child: Semantics(
             label: AppStrings.of(context).common_watched,
             excludeSemantics: true,
@@ -117,7 +117,7 @@ class ProgressOverlay extends StatelessWidget {
     return Align(
       alignment: Alignment.bottomLeft,
       child: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, bottom: 15),
+        padding: const EdgeInsets.only(left: RivuletSpacing.s16, right: RivuletSpacing.s16, bottom: RivuletSpacing.s16),
         child: Semantics(
           label: AppStrings.of(context)
               .badge_progress(formatCount(context, (fraction * 100).round())),
@@ -131,13 +131,13 @@ class ProgressOverlay extends StatelessWidget {
                 color: colors.textPrimary,
                 size: 22,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: RivuletSpacing.s8),
               Container(
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
                   color: colors.textPrimary.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(RivuletRadius.full),
                 ),
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
@@ -145,13 +145,13 @@ class ProgressOverlay extends StatelessWidget {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: colors.textPrimary,
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(RivuletRadius.full),
                     ),
                   ),
                 ),
               ),
               if (infoText != null) ...[
-                const SizedBox(width: 10),
+                const SizedBox(width: RivuletSpacing.s8),
                 // `MediaProgressInfoBar.swift:65-66`: 20pt medium info text.
                 AppText(
                   infoText!,

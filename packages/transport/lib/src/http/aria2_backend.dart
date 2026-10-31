@@ -6,9 +6,9 @@ const aria2StreamingOptions = <String, String>{
   'allow-overwrite': 'false',
   'auto-file-renaming': 'false',
   'file-allocation': 'none',
-  'split': '4',
-  'max-connection-per-server': '4',
-  'min-split-size': '1M',
+  'split': '2',
+  'max-connection-per-server': '2',
+  'min-split-size': '8M',
   'stream-piece-selector': 'inorder',
 };
 
@@ -20,6 +20,7 @@ class BackendStatus {
     this.peersOrConnections = 0,
     this.paused = false,
     this.error,
+    this.stall,
   }) : available = available ?? RangeSet.empty();
   final int? totalBytes;
   final RangeSet available;
@@ -29,6 +30,10 @@ class BackendStatus {
   /// The main download is paused (by the cache limit or a seek window).
   final bool paused;
   final Object? error;
+
+  /// The origin is unreachable right now and the backend is retrying with a
+  /// backoff. Unlike [error] it is not final: it clears when bytes flow again.
+  final TransportFailure? stall;
 }
 
 abstract interface class Aria2Backend {
@@ -50,6 +55,7 @@ abstract interface class Aria2Backend {
   int reservedBytes(String jobId);
   Set<String> get activeWindowPaths;
   Stream<RangeSet> availabilityChanges(String jobId);
+
   ///
   /// With [updateAhead], [copyAll] also moves every downloaded byte of the
   /// window into the file at once (the whole item is being kept), not only

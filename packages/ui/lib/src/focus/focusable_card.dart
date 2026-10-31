@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+import '../components/hints_scope.dart';
+import '../l10n_gen/app_strings.dart';
 import '../platform/adaptive_behavior.dart';
 import '../player/transport_control_button.dart' show TransportControlButton;
 import '../platform/form_factor.dart';
@@ -20,36 +24,37 @@ class FocusableCard extends StatefulWidget {
 
   /// TV vertical focus aligns the whole section below the floating controls.
   static void revealSection(BuildContext context) {
+    // One scroll straight to the section top, started on the frame after the
+    // focus move. It replaces the minimal reveal that began with the focus; the
+    // old 200 ms wait followed by a jump made every row move stall, then snap.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) return;
-      Future<void>.delayed(RivuletMotion.base, () {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!context.mounted) return;
-          var focused = false;
-          FocusManager.instance.primaryFocus?.context?.visitAncestorElements((
-            e,
-          ) {
-            if (e == context) focused = true;
-            return !focused;
-          });
-          if (!focused) return;
-          final scrollable = Scrollable.maybeOf(context, axis: Axis.vertical);
-          final object = context.findRenderObject();
-          if (scrollable == null || object == null) return;
-          final viewport = RenderAbstractViewport.maybeOf(object);
-          if (viewport == null) return;
-          final position = scrollable.position;
-          final target =
-              viewport.getOffsetToReveal(object, 0).offset -
-              RivuletSpacing.topInset(FormFactor.tv);
-          position.jumpTo(
-            target.clamp(position.minScrollExtent, position.maxScrollExtent),
-          );
-        });
-        WidgetsBinding.instance.scheduleFrame();
+      var focused = false;
+      FocusManager.instance.primaryFocus?.context?.visitAncestorElements((e) {
+        if (e == context) focused = true;
+        return !focused;
       });
+      if (!focused) return;
+      final scrollable = Scrollable.maybeOf(context, axis: Axis.vertical);
+      final object = context.findRenderObject();
+      if (scrollable == null || object == null) return;
+      final viewport = RenderAbstractViewport.maybeOf(object);
+      if (viewport == null) return;
+      final position = scrollable.position;
+      final target =
+          viewport.getOffsetToReveal(object, 0).offset -
+          RivuletSpacing.contentTop(FormFactor.tv);
+      scrollPositionTo(
+        position,
+        target.clamp(position.minScrollExtent, position.maxScrollExtent),
+        duration: effectiveDuration(context, rowScrollDuration),
+        curve: Curves.easeOutCubic,
+      );
     });
   }
+
+  /// Row-to-row glide on TV: slow enough to read as motion, not a jump.
+  static const Duration rowScrollDuration = Duration(milliseconds: 300);
 
   /// Space above and below cards for their focus scale and glow.
   static double focusRoom(double cardHeight) => cardHeight * 0.04 + 16;
@@ -199,6 +204,14 @@ class _FocusableCardState extends State<FocusableCard>
         _focused && focusRingVisibleFor(AdaptiveBehavior.of(context).inputMode);
     final highContrast = MediaQuery.highContrastOf(context);
     final radius = BorderRadius.circular(RivuletRadius.medium);
+    // The hover "..." button: desktop pointer only, same menu as right-click.
+    final profile = AdaptiveBehavior.of(context);
+    final showMore =
+        _hovered &&
+        widget.enabled &&
+        widget.onSecondaryTap != null &&
+        profile.formFactor == FormFactor.desktop &&
+        profile.inputMode == InputMode.pointer;
     return Semantics(
       label: widget.semanticLabel,
       button: true,
@@ -228,11 +241,11 @@ class _FocusableCardState extends State<FocusableCard>
                 ? SystemMouseCursors.click
                 : MouseCursor.defer,
             onEnter: (_) {
-              _hovered = true;
+              setState(() => _hovered = true);
               _syncScale();
             },
             onExit: (_) {
-              _hovered = false;
+              setState(() => _hovered = false);
               _syncScale();
             },
             child: Focus(
@@ -251,6 +264,15 @@ class _FocusableCardState extends State<FocusableCard>
                   widget.memory.remember(widget.surfaceId, widget.itemId);
                   widget.onFocused?.call();
                   widget.onFixedFocus?.call();
+                  if (widget.onSecondaryTap != null &&
+                      AdaptiveBehavior.formFactorOf(context) ==
+                          FormFactor.tv) {
+                    showHintOnce(
+                      context,
+                      'cardOptions',
+                      AppStrings.of(context).hint_holdOk,
+                    );
+                  }
                   if (widget.revealAncestors) {
                     _revealMinimal();
                   } else if (widget.onFixedFocus == null) {
@@ -266,7 +288,11 @@ class _FocusableCardState extends State<FocusableCard>
                 scale: _scale,
                 child: CustomPaint(
                   foregroundPainter: ring
-                      ? FocusRingPainter(radius: radius, color: colors.accent)
+                      ? FocusRingPainter.of(
+                          context,
+                          radius: radius,
+                          color: colors.accent,
+                        )
                       : null,
                   child: DecoratedBox(
                     position: DecorationPosition.foreground,
@@ -281,9 +307,21 @@ class _FocusableCardState extends State<FocusableCard>
                     // `.merge`, not the plain constructor: a plain
                     // `DefaultTextStyle` replaces the ambient default
                     // outright and drops the fallback font in tests.
-                    child: DefaultTextStyle.merge(
-                      style: styles.label,
-                      child: widget.child,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      fit: StackFit.passthrough,
+                      children: <Widget>[
+                        DefaultTextStyle.merge(
+                          style: styles.label,
+                          child: widget.child,
+                        ),
+                        if (showMore)
+                          Positioned(
+                            top: RivuletSpacing.s8,
+                            right: RivuletSpacing.s8,
+                            child: _MoreButton(onTap: _openMenu),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -363,7 +401,7 @@ class _FocusableCardState extends State<FocusableCard>
         key == LogicalKeyboardKey.numpadEnter ||
         key == LogicalKeyboardKey.select ||
         key == LogicalKeyboardKey.space;
-    final tv = AdaptiveBehavior.of(context).formFactor == FormFactor.tv;
+    final tv = AdaptiveBehavior.formFactorOf(context) == FormFactor.tv;
     if (tv && select && widget.enabled && widget.onSecondaryTap != null) {
       return _onTvSelect(event);
     }
@@ -409,5 +447,40 @@ class _FocusableCardState extends State<FocusableCard>
     _focusNode.requestFocus();
     widget.onFocused?.call();
     widget.onTap?.call();
+  }
+}
+
+/// The 32 px hover button at a poster's top-right that opens its menu.
+class _MoreButton extends StatelessWidget {
+  const _MoreButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = RivuletTokens.of(context).colors;
+    return Semantics(
+      button: true,
+      label: AppStrings.of(context).menu_moreOptions,
+      child: GestureDetector(
+        key: const ValueKey<String>('card-more'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: RivuletSpacing.s32,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.scrim,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              PhosphorIconsBold.dotsThree,
+              size: RivuletSpacing.s20,
+              color: colors.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

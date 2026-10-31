@@ -33,6 +33,7 @@
   "common_tvShows": "TV shows",
   "common_watched": "Watched",
   "common_liked": "Liked",
+  "common_continueWatching": "Continue watching",
   "common_home": "Home",
   "common_settings": "Settings",
   "artwork_unavailable": "Artwork unavailable",
@@ -71,6 +72,7 @@
   "playlink_clearConfirm": "Clear all recent links?",
   "playlink_hint": "Torrent / https link",
   "playlink_import": "Import .torrent",
+  "playlink_noFiles": "Apple TV cannot open files. Paste a torrent or https link above instead.",
   "playlink_insert": "Insert link",
   "playlink_recent": "Recent",
   "playlink_recentEmpty": "Links you play will appear here.",
@@ -78,6 +80,8 @@
   "play_infoFileName": "File name",
   "play_infoRelease": "Release",
   "play_insertLink": "Insert link…",
+  "play_best": "Play best",
+  "play_otherSources": "Other sources",
   "play_pickProvider": "Pick a provider",
   "play_refresh": "Refresh",
   "play_sortSeeds": "Seeds",
@@ -104,34 +108,40 @@
   "year_singleOrRange": "Single year or range",
   "year_title": "Year",
   "year_to": "To",
-  "failure_transportHttpNoRangeSupport": "This HTTP source does not support seeking.",
-  "failure_transportHttpValidatorChanged": "The HTTP file changed while it was loading.",
-  "failure_transportHttpUnreachable": "The HTTP source could not be reached.",
-  "failure_transportRangeUnsatisfiable": "The requested media range is unavailable.",
-  "failure_transportTorrentNoMetadata": "Torrent metadata did not arrive in time.",
-  "failure_transportTorrentNoPeers": "This torrent has no available peers.",
-  "failure_transportTorrentStalled": "The torrent stopped delivering the requested media.",
-  "failure_transportTorrentFileError": "The torrent could not access its media files.",
-  "failure_transportTorrentFileNotFound": "The requested file is not in the torrent.",
-  "failure_transportEngineUnavailable": "The streaming engine is unavailable on this device.",
-  "failure_transportLocalNotFound": "The local file could not be found.",
-  "failure_transportLocalNotReadable": "The local file could not be read.",
-  "failure_transportLocalEmpty": "The local file is empty.",
-  "failure_transportLocalUnsupportedUri": "This local source URI is not supported.",
-  "failure_playbackOpenFailed": "The media could not be opened.",
-  "failure_playbackDecodeFailed": "The media could not be decoded.",
-  "failure_playbackEngineCrashed": "The playback engine stopped unexpectedly.",
-  "failure_playbackSourceUnreachable": "The playback source became unreachable.",
-  "failure_playbackUnsupportedCodec": "This media uses an unsupported codec.",
-  "failure_playbackTrackSelectionFailed": "The requested playback track could not be selected.",
-  "failure_playbackSubtitleLoadFailed": "The external subtitle could not be loaded.",
-  "failure_platformUnsupported": "This operation is not supported on this platform.",
-  "failure_platformPermissionDenied": "The platform denied the required permission.",
-  "failure_platformDisplaySwitchFailed": "The display mode could not be changed.",
-  "failure_platformAudioDeviceLost": "The selected audio device is no longer available.",
-  "failure_platformProbeFailed": "Platform capabilities could not be determined.",
-  "failure_appUnexpected": "The application encountered an unexpected failure.",
+  "failure_transportHttpNoRangeSupport": "This HTTP source does not support seeking. Choose another source.",
+  "failure_transportHttpValidatorChanged": "The HTTP file changed while it was loading. Try again.",
+  "failure_transportHttpUnreachable": "The HTTP source could not be reached. Check your connection and try again.",
+  "failure_transportRangeUnsatisfiable": "The requested part of the media is unavailable. Choose another source.",
+  "failure_transportTorrentNoMetadata": "Torrent details did not arrive in time. Try again.",
+  "failure_transportTorrentNoPeers": "This torrent has no available peers. Choose another torrent.",
+  "failure_transportTorrentStalled": "The torrent stopped delivering the media. Try again or choose another source.",
+  "failure_transportTorrentFileError": "The torrent could not access its files. Check that the device has free storage space and try again.",
+  "failure_transportTorrentFileNotFound": "The requested file is not in the torrent. Choose another file.",
+  "failure_transportEngineUnavailable": "The streaming engine failed to start on this device. Restart the app; if it keeps happening, reinstall it.",
+  "failure_transportDiskInsufficient": "There is not enough free storage space to start this stream. Free up space or lower the cache size limit in Settings, then try again.",
+  "failure_transportLocalNotFound": "The local file could not be found. Check that it has not been moved or deleted.",
+  "failure_transportLocalNotReadable": "The local file could not be read. Check the file permissions.",
+  "failure_transportLocalEmpty": "The local file is empty. Choose another file.",
+  "failure_transportLocalUnsupportedUri": "This local source address is not supported. Choose another file.",
+  "failure_playbackOpenFailed": "The media could not be opened. Try again or choose another source.",
+  "failure_playbackDecodeFailed": "The media could not be decoded. Choose another source.",
+  "failure_playbackSurfaceUnavailable": "The video output could not start on this device. Restart the app and try again.",
+  "failure_playbackEngineCrashed": "The playback engine stopped unexpectedly. Try again; if it keeps happening, restart the app.",
+  "failure_playbackSourceUnreachable": "The connection to the playback source was lost. Check your connection and try again.",
+  "failure_playbackUnsupportedCodec": "This media uses a codec that is not supported. Choose another source.",
+  "failure_playbackTrackSelectionFailed": "The requested track could not be selected. Choose another track.",
+  "failure_playbackSubtitleLoadFailed": "The external subtitle could not be loaded. Check the subtitle file and try again.",
+  "failure_platformUnsupported": "This operation is not supported on this device.",
+  "failure_platformPermissionDenied": "The required permission was not granted. Check the permissions in the device settings.",
+  "failure_platformDisplaySwitchFailed": "The display mode could not be changed. Choose another mode.",
+  "failure_platformAudioDeviceLost": "The selected audio device is no longer available. Choose another device.",
+  "failure_platformProbeFailed": "The device capabilities could not be determined. Try again.",
+  "failure_appUnexpected": "The app hit an unexpected error. Try again.",
   "failure_appCancelled": "The operation was cancelled before completion.",
+  "failure_storageOpenFailed": "The app database could not be opened. Restart the app; if it keeps happening, free up storage space.",
+  "failure_storageMigrationFailed": "The app database could not be updated to the new version. Restart the app; if it keeps happening, reinstall it.",
+  "failure_storageWriteFailed": "Your changes could not be saved. Check that the device has free storage space and try again.",
+  "failure_storageCorrupt": "The app database is damaged. Restart the app; if it keeps happening, reinstall it.",
   "badge_progress": "Progress {percent} percent",
   "badge_unwatchedEpisodes": "{count, plural, other{{number} unwatched episodes}}",
   "cast_castingTo": "Casting to {device}",
@@ -171,6 +181,12 @@
   },
   "@common_cancel": {
     "description": "Common UI: cancel; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@player_errorTitle": {
+    "description": "Player UI: short heading of the playback error card."
+  },
+  "@player_tryAnotherSource": {
+    "description": "Player UI: error card button that opens the source list for the same title."
   },
   "@common_close": {
     "description": "Common UI: close; displayed in shared shell, browse, detail, dialogs and buttons."
@@ -246,6 +262,9 @@
   },
   "@common_watched": {
     "description": "Common UI: watched; displayed in shared shell, browse, detail, dialogs and buttons."
+  },
+  "@common_continueWatching": {
+    "description": "Title of the Home row of partly watched titles."
   },
   "@common_liked": {
     "description": "Common UI: liked; displayed in shared shell, browse, detail, dialogs and buttons."
@@ -361,6 +380,9 @@
   "@playlink_hint": {
     "description": "Playlink UI: hint; displayed in playLink screens. LTR: URLs, file names and diagnostic codes remain LTR."
   },
+  "@playlink_noFiles": {
+    "description": "Playlink UI: shown instead of the Import .torrent button where the platform has no file picker (tvOS)."
+  },
   "@playlink_import": {
     "description": "Playlink UI: import; displayed in playLink screens. LTR: URLs, file names and diagnostic codes remain LTR."
   },
@@ -384,6 +406,12 @@
   },
   "@play_insertLink": {
     "description": "Play UI: insertLink; displayed in play screens."
+  },
+  "@play_best": {
+    "description": "Play UI: first row of a stream list that plays the best stream."
+  },
+  "@play_otherSources": {
+    "description": "Play UI: chip on the phone stream list that goes back to the provider list."
   },
   "@play_pickProvider": {
     "description": "Play UI: pickProvider; displayed in play screens."
@@ -493,6 +521,9 @@
   "@failure_transportEngineUnavailable": {
     "description": "Failure UI: transportEngineUnavailable; displayed in error states."
   },
+  "@failure_transportDiskInsufficient": {
+    "description": "Failure UI: transportDiskInsufficient; displayed in error states."
+  },
   "@failure_transportLocalNotFound": {
     "description": "Failure UI: transportLocalNotFound; displayed in error states."
   },
@@ -510,6 +541,9 @@
   },
   "@failure_playbackDecodeFailed": {
     "description": "Failure UI: playbackDecodeFailed; displayed in error states."
+  },
+  "@failure_playbackSurfaceUnavailable": {
+    "description": "Failure UI: playbackSurfaceUnavailable; displayed in error states."
   },
   "@failure_playbackEngineCrashed": {
     "description": "Failure UI: playbackEngineCrashed; displayed in error states."
@@ -720,13 +754,17 @@
   "@state_errorTitle": {
     "description": "state UI: errorTitle, shown in the corresponding shell, screen or state."
   },
-  "state_hideCode": "Hide error code",
+  "state_hideCode": "Hide details",
   "@state_hideCode": {
     "description": "state UI: hideCode, shown in the corresponding shell, screen or state."
   },
-  "state_showCode": "Show error code",
+  "state_showCode": "Details",
   "@state_showCode": {
     "description": "state UI: showCode, shown in the corresponding shell, screen or state."
+  },
+  "state_copyDetails": "Copy",
+  "@state_copyDetails": {
+    "description": "Error details: copies the error code and message."
   },
   "state_offline": "You're offline",
   "@state_offline": {
@@ -949,6 +987,7 @@
   "settings_video_aspectRatio_label": "Aspect ratio",
   "settings_video_decoder_label": "Video decoder",
   "settings_video_scalingQuality_label": "Scaling quality",
+  "settings_video_deinterlace_label": "Deinterlacing",
   "settings_video_toneMapping_label": "HDR to SDR tone mapping",
   "settings_video_pixelFormat_label": "Pixel format",
   "settings_video_bitDepth_label": "Bit depth",
@@ -1024,6 +1063,7 @@
   "settings_performance_gpuQuality_label": "GPU quality",
   "settings_performance_backgroundPreload_label": "Background preload",
   "settings_performance_decoderThreads_label": "Decoder threads",
+  "settings_performance_maxDecoderResolution_label": "Max decoder resolution",
   "settings_advanced_diagnostics_label": "Playback diagnostics",
   "settings_advanced_customMpvOptions_label": "Custom mpv options",
   "settings_playback_preferredAudioLanguage_label": "Preferred audio language",
@@ -1146,7 +1186,7 @@
   "settings_audio_title": "Audio",
   "settings_subtitles_title": "Subtitles",
   "settings_display_title": "Display",
-  "settings_streaming_title": "Streaming & Network",
+  "settings_streaming_title": "Network",
   "settings_downloads_title": "Downloads & Torrent",
   "settings_languages_title": "Languages & Tracks",
   "settings_performance_title": "Performance",
@@ -1154,7 +1194,7 @@
   "settings_decrease": "Decrease",
   "settings_increase": "Increase",
   "settings_unlimited": "Unlimited",
-  "settings_providers": "Providers",
+  "settings_providers": "Sources",
   "settings_advancedSettings": "Advanced settings",
   "settings_expert": "Expert",
   "settings_diagnostics": "Diagnostics",
@@ -1177,6 +1217,8 @@
   "player_downloadInfo": "Download info",
   "player_upNext": "Up Next",
   "player_download": "Download",
+  "player_errorTitle": "Couldn't play this",
+  "player_tryAnotherSource": "Try another source",
   "player_nextEpisode": "Next episode",
   "player_addSubtitleFile": "Add subtitle file…",
   "player_defaultBadge": "DEFAULT",
@@ -1200,6 +1242,7 @@
   "providers_signIn": "Sign in",
   "providers_buy": "Buy account",
   "providers_username": "Username or email",
+  "providers_apiKey": "API key",
   "providers_password": "Password",
   "providers_signingIn": "Signing in…",
   "providers_newCode": "New code",
@@ -1213,6 +1256,15 @@
   "player_infoFile": "File",
   "player_infoStreams": "Streams",
   "player_backToSubtitles": "Back to subtitles",
+  "player_subtitleDownloadFailed": "The subtitle could not be downloaded.",
+  "player_subtitleAuthFailed": "The subtitle service rejected your key or login. Sign in again in Settings → Providers.",
+  "player_subtitleQuotaReached": "The daily subtitle download limit is reached. Try again tomorrow.",
+  "player_subtitleServiceDown": "The subtitle service is not responding. Try again later.",
+  "home_limitedMode": "Limited mode — international internet unavailable",
+  "player_subtitleSearchFailed": "Subtitle search failed.",
+  "player_noSubtitlesFound": "No subtitles found for this title.",
+  "player_subtitleSignIn": "Sign in to {services} in Settings → Providers to search them.",
+  "@player_subtitleSignIn": {"placeholders": {"services": {"type": "String"}}},
   "player_noSubtitleSources": "No subtitle sources yet",
   "player_size": "Size",
   "player_position": "Position",
@@ -1262,6 +1314,18 @@
   "@settings_seconds": {
     "placeholders": {
       "value": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_cacheUsed": "Cache used",
+  "settings_cacheUsedValue": "{used} of {cap}",
+  "@settings_cacheUsedValue": {
+    "placeholders": {
+      "used": {
+        "type": "String"
+      },
+      "cap": {
         "type": "String"
       }
     }
@@ -1356,6 +1420,7 @@
   "diagnostics_supported": "Supported",
   "diagnostics_unsupported": "Not supported",
   "diagnostics_copy": "Copy diagnostics",
+  "diagnostics_previousCrash": "The app closed unexpectedly last time — share the log using Copy diagnostics.",
   "diagnostics_copied": "Diagnostics copied",
   "diagnostics_deviceCapabilities": "Device capabilities",
   "player_sourceStatus": "{state} · {speed} B/s · {connections} connections · {ranges} available ranges",
@@ -1384,6 +1449,17 @@
   "player_stats_TLS": "TLS",
   "player_stats_Connections": "Connections",
   "player_stats_Network": "Network",
+  "player_stats_Downloading": "Downloading",
+  "player_stats_Finding_peers": "Finding peers",
+  "player_stats_Complete": "Complete",
+  "player_stats_Failed": "Failed: {message}",
+  "@player_stats_Failed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "player_stats_Speed": "Speed",
   "player_stats_Speed_down": "Speed down",
   "player_stats_Speed_up": "Speed up",
@@ -1573,6 +1649,14 @@
   "player_transportUnknownTransport": "The source reported an unknown transport failure.",
   "settings_choiceMbps": "{value} Mbps",
   "settings_choiceGB": "{value} GB",
+  "settings_choiceResolution": "{value}p",
+  "@settings_choiceResolution": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "@settings_choiceMbps": {
     "placeholders": {
       "value": {
@@ -1606,5 +1690,280 @@
       }
     }
   },
-  "player_subtitleNotAdded": "Subtitle was not added."
+  "player_subtitleNotAdded": "Subtitle was not added.",
+  "@failure_storageOpenFailed": {
+    "description": "Failure UI: storageOpenFailed; displayed in error states."
+  },
+  "@failure_storageMigrationFailed": {
+    "description": "Failure UI: storageMigrationFailed; displayed in error states."
+  },
+  "@failure_storageWriteFailed": {
+    "description": "Failure UI: storageWriteFailed; displayed in error states."
+  },
+  "@failure_storageCorrupt": {
+    "description": "Failure UI: storageCorrupt; displayed in error states."
+  },
+  "settings_titleApi": "Title API",
+  "settings_titleApi_hint": "Where titles, posters and details come from. The app tries these from top to bottom.",
+  "domain_label": "Domain",
+  "domain_change": "Change",
+  "domain_useDefault": "Use default",
+  "domain_save": "Save",
+  "domain_hint": "e.g. https://example.com:8888/path",
+  "domain_invalid": "Enter an http or https address with a host.",
+  "titleApi_proxy": "Backup proxy",
+  "titleApi_reset": "Reset domains and order",
+  "toast_liked": "Added to Liked",
+  "@toast_liked": {
+    "description": "Toast after liking a title."
+  },
+  "toast_unliked": "Removed from Liked",
+  "@toast_unliked": {
+    "description": "Toast after unliking a title."
+  },
+  "toast_removedContinue": "Removed from Continue Watching",
+  "@toast_removedContinue": {
+    "description": "Toast after removing a card from Continue Watching."
+  },
+  "back_pressAgainToExit": "Press back again to exit",
+  "@back_pressAgainToExit": {
+    "description": "Toast on Android after Back on Home; a second Back within 2 s exits."
+  },
+  "toast_undo": "Undo",
+  "@toast_undo": {
+    "description": "Toast action that reverses the last change."
+  },
+  "toast_saveFailed": "Couldn't save. Try again.",
+  "@toast_saveFailed": {
+    "description": "Toast shown when a change could not be saved."
+  },
+  "menu_resumeAt": "Resume at {time}",
+  "@menu_resumeAt": {
+    "description": "Menu action: resume playback; {time} is the saved position like 1:07.",
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "menu_moreOptions": "More options",
+  "@menu_moreOptions": {
+    "description": "Label of the hover button that opens a poster's menu."
+  },
+  "hint_holdOk": "Hold OK for options",
+  "@hint_holdOk": {
+    "description": "One-time TV hint shown on first card focus."
+  },
+  "hint_tvMenu": "Press ◀ for the menu",
+  "@hint_tvMenu": {
+    "description": "One-time TV hint shown on the first Home visit."
+  },
+  "hint_phoneHold": "Press and hold a poster for options",
+  "@hint_phoneHold": {
+    "description": "One-time phone hint shown on the first Home visit."
+  },
+  "detail_more": "More",
+  "@detail_more": {
+    "description": "TV button after a cut summary that opens the full text."
+  },
+  "shortcuts_title": "Keyboard shortcuts",
+  "@shortcuts_title": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_app": "App",
+  "@shortcuts_app": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_player": "Player",
+  "@shortcuts_player": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_refresh": "Refresh this page",
+  "@shortcuts_refresh": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_back": "Go back",
+  "@shortcuts_back": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_menu": "Open the menu",
+  "@shortcuts_menu": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_help": "Show this list",
+  "@shortcuts_help": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_playPause": "Play or pause",
+  "@shortcuts_playPause": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_seek": "Skip 10 seconds back or forward",
+  "@shortcuts_seek": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_volume": "Volume up or down",
+  "@shortcuts_volume": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_mute": "Mute or unmute",
+  "@shortcuts_mute": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_fullscreen": "Full screen",
+  "@shortcuts_fullscreen": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_subtitles": "Subtitles on or off",
+  "@shortcuts_subtitles": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_stats": "Playback stats",
+  "@shortcuts_stats": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "shortcuts_jump": "Jump back or forward",
+  "@shortcuts_jump": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "menuBar_view": "View",
+  "@menuBar_view": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "menuBar_help": "Help",
+  "@menuBar_help": {
+    "description": "Part 07 p11 desktop shortcuts and menu bar."
+  },
+  "player_badge_seconds": "{n} s",
+  "@player_badge_seconds": {
+    "description": "Part 07 p12 player badges, fullscreen and TV hint.",
+    "placeholders": {"n": {"type": "int"}}
+  },
+  "player_badge_volume": "Volume {percent}%",
+  "@player_badge_volume": {
+    "description": "Part 07 p12 player badges, fullscreen and TV hint.",
+    "placeholders": {"percent": {"type": "int"}}
+  },
+  "player_badge_muted": "Muted",
+  "@player_badge_muted": {
+    "description": "Part 07 p12 player badges, fullscreen and TV hint."
+  },
+  "player_fullscreen": "Full screen",
+  "@player_fullscreen": {
+    "description": "Part 07 p12 player badges, fullscreen and TV hint."
+  },
+  "player_exitFullscreen": "Exit full screen",
+  "@player_exitFullscreen": {
+    "description": "Part 07 p12 player badges, fullscreen and TV hint."
+  },
+  "player_fitScreen": "Fit to screen",
+  "@player_fitScreen": {
+    "description": "Part 07 p14 phone fill/fit button."
+  },
+  "hint_tvSeek": "◀ ▶ skip 10 s · hold to scrub · OK to confirm",
+  "@hint_tvSeek": {
+    "description": "Part 07 p12 player badges, fullscreen and TV hint."
+  },
+  "settings_desc_playback_resume": "Choose whether a video continues where you stopped.",
+  "settings_desc_playback_autoPlayNext": "Starts the next episode on its own when one ends.",
+  "settings_desc_playback_rememberPosition": "Saves how far you watched so you can come back later.",
+  "settings_desc_playback_speed": "How fast videos play by default.",
+  "settings_desc_playback_syncToDisplay": "Matches video timing to the screen for smoother motion.",
+  "settings_desc_playback_avSyncCorrection": "Keeps picture and sound together when they drift apart.",
+  "settings_desc_playback_cachePreset": "How much video is loaded ahead of time; more helps on slow networks.",
+  "settings_desc_playback_demuxerCacheSize": "The memory set aside for video that is loaded but not yet played.",
+  "settings_desc_playback_readAhead": "How many seconds of video are loaded in advance.",
+  "settings_desc_playback_networkTimeout": "How long to wait for a slow server before giving up.",
+  "settings_desc_video_hwdec": "Uses the device's video chip, which saves battery and runs smoother.",
+  "settings_desc_video_hdr": "Chooses how bright, high-contrast HDR videos are shown.",
+  "settings_desc_video_matchFrameRate": "Switches the screen to the video's frame rate for smoother motion.",
+  "settings_desc_video_matchResolution": "Switches the screen to the video's resolution when it can.",
+  "settings_desc_video_aspectRatio": "Chooses how the picture is stretched or cropped to fit the screen.",
+  "settings_desc_video_decoder": "Picks which decoder turns the video file into a picture.",
+  "settings_desc_video_deinterlace": "Removes the comb-like lines that interlaced videos can show.",
+  "settings_desc_video_scalingQuality": "Higher quality sharpens upscaled video but uses more power.",
+  "settings_desc_video_toneMapping": "Converts HDR colours so they look right on a normal screen.",
+  "settings_desc_video_pixelFormat": "The colour format used inside the video pipeline.",
+  "settings_desc_video_bitDepth": "How many shades of colour the output can show.",
+  "settings_desc_video_chroma": "How colour detail is scaled; leave on automatic unless you see colour fringes.",
+  "settings_desc_video_dithering": "Adds tiny noise to hide visible bands in smooth colours.",
+  "settings_desc_video_interpolation": "Blends frames to make motion look smoother.",
+  "settings_desc_video_debanding": "Smooths visible colour bands in skies and dark scenes.",
+  "settings_desc_video_gpuRendering": "Advanced options for how the graphics chip draws the video.",
+  "settings_desc_video_displayModeWhitelist": "Limits which screen modes the app may switch to.",
+  "settings_desc_audio_outputDevice": "Where sound plays: speakers, headphones or another device.",
+  "settings_desc_audio_speakerLayout": "How many speakers your setup has, from stereo to surround.",
+  "settings_desc_audio_normalizeVolume": "Evens out loud and quiet scenes so you touch the volume less.",
+  "settings_desc_audio_outputMode": "Lets the app adjust sound automatically or keeps a fixed format.",
+  "settings_desc_audio_passthrough": "Sends the original surround sound to your receiver untouched.",
+  "settings_desc_audio_passthroughDevice": "The device that receives passthrough sound.",
+  "settings_desc_audio_receiver_dolbyDigital": "Turn on if your receiver can play Dolby Digital.",
+  "settings_desc_audio_receiver_ddPlus": "Turn on if your receiver can play Dolby Digital Plus.",
+  "settings_desc_audio_receiver_dts": "Turn on if your receiver can play DTS.",
+  "settings_desc_audio_receiver_trueHd": "Turn on if your receiver can play Dolby TrueHD.",
+  "settings_desc_audio_receiver_dtsHd": "Turn on if your receiver can play DTS-HD.",
+  "settings_desc_audio_receiver_atmos": "Turn on if your receiver can play Dolby Atmos.",
+  "settings_desc_audio_receiver_dtsX": "Turn on if your receiver can play DTS:X.",
+  "settings_desc_audio_multichannelLpcm": "Sends surround sound as uncompressed audio over HDMI.",
+  "settings_desc_audio_ac3Transcode": "Converts other surround formats to Dolby Digital for older receivers.",
+  "settings_desc_audio_stereoUpmix": "Spreads two-channel sound across all your speakers.",
+  "settings_desc_audio_downmixDialogue": "Makes voices louder when surround is mixed down to fewer speakers.",
+  "settings_desc_audio_resamplingQuality": "Higher quality gives cleaner sound but uses more processing.",
+  "settings_desc_audio_sampleRate": "The sound rate sent to your output device.",
+  "settings_desc_audio_exclusiveMode": "Gives this app full control of the sound device for the best quality.",
+  "settings_desc_audio_deviceKeepAlive": "Keeps the sound device awake so playback starts without a pop or delay.",
+  "settings_desc_subtitles_autoEnable": "Turns subtitles on by itself when they are found.",
+  "settings_desc_subtitles_hearingImpaired": "Prefer or avoid subtitles that also describe sounds.",
+  "settings_desc_subtitles_font": "The typeface used for subtitles.",
+  "settings_desc_subtitles_position": "How high or low subtitles sit on the screen.",
+  "settings_desc_subtitles_encoding": "The text encoding used to read subtitle files; change it if letters look wrong.",
+  "settings_desc_subtitles_border": "The outline around subtitle letters.",
+  "settings_desc_subtitles_shadow": "A soft shadow behind subtitle letters.",
+  "settings_desc_subtitles_background": "A dark box behind subtitles so they are easier to read.",
+  "settings_desc_subtitles_delay": "Moves subtitles earlier or later to match the speech.",
+  "settings_desc_subtitles_forcedBehaviour": "What to do with forced subtitles, which only translate foreign speech.",
+  "settings_desc_subtitles_assStyling": "Use the subtitle file's own styling or the app's style.",
+  "settings_desc_display_monitor": "Which screen the video plays on.",
+  "settings_desc_display_fullscreenMode": "How the player fills the screen on a computer.",
+  "settings_desc_display_refreshRate": "The screen refresh rate used during playback.",
+  "settings_desc_display_hdrOutputMode": "Whether the screen is switched into HDR mode for HDR videos.",
+  "settings_desc_display_calibration": "Adjusts brightness and colour to suit your screen.",
+  "settings_desc_streaming_quality": "The video quality to prefer when a title offers several.",
+  "settings_desc_streaming_protocol": "The network method used to fetch streams.",
+  "settings_desc_streaming_cacheSizeLimit": "The most disk space streams may use before old data is removed.",
+  "settings_desc_streaming_bufferSize": "How much video is held in memory while streaming.",
+  "settings_desc_streaming_prebuffer": "How much video loads before playback starts.",
+  "settings_desc_streaming_maxHttpConnections": "How many connections the app opens at once to download a stream.",
+  "settings_desc_streaming_connectionTimeout": "How long to wait for a connection before trying again.",
+  "settings_desc_streaming_retryCount": "How many times to retry a failed download.",
+  "settings_desc_streaming_proxy": "Send streams through a proxy server if your network needs one.",
+  "settings_desc_streaming_userAgent": "The name this app gives to servers when it asks for video.",
+  "settings_desc_streaming_headers": "Extra information sent with every video request, for advanced setups.",
+  "settings_desc_streaming_tls": "Security options for encrypted connections.",
+  "settings_desc_downloads_bandwidthLimit": "The fastest speed downloads may use, so the network stays free.",
+  "settings_desc_downloads_torrentDownLimit": "The fastest speed torrents may download at.",
+  "settings_desc_downloads_torrentUpLimit": "The fastest speed torrents may upload at.",
+  "settings_desc_downloads_connectionLimit": "The most connections torrents may open in total.",
+  "settings_desc_downloads_peerLimit": "The most other users a single torrent may connect to.",
+  "settings_desc_downloads_seeding": "Whether to keep sharing a torrent after it has finished.",
+  "settings_desc_downloads_tracker": "Extra tracker addresses that help torrents find other users.",
+  "settings_desc_downloads_dht": "Lets torrents find other users without a tracker.",
+  "settings_desc_downloads_pex": "Lets torrent users share the addresses of others they know.",
+  "settings_desc_languages_preferOriginalAudio": "Plays the original language of a title when it is available.",
+  "settings_desc_languages_preferForcedSubtitles": "Picks forced subtitles that translate only foreign speech.",
+  "settings_desc_languages_preferBestAudio": "Chooses the track with the best sound quality in your language.",
+  "settings_desc_languages_trackPriority": "Rules that decide which audio and subtitle tracks are picked first.",
+  "settings_desc_performance_mode": "Balances picture quality against speed and battery.",
+  "settings_desc_performance_gpuQuality": "Lower this if video stutters on an older device.",
+  "settings_desc_performance_backgroundPreload": "Prepares the next video in the background so it opens faster.",
+  "settings_desc_performance_maxDecoderResolution": "The largest picture size the app will try to play.",
+  "settings_desc_performance_decoderThreads": "How many processor cores may decode video; automatic is best.",
+  "settings_desc_advanced_diagnostics": "Shows technical details about playback, for support.",
+  "settings_desc_advanced_customMpvOptions": "Extra player options for experts; wrong values can break playback.",
+  "settings_desc_playback_preferredAudioLanguage": "The audio language picked first when a video has several.",
+  "settings_desc_playback_preferredSubtitleLanguage": "The subtitle language picked first when a video has several.",
+  "settings_desc_playback_defaultSubtitleSize": "How large subtitles appear.",
+  "settings_desc_app_language": "The language of the app's menus and buttons.",
+  "home_emptyBody": "Nothing to show yet. Check your sources in Settings or try again.",
+  "home_openSettings": "Open Settings",
+  "settings_searchHint": "Search settings",
+  "settings_searchNone": "No setting matches."
 }

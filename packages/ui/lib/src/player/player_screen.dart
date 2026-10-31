@@ -8,6 +8,7 @@ import 'package:contracts/fakes.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../focus/input_router.dart';
 import '../focus/ui_command.dart';
@@ -17,15 +18,22 @@ import '../theme/rivulet_tokens.dart';
 import 'player_chrome_controller.dart';
 import 'player_control_rail.dart';
 import '../cast/cast_ui.dart';
+import '../components/app_icon_button.dart';
 import '../components/app_sheet.dart';
 import 'player_desktop_pill.dart';
 import '../platform/adaptive_behavior.dart';
 import '../platform/form_factor.dart';
+import '../platform/siri_remote.dart';
 import 'player_gesture_surface.dart';
+import 'player_prefs_scope.dart';
+import 'level_hud.dart';
+import 'seek_badge.dart';
+import '../components/hints_scope.dart';
 import 'player_panel_host.dart';
 import 'player_phone_chrome.dart';
 import 'player_state_views.dart';
 import 'player_view_model.dart';
+import 'swipe_scrub.dart';
 import 'post_video_overlay.dart';
 import 'progress_rail.dart';
 import 'seek_controller.dart';
@@ -97,6 +105,7 @@ class PlayerScreen extends StatefulWidget {
     this.setSystemUiMode = SystemChrome.setEnabledSystemUIMode,
     this.onExit,
     this.onRetry,
+    this.onChangeSource,
     this.onSubtitles,
     this.onAudioTrack,
     this.onInfo,
@@ -118,16 +127,25 @@ class PlayerScreen extends StatefulWidget {
     this.audioOutput,
     this.cast,
     this.stats,
+    this.sourceStatus,
     this.onAddSubtitleFiles,
+    this.onSearchSubtitles,
+    this.onFetchSubtitle,
     super.key,
   });
 
   /// "Add subtitle file…" in the Subtitles panel; null hides the row.
   final Future<List<({String name, Uri uri})>> Function()? onAddSubtitleFiles;
 
+  /// Online subtitle search + fetch for the Options → Subtitles → Download list.
+  final Future<UiSubtitleSearch> Function()? onSearchSubtitles;
+  final Future<List<({String name, Uri uri})>> Function(UiSubtitleResult)?
+  onFetchSubtitle;
+
   /// What and how to show in the download popover and the stats overlay;
   /// null hides both (and the "i" key).
   final PlayerStatsSource? stats;
+  final SourceStatus? sourceStatus;
 
   final PlaybackController controller;
   final VideoSurface videoSurface;
@@ -146,7 +164,7 @@ class PlayerScreen extends StatefulWidget {
   final VoidCallback? onOpenSeason;
 
   /// TV/desktop/phone chrome selection (`platform/form_factor.dart`). `null`
-  /// resolves from `AdaptiveBehavior.of(context).formFactor`.
+  /// resolves from `AdaptiveBehavior.formFactorOf(context)`.
   final FormFactor? formFactor;
 
   /// Rail metadata (`player_control_rail.dart`'s `PlayerControlRail`).
@@ -198,6 +216,10 @@ class PlayerScreen extends StatefulWidget {
   /// popping the enclosing route, matching the prior behavior.
   final VoidCallback? onExit;
 
+  /// "Try another source" on the error card: the app reopens the source list
+  /// for the same title. Without it the button is hidden.
+  final VoidCallback? onChangeSource;
+
   /// Retry action for the focused error overlay. Re-opening the source is
   /// Part 02/07's concern (non-goal: "No decoder/source opening logic"); the
   /// scaffold only clears its own chrome mode and forwards the request.
@@ -207,9 +229,14 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen>
+    with WidgetsBindingObserver {
   late PlayerChromeController _chrome;
   late PlayerViewModel _viewModel;
+
+  /// Bumps when the chrome must rebuild: anything but a plain position tick.
+  final _chromeTick = ValueNotifier<int>(0);
+  Object? _chromeSignature;
   late final _options = ValueNotifier(
     PlayerOptionValues(subtitleScale: widget.defaultSubtitleScale),
   );
@@ -220,6 +247,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   PlaybackFailure? _replayFailure;
   late SeekController _seek;
   late ShuttleController _shuttle;
+  late final SwipeScrub _swipe = SwipeScrub(
+    currentPosition: () => widget.controller.currentState.position,
+    duration: () => widget.controller.currentState.duration,
+  );
+  StreamSubscription<SiriTouch>? _touchSub;
+  Stream<SiriTouch>? _touchStream;
+  Duration? _swipePreview;
   late InputRouter _input;
   final Stopwatch _inputClock = Stopwatch()..start();
   final GlobalKey<PostVideoOverlayState> _postVideoKey = GlobalKey();
@@ -240,6 +274,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
   PlayerStatsController? _stats;
   bool _showStats = false;
 
+  final PlayerBadgeController _badge = PlayerBadgeController();
+  final LevelHudController _levelHud = LevelHudController();
+  final ValueNotifier<bool> _fill = ValueNotifier<bool>(false);
+  BrightnessScope? _brightnessScope;
+  double? _brightness;
+  bool _brightnessTouched = false;
+  final ValueNotifier<double> _volume = ValueNotifier<double>(1);
+  double _premute = 1;
+  PlayerPrefsScope? _prefs;
+  TrackChoice? _lastSubtitle;
+  bool _hintChecked = false;
+
   final _castLink = LayerLink();
 
   void _toggleStatsOverlay() {
@@ -258,7 +304,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   };
   void _openBoxPanel(String panel) {
     final formFactor =
-        widget.formFactor ?? AdaptiveBehavior.of(context).formFactor;
+        widget.formFactor ?? AdaptiveBehavior.formFactorOf(context);
     if (panel == 'cast' && formFactor == FormFactor.tv) {
       _boxPanel = panel;
       _chrome.openPanel();
@@ -349,13 +395,63 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Apple TV: the touch surface scrubs here (and moves no focus anywhere).
+    final touches = _isTv
+        ? AdaptiveBehavior.capabilitiesOf(context).remoteTouches
+        : null;
+    if (touches == _touchStream) return;
+    _touchStream = touches;
+    unawaited(_touchSub?.cancel());
+    _touchSub = touches?.listen(_onRemoteTouch);
+  }
+
+  /// When a pad touch began with the controls hidden: the touch itself shows
+  /// the rail (scrub drift), which must not turn a skip click into navigation.
+  DateTime? _touchBeganHiddenAt;
+
+  void _onRemoteTouch(SiriTouch touch) {
+    if (touch.phase == 'started') {
+      _touchBeganHiddenAt = _chrome.visible ? null : DateTime.now();
+    }
+    if (_chrome.mode == ChromeMode.panel ||
+        _chrome.mode == ChromeMode.postVideo) {
+      return;
+    }
+    final event = _swipe.add(touch);
+    if (event == null) return;
+    switch (event) {
+      case SwipeScrubEvent.update:
+        _chrome.enterScrubbing();
+        setState(() => _swipePreview = _swipe.preview);
+      case SwipeScrubEvent.commit:
+        final target = _swipe.preview!;
+        _swipe.clear();
+        _chrome.exitScrubbing();
+        unawaited(widget.controller.seek(target));
+        setState(() => _swipePreview = null);
+      case SwipeScrubEvent.cancel:
+        _chrome.exitScrubbing();
+        setState(() => _swipePreview = null);
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _unregisterBack = widget.backDispatcher?.register(_handleBack);
+    HardwareKeyboard.instance.addHandler(_keepControlsOnKey);
+    WidgetsBinding.instance.addObserver(this);
     widget.setSystemUiMode(SystemUiMode.immersiveSticky);
     _bindSession(widget.controller);
     widget.thumbnailPreview?.addListener(_onChromeChanged);
-    _stats = widget.stats == null ? null : PlayerStatsController(widget.stats!);
+    _stats = widget.stats == null
+        ? null
+        : PlayerStatsController(
+            widget.stats!,
+            readSourceStatus: () => widget.sourceStatus,
+          );
   }
 
   void _bindSession(PlaybackController controller) {
@@ -376,7 +472,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       }
     });
     _chrome = PlayerChromeController(onExit: _exit);
-    _viewModel = PlayerViewModel(controller: controller);
+    _viewModel = PlayerViewModel(controller: controller)
+      ..chromeVisible = _chrome.visible;
     _replayFailure = null;
     _replay = SubtitleReplayController(
       controller: controller,
@@ -398,6 +495,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_lastFailure != null) _chrome.showError();
     _viewModel.addListener(_onPlaybackStateChanged);
     _chrome.addListener(_onChromeChanged);
+    // The last volume carries over from the previous playback.
+    final prefs = context.getInheritedWidgetOfExactType<PlayerPrefsScope>();
+    _prefs = prefs;
+    _brightnessScope = context.getInheritedWidgetOfExactType<BrightnessScope>();
+    if (prefs != null) {
+      _volume.value = prefs.volume().clamp(0.0, 1.0);
+      if (_volume.value > 0) _premute = _volume.value;
+      _applyVolume(_volume.value);
+    }
   }
 
   @override
@@ -407,7 +513,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _stats?.dispose();
       _stats = widget.stats == null
           ? null
-          : PlayerStatsController(widget.stats!);
+          : PlayerStatsController(
+              widget.stats!,
+              readSourceStatus: () => widget.sourceStatus,
+            );
       _showStats = _showStats && _stats != null;
     }
     if (oldWidget.thumbnailPreview != widget.thumbnailPreview) {
@@ -433,6 +542,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _shuttle.dispose();
       _input.dispose();
       _postVideoSeen = false;
+      _chromeSignature = null;
       _surface = null;
       _restoredSystemUi = false;
       _bindSession(widget.controller);
@@ -441,6 +551,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_keepControlsOnKey);
+    _mediaKeyGuard?.cancel();
+    unawaited(_touchSub?.cancel());
     _optionEvents?.cancel();
     _mediaInfoSub?.cancel();
     _options.value = PlayerOptionValues(
@@ -453,6 +566,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _chrome.removeListener(_onChromeChanged);
     _chrome.dispose();
     _viewModel.dispose();
+    _chromeTick.dispose();
     _replay.dispose();
     _seek.dispose();
     _shuttle.removeListener(_onChromeChanged);
@@ -466,6 +580,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _stats?.dispose();
     _audioOpenerNode.dispose();
     _skipPillNode.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    if (_brightnessTouched) _brightnessScope?.restore();
+    _badge.dispose();
+    _levelHud.dispose();
+    _fill.dispose();
+    _volume.dispose();
     super.dispose();
   }
 
@@ -480,6 +600,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final desktop =
+        (widget.formFactor ?? AdaptiveBehavior.formFactorOf(context)) ==
+        FormFactor.desktop;
+    final phone =
+        (widget.formFactor ?? AdaptiveBehavior.formFactorOf(context)) ==
+        FormFactor.phone;
+    if (!_hintChecked) {
+      _hintChecked = true;
+      if (_isTv) {
+        showHintOnce(context, 'tvSeek', AppStrings.of(context).hint_tvSeek);
+      }
+    }
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (_, _) => _handleBack(),
@@ -499,14 +631,29 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: PlayerGestureSurface(
           chromeVisible: _chrome.visible,
           enabled: _chrome.mode != ChromeMode.postVideo,
-          onToggleChrome: _chrome.toggle,
+          // A tap on the video while a panel is open only closes the panel.
+          onToggleChrome: () {
+            if (_chrome.mode != ChromeMode.panel) return _chrome.toggle();
+            final host = _boxPanelKey.currentState;
+            host != null ? host.dismiss() : _chrome.closePanel();
+          },
           onRevealChrome: _chrome.reveal,
           onPlayPause: () =>
               _emitCommand(UiCommandType.playPause, CommandSource.keyboard),
-          onSeekBackward: () =>
-              _emitCommand(UiCommandType.stepSeekBackward, CommandSource.touch),
-          onSeekForward: () =>
-              _emitCommand(UiCommandType.stepSeekForward, CommandSource.touch),
+          onSeekBackward: () {
+            _emitCommand(UiCommandType.stepSeekBackward, CommandSource.touch);
+            _badge.showSeek(AppStrings.of(context), -_seek.tapSeekSeconds);
+          },
+          onSeekForward: () {
+            _emitCommand(UiCommandType.stepSeekForward, CommandSource.touch);
+            _badge.showSeek(AppStrings.of(context), _seek.tapSeekSeconds);
+          },
+          onVolumeSwipe: phone ? _swipeVolume : null,
+          onBrightnessSwipe: phone && _brightnessScope != null
+              ? (d) => unawaited(_swipeBrightness(d))
+              : null,
+          onSwipeEnd: phone ? () => _prefs?.saveVolume(_volume.value) : null,
+          onPinch: phone ? _setFill : null,
           onScrubBackward: () => _emitCommand(
             UiCommandType.scrubNudgeBackward,
             CommandSource.keyboard,
@@ -520,14 +667,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
           onScrubCancel: () =>
               _emitCommand(UiCommandType.menuBack, CommandSource.keyboard),
           onToggleStats: _stats == null ? null : _toggleStatsOverlay,
+          onKeySeek: desktop ? _seekKey : null,
+          onKeyVolume: desktop ? _stepVolume : null,
+          onToggleMute: desktop ? _toggleMute : null,
+          onToggleFullscreen: desktop && _prefs != null
+              ? _toggleFullscreen
+              : null,
+          onToggleSubtitles: desktop ? _toggleSubtitles : null,
+          scrubActive: _shuttle.isActive,
           onTvKey: _isTv ? _handleTvKey : null,
-          overlay: AnimatedBuilder(
-            animation: Listenable.merge(<Listenable>[
-              _chrome,
-              _viewModel,
-              ?widget.cast?.state,
-            ]),
-            builder: (context, _) => _buildChrome(context, reduceMotion),
+          overlay: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              LivePlaybackState(
+                live: _viewModel.live,
+                child: AnimatedBuilder(
+                  animation: Listenable.merge(<Listenable>[
+                    _chrome,
+                    _chromeTick,
+                    ?widget.cast?.state,
+                  ]),
+                  builder: (context, _) => _buildChrome(context, reduceMotion),
+                ),
+              ),
+              PlayerBadgeOverlay(controller: _badge),
+              if (phone) LevelHud(controller: _levelHud),
+            ],
           ),
           child: AnimatedBuilder(
             animation: _chrome,
@@ -538,10 +703,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
               curve: Curves.easeOutCubic,
               padding: _chrome.mode == ChromeMode.postVideo
                   ? EdgeInsets.fromLTRB(
-                      48,
-                      96,
+                      RivuletSpacing.s48,
+                      RivuletSpacing.s64 + RivuletSpacing.s32,
                       MediaQuery.sizeOf(context).width * 0.42,
-                      170,
+                      RivuletSpacing.s64 * 2 + RivuletSpacing.s40,
                     )
                   : EdgeInsets.zero,
               child: _surface!,
@@ -557,6 +722,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final mode = _chrome.mode;
     final loading = _isLoading(state);
     final casting = widget.cast?.state.value.castingTo != null;
+    final backVisible =
+        mode != ChromeMode.exiting &&
+        (_chrome.visible || mode == ChromeMode.error || casting);
     final railVisible =
         !casting &&
         _chrome.visible &&
@@ -564,7 +732,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         mode != ChromeMode.postVideo &&
         mode != ChromeMode.exiting;
     final formFactor =
-        widget.formFactor ?? AdaptiveBehavior.of(context).formFactor;
+        widget.formFactor ?? AdaptiveBehavior.formFactorOf(context);
     final activeMarker = activeMarkerAt(widget.markers, state.position);
     final progressMarkers = widget.markers
         .map(
@@ -656,23 +824,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           ),
         if (mode != ChromeMode.postVideo)
-          AnimatedOpacity(
-            opacity: mode == ChromeMode.exiting ? 0 : 1,
-            duration: reduceMotion
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: SafeArea(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    IconButton(
-                      tooltip: AppStrings.of(context).player_close,
-                      onPressed: _handleBack,
-                      icon: const Icon(Icons.arrow_back_rounded),
+          // Hides with the rest of the controls (same chrome timer); stays up
+          // on the error screen and while casting, where it is the only exit.
+          ExcludeFocus(
+            excluding: _isTv && !backVisible,
+            child: IgnorePointer(
+              ignoring: !backVisible,
+              child: AnimatedOpacity(
+                opacity: backVisible ? 1 : 0,
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: _isTv
+                          ? const EdgeInsets.only(
+                              left: RivuletSpacing.tvSafeX,
+                              top: RivuletSpacing.tvSafeY,
+                            )
+                          : const EdgeInsets.all(RivuletSpacing.s8),
+                      child: AppIconButton(
+                        key: const ValueKey<String>('player-back'),
+                        glass: true,
+                        icon: PhosphorIconsRegular.arrowLeft,
+                        semanticLabel: AppStrings.of(context).player_close,
+                        onActivate: _handleBack,
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -723,7 +904,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     children: [
                       for (final panel in ['subtitles', 'audio', 'options'])
                         Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.only(
+                            left: RivuletSpacing.s8,
+                          ),
                           child: TransportControlButton(
                             key: ValueKey('player-box-$panel'),
                             focusNode: switch (panel) {
@@ -734,11 +917,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             touchTargetEnabled:
                                 railVisible && mode != ChromeMode.panel,
                             diameter: formFactor == FormFactor.tv ? 74 : 44,
-                            iconSize: formFactor == FormFactor.tv ? 25 : 20,
+                            iconSize: formFactor == FormFactor.tv ? 32 : 20,
                             icon: switch (panel) {
-                              'subtitles' => Icons.subtitles_outlined,
-                              'audio' => Icons.graphic_eq,
-                              _ => Icons.settings_outlined,
+                              'subtitles' => PhosphorIconsRegular.subtitles,
+                              'audio' => PhosphorIconsRegular.waveform,
+                              _ => PhosphorIconsRegular.gear,
                             },
                             semanticLabel: switch (panel) {
                               'subtitles' => AppStrings.of(
@@ -753,17 +936,42 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 : null,
                           ),
                         ),
+                      if (formFactor == FormFactor.phone)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: RivuletSpacing.s8,
+                          ),
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: _fill,
+                            builder: (context, on, _) => TransportControlButton(
+                              key: const ValueKey('player-fill'),
+                              touchTargetEnabled:
+                                  railVisible && mode != ChromeMode.panel,
+                              diameter: 44,
+                              iconSize: 20,
+                              icon: on
+                                  ? PhosphorIconsRegular.arrowsIn
+                                  : PhosphorIconsRegular.arrowsOut,
+                              semanticLabel: on
+                                  ? AppStrings.of(context).player_fitScreen
+                                  : AppStrings.of(context).player_fillScreen,
+                              onPress: () => _setFill(!on),
+                            ),
+                          ),
+                        ),
                       if (widget.stats?.hasTransferStats ?? false)
                         Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.only(
+                            left: RivuletSpacing.s8,
+                          ),
                           child: TransportControlButton(
                             key: const ValueKey('player-box-stats'),
                             focusNode: _statsOpenerNode,
                             touchTargetEnabled:
                                 railVisible && mode != ChromeMode.panel,
                             diameter: formFactor == FormFactor.tv ? 74 : 44,
-                            iconSize: formFactor == FormFactor.tv ? 25 : 20,
-                            icon: Icons.info_outline,
+                            iconSize: formFactor == FormFactor.tv ? 32 : 20,
+                            icon: PhosphorIconsRegular.info,
                             semanticLabel: AppStrings.of(context)
                                 .player_downloadInfo,
                             onPress: () => _openBoxPanel('stats'),
@@ -771,7 +979,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         ),
                       if (widget.cast != null)
                         Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.only(
+                            left: RivuletSpacing.s8,
+                          ),
                           child: CastButton(
                             anchorLink: _castLink,
                             focusNode: _castOpenerNode,
@@ -779,15 +989,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             touchTargetEnabled:
                                 railVisible && mode != ChromeMode.panel,
                             diameter: formFactor == FormFactor.tv ? 74 : 44,
-                            iconSize: formFactor == FormFactor.tv ? 25 : 20,
+                            iconSize: formFactor == FormFactor.tv ? 32 : 20,
                           ),
                         ),
                       if (widget.onUpNext != null)
                         Padding(
-                          padding: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.only(
+                            left: RivuletSpacing.s8,
+                          ),
                           child: TransportControlButton(
                             key: const ValueKey('rail-action-upNext'),
-                            icon: Icons.video_collection_outlined,
+                            icon: PhosphorIconsRegular.stack,
                             semanticLabel: AppStrings.of(context).player_upNext,
                             touchTargetEnabled:
                                 railVisible && mode != ChromeMode.panel,
@@ -798,8 +1010,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ],
                   ),
                   controller: widget.controller,
+                  volume: _volume,
+                  onVolumeChanged: (v) => _setVolume(v, save: false),
+                  onVolumeChangeEnd: (v) => _prefs?.saveVolume(v),
                   extraActions:
                       (widget.cast == null ? 0 : 1) +
+                      (formFactor == FormFactor.desktop && _prefs != null
+                          ? 1
+                          : 0) +
+                      (formFactor == FormFactor.phone ? 1 : 0) +
                       ((widget.stats?.hasTransferStats ?? false) ? 1 : 0),
                   state: state,
                   formFactor: formFactor,
@@ -813,6 +1032,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   onInfo: widget.onInfo,
                   onInsights: widget.onInsights,
                   onUpNext: widget.onUpNext,
+                  onNextEpisode: widget.onPlayNext,
                   onFilter: widget.onFilter,
                   onReplayLongPress: widget.onReplayLongPress ?? _replay.invoke,
                   markers: progressMarkers,
@@ -836,12 +1056,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   },
                   previewPosition: _shuttle.isActive
                       ? _shuttle.previewPosition
-                      : null,
+                      : _swipePreview,
                 ),
               ),
             ),
           ),
         ),
+        if (_swipePreview != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Center(
+                child: AppText(
+                  key: const ValueKey<String>('swipe-scrub-time'),
+                  formatProgressTime(_swipePreview!),
+                  style: RivuletTokens.of(context).typeStyles.display,
+                ),
+              ),
+            ),
+          ),
         if (activeMarker != null && _railHeight > 0)
           Positioned(
             left: 0,
@@ -863,7 +1095,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   child: Padding(
                     padding: EdgeInsets.only(
                       right: formFactor == FormFactor.phone
-                          ? 14
+                          ? RivuletSpacing.s16
                           : RivuletTokens.of(context).geometry.railPadH,
                     ),
                     child: SkipMarkerButton(
@@ -917,6 +1149,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       state: state,
                       dismiss: dismiss,
                       onAddSubtitleFiles: widget.onAddSubtitleFiles,
+                      onSearchSubtitles: widget.onSearchSubtitles,
+                      onFetchSubtitle: widget.onFetchSubtitle,
                     )
                   : _boxPanel == 'cast'
                   ? CastPicker(controller: widget.cast!, dismiss: dismiss)
@@ -944,8 +1178,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         if (_showStats && _stats != null)
           Positioned(
-            left: 16,
-            top: 64,
+            left: RivuletSpacing.s16,
+            top: RivuletSpacing.s64,
             child: StatsOverlay(
               controller: _stats!,
               onClose: () => setState(() => _showStats = false),
@@ -953,8 +1187,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         if (_shuttle.isActive && _shuttle.badge != null)
           Positioned(
-            left: 40,
-            bottom: _railHeight + 12,
+            left: RivuletSpacing.tvSafeX,
+            bottom: _railHeight + RivuletSpacing.s12,
             child: AppText(
               _shuttle.badge!,
               style: const TextStyle(
@@ -970,6 +1204,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
             failure: failure,
             chrome: _chrome,
             onRetry: widget.onRetry,
+            onTryAnotherSource: widget.onChangeSource,
+            onClose: _exit,
           ),
         if (mode == ChromeMode.postVideo && widget.onPlayNext != null)
           PostVideoOverlay(
@@ -1005,28 +1241,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   DateTime? _tvControlsHiddenByBack;
 
+  /// TV: every press, whichever control handles it, restarts the auto-hide.
+  bool _keepControlsOnKey(KeyEvent event) {
+    if (event is KeyDownEvent && _isTv && _chrome.mode == ChromeMode.rail) {
+      _chrome.reveal();
+    }
+    return false;
+  }
+
+  Timer? _mediaKeyGuard;
+
   bool get _isTv =>
-      (widget.formFactor ?? AdaptiveBehavior.of(context).formFactor) ==
+      (widget.formFactor ?? AdaptiveBehavior.formFactorOf(context)) ==
       FormFactor.tv;
 
   /// TV remote keys. Media keys work from anywhere; D-pad Left/Right seek
-  /// -10 s / +30 s (the rail's skip amounts), Up/Down reveal the controls
+  /// -10 s / +10 s, Up/Down reveal the controls
   /// and then move focus into them, Select toggles the controls — only while
   /// no control holds focus (a focused control handles its own keys).
   KeyEventResult _handleTvKey(LogicalKeyboardKey key, bool surfaceFocused) {
     final controller = widget.controller;
-    if (key == LogicalKeyboardKey.mediaPlayPause) {
-      unawaited(_viewModel.isPlaying ? controller.pause() : controller.play());
-      _chrome.reveal();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaPlay) {
-      unawaited(controller.play());
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaPause) {
-      unawaited(controller.pause());
-      _chrome.reveal();
+    final isMedia =
+        key == LogicalKeyboardKey.mediaPlayPause ||
+        key == LogicalKeyboardKey.mediaPlay ||
+        key == LogicalKeyboardKey.mediaPause;
+    if (isMedia) {
+      // One Siri Remote press can arrive as the key and again as a system
+      // media command; the second must not undo the first.
+      if (_mediaKeyGuard?.isActive ?? false) return KeyEventResult.handled;
+      _mediaKeyGuard = Timer(const Duration(milliseconds: 300), () {});
+      unawaited(switch (key) {
+        LogicalKeyboardKey.mediaPlay => controller.play(),
+        // The Siri Remote's one button arrives as Media Pause on every press
+        // (log 2026-10-30), so Media Pause while paused must resume.
+        LogicalKeyboardKey.mediaPause when _viewModel.isPlaying =>
+          controller.pause(),
+        LogicalKeyboardKey.mediaPause => controller.play(),
+        _ => _viewModel.isPlaying ? controller.pause() : controller.play(),
+      });
+      if (key != LogicalKeyboardKey.mediaPlay) _chrome.reveal();
       return KeyEventResult.handled;
     }
     final isArrow =
@@ -1036,6 +1289,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         key == LogicalKeyboardKey.arrowDown;
     final isSelect =
         key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter;
+    final hiddenTouch = _touchBeganHiddenAt;
+    final controlsWereShown =
+        _chrome.visible &&
+        (hiddenTouch == null ||
+            DateTime.now().difference(hiddenTouch) >
+                const Duration(seconds: 2));
     // Any D-pad use keeps the controls on screen.
     if ((isArrow || isSelect) && _chrome.mode == ChromeMode.rail) {
       _chrome.reveal();
@@ -1049,18 +1308,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _chrome.mode == ChromeMode.panel) {
       return KeyEventResult.ignored;
     }
+    if (horizontal &&
+        surfaceFocused &&
+        controlsWereShown &&
+        _focusFirstControl()) {
+      // Controls on screen: Left/Right belong to them, never to the skip.
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
-      final forward = key == LogicalKeyboardKey.arrowRight;
-      final state = widget.controller.currentState;
-      final target = state.position + Duration(seconds: forward ? 30 : -10);
-      unawaited(
-        controller.seek(
-          target < Duration.zero
-              ? Duration.zero
-              : (target > state.duration ? state.duration : target),
-        ),
-      );
+      _seekKey(key == LogicalKeyboardKey.arrowRight);
       _chrome.reveal();
       return KeyEventResult.handled;
     }
@@ -1070,32 +1327,173 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _chrome.reveal();
         return KeyEventResult.handled;
       }
-      final height = MediaQuery.sizeOf(context).height;
-      final controls =
-          FocusScope.of(context).traversalDescendants
-              .where(
-                (n) =>
-                    n.canRequestFocus &&
-                    !n.skipTraversal &&
-                    n is! FocusScopeNode &&
-                    n.rect.center.dy > height / 2,
-              )
-              .toList()
-            ..sort((first, second) {
-              final vertical = first.rect.top.compareTo(second.rect.top);
-              return vertical != 0
-                  ? vertical
-                  : first.rect.left.compareTo(second.rect.left);
-            });
-      if (controls.isEmpty) return KeyEventResult.ignored;
-      controls.first.requestFocus();
-      return KeyEventResult.handled;
+      return _focusFirstControl()
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
     }
     if (isSelect) {
+      // Apple TV (Infuse style): click centre plays/pauses and shows the controls.
+      if (_touchStream != null) {
+        unawaited(
+          _viewModel.isPlaying ? controller.pause() : controller.play(),
+        );
+        _chrome.reveal();
+        return KeyEventResult.handled;
+      }
       _chrome.toggle();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  /// Moves focus to the top-left control in the lower half (the Pause button).
+  bool _focusFirstControl() {
+    final height = MediaQuery.sizeOf(context).height;
+    final controls =
+        FocusScope.of(context).traversalDescendants
+            .where(
+              (n) =>
+                  n.canRequestFocus &&
+                  !n.skipTraversal &&
+                  n is! FocusScopeNode &&
+                  n.rect.center.dy > height / 2,
+            )
+            .toList()
+          ..sort((first, second) {
+            final vertical = first.rect.top.compareTo(second.rect.top);
+            return vertical != 0
+                ? vertical
+                : first.rect.left.compareTo(second.rect.left);
+          });
+    if (controls.isEmpty) return false;
+    controls.first.requestFocus();
+    return true;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_brightnessTouched) return;
+    if (state == AppLifecycleState.resumed) {
+      final level = _brightness;
+      if (level != null) _brightnessScope?.set(level);
+    } else if (state == AppLifecycleState.paused) {
+      _brightnessScope?.restore();
+    }
+  }
+
+  /// Phone swipe on the left half: window brightness, remembered until close.
+  Future<void> _swipeBrightness(double delta) async {
+    final scope = _brightnessScope;
+    if (scope == null) return;
+    _brightness ??= await scope.current() ?? 0.5;
+    final level = (_brightness! + delta).clamp(0.01, 1.0).toDouble();
+    _brightness = level;
+    _brightnessTouched = true;
+    scope.set(level);
+    _levelHud.show(LevelKind.brightness, level);
+  }
+
+  void _swipeVolume(double delta) {
+    final value = (_volume.value + delta).clamp(0.0, 1.0).toDouble();
+    _volume.value = value;
+    if (value > 0) _premute = value;
+    _applyVolume(value);
+    _levelHud.show(LevelKind.volume, value);
+  }
+
+  void _setFill(bool on) {
+    _fill.value = on;
+    unawaited(
+      widget.controller.setFillScreen(on).catchError((Object _, StackTrace _) {}),
+    );
+  }
+
+  void _applyVolume(double volume) {
+    // An engine failure is already reported through the controller's events.
+    unawaited(
+      widget.controller
+          .setVolume(volume)
+          .catchError((Object _, StackTrace _) {}),
+    );
+  }
+
+  /// Sets the level, shows it, and (unless muting) remembers it.
+  void _setVolume(double volume, {bool save = true}) {
+    final value = volume.clamp(0.0, 1.0).toDouble();
+    _volume.value = value;
+    if (value > 0) _premute = value;
+    _applyVolume(value);
+    _badge.showVolume(AppStrings.of(context), value);
+    if (save) _prefs?.saveVolume(value);
+  }
+
+  void _stepVolume(int direction) =>
+      _setVolume(((_volume.value * 100).round() + direction * 5) / 100);
+
+  void _toggleMute() {
+    if (_volume.value > 0) {
+      _premute = _volume.value;
+      _setVolume(0, save: false);
+    } else {
+      _setVolume(_premute > 0 ? _premute : 1);
+    }
+  }
+
+  Duration? _keySeekTarget;
+  DateTime? _keySeekAt;
+
+  /// +/-10 s from the keyboard or D-pad, with the badge. Presses in quick
+  /// succession add up from the last target (the engine's position lags).
+  void _seekKey(bool forward) {
+    final seconds = forward ? 10 : -10;
+    final state = widget.controller.currentState;
+    final now = DateTime.now();
+    final recent =
+        _keySeekAt != null &&
+        now.difference(_keySeekAt!) < RivuletMotion.keySeekStack;
+    final base = recent ? _keySeekTarget! : state.position;
+    var target = base + Duration(seconds: seconds);
+    if (target < Duration.zero) target = Duration.zero;
+    if (state.duration > Duration.zero && target > state.duration) {
+      target = state.duration;
+    }
+    _keySeekTarget = target;
+    _keySeekAt = now;
+    unawaited(widget.controller.seek(target));
+    _badge.showSeek(AppStrings.of(context), seconds);
+  }
+
+  void _toggleFullscreen() {
+    final prefs = _prefs;
+    if (prefs != null) prefs.setFullscreen(!prefs.fullscreen.value);
+  }
+
+  /// C: subtitles off, or back to the last one used.
+  void _toggleSubtitles() {
+    final state = widget.controller.currentState;
+    final current = state.selected.subtitle;
+    final TrackChoice next;
+    if (current.mode == TrackSelectionMode.off) {
+      final tracks = state.tracks.subtitle;
+      next =
+          _lastSubtitle ??
+          (tracks.isEmpty
+              ? const TrackChoice.off()
+              : TrackChoice.specific(tracks.first.id));
+    } else {
+      _lastSubtitle = current;
+      next = const TrackChoice.off();
+    }
+    if (next == current) return;
+    unawaited(
+      widget.controller.selectTrack(
+        TrackSelection(
+          video: state.selected.video,
+          audio: state.selected.audio,
+          subtitle: next,
+        ),
+      ),
+    );
   }
 
   bool _handleBack() {
@@ -1127,6 +1525,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _chrome.toggle();
         return true;
       }
+    }
+    // Desktop: Esc leaves fullscreen first, a second one leaves the player.
+    final fullscreen = _prefs?.fullscreen;
+    if (!_isTv && fullscreen != null && fullscreen.value) {
+      _prefs!.setFullscreen(false);
+      return true;
     }
     return _chrome.handleBack();
   }
@@ -1170,12 +1574,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _onChromeChanged() {
+    _viewModel.chromeVisible = _chrome.visible;
     if (mounted) setState(() {});
   }
 
   void _onPlaybackStateChanged() {
     _chrome.setPlaying(_viewModel.isPlaying);
     final state = _viewModel.state;
+    // The position and buffered bar are drawn by the progress row alone
+    // (LivePlaybackState); only a skip marker's countdown needs the chrome.
+    final signature = (
+      state.duration,
+      state.isPlaying,
+      state.isBuffering,
+      state.isCompleted,
+      state.rate,
+      state.tracks,
+      state.selected,
+      state.chapters,
+      state.failure,
+      state.bufferingProgress,
+      _isLoading(state),
+      activeMarkerAt(widget.markers, state.position) == null
+          ? null
+          : state.position,
+    );
+    if (signature != _chromeSignature) {
+      _chromeSignature = signature;
+      _chromeTick.value++;
+    }
     if (!_postVideoSeen &&
         widget.onPlayNext != null &&
         (state.isCompleted ||
@@ -1246,6 +1673,7 @@ class _OverlayPanel extends StatelessWidget {
     this.onInfo,
     this.onInsights,
     this.onUpNext,
+    this.onNextEpisode,
     this.onFilter,
     this.onReplayLongPress,
     this.markers = const <ProgressMarker>[],
@@ -1254,8 +1682,14 @@ class _OverlayPanel extends StatelessWidget {
     this.onScrubUpdate,
     this.onScrubEnd,
     this.previewPosition,
+    this.volume,
+    this.onVolumeChanged,
+    this.onVolumeChangeEnd,
   });
 
+  final ValueListenable<double>? volume;
+  final ValueChanged<double>? onVolumeChanged;
+  final ValueChanged<double>? onVolumeChangeEnd;
   final PlaybackController controller;
   final PlaybackState state;
   final FormFactor formFactor;
@@ -1273,6 +1707,9 @@ class _OverlayPanel extends StatelessWidget {
   final VoidCallback? onInfo;
   final VoidCallback? onInsights;
   final VoidCallback? onUpNext;
+
+  /// Desktop pill's "Next episode" button (series with a next episode only).
+  final VoidCallback? onNextEpisode;
   final VoidCallback? onFilter;
   final VoidCallback? onReplayLongPress;
   final List<ProgressMarker> markers;
@@ -1319,7 +1756,9 @@ class _OverlayPanel extends StatelessWidget {
           ? TransportControlButton(
               key: const ValueKey<String>('play-pause'),
               autofocus: true,
-              icon: state.isPlaying ? Icons.pause : Icons.play_arrow,
+              icon: state.isPlaying
+                  ? PhosphorIconsRegular.pause
+                  : PhosphorIconsRegular.play,
               semanticLabel: state.isPlaying
                   ? AppStrings.of(context).common_pause
                   : AppStrings.of(context).common_play,
@@ -1344,7 +1783,7 @@ class _OverlayPanel extends StatelessWidget {
           // measured from infuse-ref/macos/macos_1.png: the pill floats
           // clear of the bottom edge, not flush against it — 16 read as
           // "hugging the edge" in the owner's rejection.
-          padding: const EdgeInsets.only(bottom: 40),
+          padding: const EdgeInsets.only(bottom: RivuletSpacing.s40),
           child: PlayerDesktopPill(
             controller: controller,
             state: state,
@@ -1353,6 +1792,7 @@ class _OverlayPanel extends StatelessWidget {
             onAudio: onAudioTrack,
             onInfo: onInfo,
             onUpNext: onUpNext,
+            onNextEpisode: onNextEpisode,
             extraActions: extraActions,
             markers: markers,
             thumbnail: thumbnail,
@@ -1360,6 +1800,9 @@ class _OverlayPanel extends StatelessWidget {
             onScrubUpdate: onScrubUpdate,
             onScrubEnd: onScrubEnd,
             previewPosition: previewPosition,
+            volume: volume,
+            onVolumeChanged: onVolumeChanged,
+            onVolumeChangeEnd: onVolumeChangeEnd,
           ),
         ),
       );

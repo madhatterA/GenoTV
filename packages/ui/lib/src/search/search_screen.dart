@@ -24,6 +24,7 @@ import 'search_controller.dart';
 /// Keeps recent searches, debounce and keyboard input above the shared paged grid.
 import '../browse/paged_title_grid.dart';
 import '../browse/title_query.dart';
+import '../browse/media_row.dart';
 
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -61,25 +62,38 @@ class _SearchScreenState extends State<SearchScreen> {
     debugLabel: 'search-first-result',
   );
   final FocusMemory _memory = FocusMemory();
-  TitleKind _kind = TitleKind.movie;
-  TitlePage? _firstPage;
-  TitleQuery? _firstQuery;
+  // Source mode: null = movies and shows together in two groups; a chip
+  // narrows them to one kind (a filter over the same results, not a search).
+  late TitleKind? _kind = widget.source == null ? TitleKind.movie : null;
+  final Map<TitleKind, (TitleQuery, TitlePage)> _firstPages = {};
+
+  bool get _grouped => widget.source != null && _kind == null;
 
   Future<List<MediaItem>> _searchPage(String text) async {
-    final query = TitleQuery(
-      kind: _kind,
-      base: TitleBase.search,
-      searchText: _controller.query,
-    );
-    final result = await widget.source!(query, 1);
-    _firstQuery = query;
-    _firstPage = result;
-    return result.items;
+    final typed = _controller.query;
+    final queries = [
+      for (final kind in TitleKind.values)
+        TitleQuery(kind: kind, base: TitleBase.search, searchText: typed),
+    ];
+    final pages = await Future.wait([
+      for (final query in queries) widget.source!(query, 1),
+    ]);
+    // A slower, older search must not replace what a newer one stored.
+    if (typed == _controller.query) {
+      _firstPages
+        ..clear()
+        ..addEntries([
+          for (var i = 0; i < queries.length; i++)
+            MapEntry(queries[i].kind, (queries[i], pages[i])),
+        ]);
+    }
+    return [for (final page in pages) ...page.items];
   }
 
   Future<TitlePage> _pageSource(TitleQuery query, int page) async {
     if (widget.source != null) {
-      if (page == 1 && query == _firstQuery) return _firstPage!;
+      final first = _firstPages[query.kind];
+      if (page == 1 && first != null && first.$1 == query) return first.$2;
       return widget.source!(query, page);
     }
     // The existing finite-library callback uses the same grid as the paged catalogue.
@@ -110,7 +124,7 @@ class _SearchScreenState extends State<SearchScreen> {
     key: const ValueKey('search-results'),
     source: _pageSource,
     initialQuery: TitleQuery(
-      kind: _kind,
+      kind: _kind ?? TitleKind.movie,
       base: TitleBase.search,
       searchText: _controller.query,
     ),
@@ -119,7 +133,7 @@ class _SearchScreenState extends State<SearchScreen> {
     autofocus: false,
     firstFocusNode: _firstResultNode,
     memory: _memory,
-    genres: widget.genresByKind[_kind] ?? const [],
+    genres: widget.genresByKind[_kind ?? TitleKind.movie] ?? const [],
     countries: widget.countries,
     onItemTap: widget.onItemTap,
     empty: _noResults(),
@@ -168,8 +182,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final formFactor = AdaptiveBehavior.of(context).formFactor;
-    final gutter = RivuletSpacing.gutter(formFactor);
+    final formFactor = AdaptiveBehavior.formFactorOf(context);
+    final gutter = RivuletSpacing.gutterOf(context);
     // The field and the recents share one centred column on desktop (§8.4).
     final maxWidth = formFactor == FormFactor.desktop ? 720.0 : double.infinity;
     return AmbientBackground(
@@ -199,7 +213,8 @@ class _SearchScreenState extends State<SearchScreen> {
                     gutter,
                     RivuletSpacing.s8,
                   ),
-                  child: Center(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: maxWidth),
                       child: FocusTraversalOrder(
@@ -211,7 +226,8 @@ class _SearchScreenState extends State<SearchScreen> {
                                 event.logicalKey ==
                                     LogicalKeyboardKey.arrowDown &&
                                 _controller.status ==
-                                    LibrarySearchStatus.results) {
+                                    LibrarySearchStatus.results &&
+                                !_grouped) {
                               _firstResultNode.requestFocus();
                               return KeyEventResult.handled;
                             }
@@ -221,13 +237,18 @@ class _SearchScreenState extends State<SearchScreen> {
                             fieldKey: const ValueKey<String>('search-field'),
                             controller: _textController,
                             focusNode: _fieldNode,
-                            autofocus: true,
+                            autofocus: !(formFactor == FormFactor.tv &&
+                                _controller.recents.isNotEmpty),
+                            busy:
+                                _controller.status ==
+                                LibrarySearchStatus.loading,
                             icon: PhosphorIconsRegular.magnifyingGlass,
                             hint: AppStrings.of(context).search_hint,
                             onChanged: _controller.updateQuery,
                             onSubmitted: (_) {
                               if (_controller.status ==
-                                  LibrarySearchStatus.results) {
+                                      LibrarySearchStatus.results &&
+                                  !_grouped) {
                                 _firstResultNode.requestFocus();
                               }
                             },
@@ -253,11 +274,10 @@ class _SearchScreenState extends State<SearchScreen> {
                               : AppStrings.of(context).common_tv,
                           selected: _kind == kind,
                           onActivate: () {
-                            if (_kind == kind) return;
-                            setState(() => _kind = kind);
-                            if (widget.source != null) {
-                              _controller.retry();
+                            if (widget.source == null && _kind == kind) {
+                              return;
                             }
+                            setState(() => _kind = _kind == kind ? null : kind);
                           },
                         ),
                         const SizedBox(width: RivuletSpacing.s8),
@@ -299,7 +319,7 @@ class _SearchScreenState extends State<SearchScreen> {
       case LibrarySearchStatus.loading:
         return const LoadingView(key: ValueKey<String>('search-loading'));
       case LibrarySearchStatus.noResults:
-        return widget.source != null ? _grid() : _noResults();
+        return widget.source != null && _kind != null ? _grid() : _noResults();
       case LibrarySearchStatus.error:
         return ErrorView(
           key: const ValueKey<String>('search-error'),
@@ -307,8 +327,36 @@ class _SearchScreenState extends State<SearchScreen> {
           onRetry: _controller.retry,
         );
       case LibrarySearchStatus.results:
-        return _grid();
+        return _grouped ? _groups() : _grid();
     }
+  }
+
+  Widget _groups() {
+    final strings = AppStrings.of(context);
+    final shown = [
+      for (final kind in TitleKind.values)
+        if (_firstPages[kind]?.$2.items case final items? when items.isNotEmpty)
+          (kind, items),
+    ];
+    if (shown.isEmpty) return _noResults();
+    return ListView(
+      key: const ValueKey('search-groups'),
+      children: <Widget>[
+        for (var i = 0; i < shown.length; i++)
+          MediaRow(
+            key: ValueKey('search-group-${shown[i].$1.name}'),
+            title: shown[i].$1 == TitleKind.movie
+                ? strings.common_movies
+                : strings.common_tvShows,
+            items: shown[i].$2,
+            memory: _memory,
+            onFocused: (_) {},
+            onItemTap: widget.onItemTap,
+            onSeeAll: () => setState(() => _kind = shown[i].$1),
+            rowIndex: i,
+          ),
+      ],
+    );
   }
 
   void _changed() {
@@ -340,11 +388,9 @@ class _RecentsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = RivuletTokens.of(context);
-    final gutter = RivuletSpacing.gutter(
-      AdaptiveBehavior.of(context).formFactor,
-    );
+    final gutter = RivuletSpacing.gutterOf(context);
     return Align(
-      alignment: Alignment.topCenter,
+      alignment: Alignment.topLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: ListView(
@@ -374,6 +420,10 @@ class _RecentsList extends StatelessWidget {
                       key: ValueKey<String>('recent-${terms[i]}'),
                       icon: PhosphorIconsRegular.clockCounterClockwise,
                       label: terms[i],
+                      autofocus:
+                          i == 0 &&
+                          AdaptiveBehavior.formFactorOf(context) ==
+                              FormFactor.tv,
                       onActivate: () => onSelected(terms[i]),
                     ),
                   ),
