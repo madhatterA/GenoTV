@@ -27,7 +27,7 @@ jobs:
       - name: Build tools
         run: |
           brew install cmake ninja meson autoconf automake libtool pkg-config nasm gettext coreutils
-          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/bin" && ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: libmpv cache
         id: libmpv
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -187,7 +187,7 @@ jobs:
       - name: Build tools
         run: |
           brew install cmake ninja meson nasm pkg-config coreutils autoconf automake libtool gettext
-          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/bin" && ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: libmpv cache
         id: libmpv
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -240,7 +240,7 @@ jobs:
       - name: Build tools
         run: |
           brew install cmake ninja meson nasm pkg-config coreutils autoconf automake libtool gettext
-          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/bin" && ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: libmpv cache
         id: libmpv
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
