@@ -14,7 +14,7 @@ case "$cache" in *' '*) echo 'CAST_FFMPEG_CACHE must have no spaces' >&2; exit 2
 mkdir -p "$cache"
 archive="$cache/ffmpeg-$version.tar.xz"
 if [[ ! -f "$archive" ]]; then
-  curl --fail --location --retry 2 --connect-timeout 15 --max-time 120 \
+  curl --fail --location --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 --max-time 300 \
     "https://ffmpeg.org/releases/ffmpeg-$version.tar.xz" -o "$archive.download"
   mv "$archive.download" "$archive"
 fi
