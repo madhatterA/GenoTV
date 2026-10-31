@@ -29,12 +29,20 @@ jobs:
           brew install cmake ninja meson autoconf automake libtool pkg-config nasm gettext coreutils
           echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
       - name: libmpv cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: libmpv
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/vp-libmpv-ios-recipe-v0.6.0
           key: macos-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
+          restore-keys: macos-libmpv-
       - name: libmpv (macOS)
         run: timeout 270m bash packages/playback/tool/build_libmpv_macos_ci.sh
+      - name: Save libmpv cache
+        if: always() && steps.libmpv.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/vp-libmpv-ios-recipe-v0.6.0
+          key: macos-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
       - name: Native build caches
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -181,12 +189,20 @@ jobs:
           brew install cmake ninja meson nasm pkg-config coreutils autoconf automake libtool gettext
           echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
       - name: libmpv cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: libmpv
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/vp-libmpv-ios-recipe-v0.6.0
           key: ios-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
+          restore-keys: ios-libmpv-
       - name: libmpv (iOS)
         run: timeout 270m bash packages/playback/tool/build_libmpv_ios_metal.sh
+      - name: Save libmpv cache
+        if: always() && steps.libmpv.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/vp-libmpv-ios-recipe-v0.6.0
+          key: ios-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
       - name: Build
         working-directory: app
         run: |
@@ -226,14 +242,22 @@ jobs:
           brew install cmake ninja meson nasm pkg-config coreutils autoconf automake libtool gettext
           echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
       - name: libmpv cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: libmpv
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/vp-libmpv-ios-recipe-v0.6.0
           key: tvos-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
+          restore-keys: tvos-libmpv-
       - name: libmpv (tvOS)
         run: |
           timeout 270m bash packages/playback/tool/build_libmpv_ios_metal.sh
           python3 packages/playback/tool/package_tvos_frameworks.py
+      - name: Save libmpv cache
+        if: always() && steps.libmpv.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/vp-libmpv-ios-recipe-v0.6.0
+          key: tvos-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
       - name: Build
         working-directory: app
         run: |
