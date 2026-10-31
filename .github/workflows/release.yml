@@ -217,6 +217,8 @@ jobs:
         with:
           path: packages/cast/native/ffmpeg
           key: ios-cast-ffmpeg-${{ hashFiles('packages/cast/tool/build_ffmpeg.sh') }}
+      - name: libtorrent (iOS)
+        run: bash packages/transport/tool/build_libtorrent_ios.sh
       - name: Build
         working-directory: app
         run: |
