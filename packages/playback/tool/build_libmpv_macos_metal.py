@@ -43,6 +43,10 @@ lift_deployment_targets()
 run(['./fetchDependencies', '--macos'], cwd=molten, env=fetch_env)
 lift_deployment_targets()
 run(['make', 'macos'], cwd=molten)
+# libplacebo includes <glslang/SPIRV/...>; MoltenVK's glslang checkout keeps SPIRV one level up (same link as build_libmpv_ios_metal.py).
+header = molten / 'External/glslang/glslang/SPIRV'
+if not header.exists():
+    header.symlink_to('../SPIRV')
 baseline_cross = CACHE / f'cross-files/macos-{ARCH}.ini'
 baseline_cross.write_text(baseline_cross.read_text().replace('-mmacosx-version-min=10.9', '-mmacosx-version-min=11.0'))
 run(['make', 'PROJECT_DIR=' + str(CACHE), 'build/intermediate/mpv_macos-' + ARCH + '-video'], cwd=CACHE)
