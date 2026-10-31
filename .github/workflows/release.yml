@@ -112,9 +112,95 @@ jobs:
           name: GenoTV-android
           path: GenoTV-android.apk
 
+  # iOS and tvOS: the libmpv engine is compiled here from pinned sources
+  # (packages/playback/tool/build_libmpv_ios_metal.sh), cached between runs, then the
+  # app is built unsigned and packed as an .ipa (Payload/Runner.app).
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build tools
+        run: |
+          brew install cmake ninja meson nasm pkg-config coreutils autoconf automake libtool gettext
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+      - name: libmpv cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/vp-libmpv-ios-recipe-v0.6.0
+          key: ios-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
+      - name: libmpv (iOS)
+        run: timeout 270m bash packages/playback/tool/build_libmpv_ios_metal.sh
+      - name: Build
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build ios --release --no-codesign
+      - name: Package
+        run: |
+          mkdir Payload
+          cp -R app/build/ios/iphoneos/Runner.app Payload/
+          zip -qry GenoTV-ios-unsigned.ipa Payload
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: GenoTV-ios-unsigned
+          path: GenoTV-ios-unsigned.ipa
+
+  tvos:
+    runs-on: macos-26
+    timeout-minutes: 330
+    env:
+      LIBMPV_PLATFORM: tvos
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: flutter-tvos
+        run: |
+          git init "$RUNNER_TEMP/flutter-tvos"
+          git -C "$RUNNER_TEMP/flutter-tvos" remote add origin https://github.com/fluttertv/flutter-tvos.git
+          git -C "$RUNNER_TEMP/flutter-tvos" fetch --depth 1 origin 8241f95b140b36396a249e7c4597f13c1532df66
+          git -C "$RUNNER_TEMP/flutter-tvos" checkout --detach FETCH_HEAD
+          echo "$RUNNER_TEMP/flutter-tvos/bin" >> "$GITHUB_PATH"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Build tools
+        run: |
+          brew install cmake ninja meson nasm pkg-config coreutils autoconf automake libtool gettext
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+      - name: libmpv cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/vp-libmpv-ios-recipe-v0.6.0
+          key: tvos-libmpv-${{ hashFiles('packages/playback/tool/**', 'packages/playback/native/ios-simulator/**') }}
+      - name: libmpv (tvOS)
+        run: |
+          timeout 270m bash packages/playback/tool/build_libmpv_ios_metal.sh
+          python3 packages/playback/tool/package_tvos_frameworks.py
+      - name: Build
+        working-directory: app
+        run: |
+          flutter-tvos pub get
+          flutter-tvos build tvos --release --no-codesign
+      - name: Package
+        run: |
+          mkdir Payload
+          cp -R app/build/tvos/Release-appletvos/Runner.app Payload/
+          zip -qry GenoTV-tvos-unsigned.ipa Payload
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: GenoTV-tvos-unsigned
+          path: GenoTV-tvos-unsigned.ipa
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [macos, windows, android]
+    needs: [macos, windows, android, ios, tvos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
